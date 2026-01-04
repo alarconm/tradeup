@@ -29,7 +29,7 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        'postgresql://localhost/quick_flip_dev'
+        'sqlite:///quick_flip_dev.db'  # SQLite fallback for local dev
     )
 
 
