@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from decimal import Decimal
 from app import create_app
 from app.extensions import db
-from app.models import Tenant, MembershipTier, ApiKey
+from app.models import Tenant, MembershipTier, APIKey
 
 
 def seed_orb_tenant():
@@ -101,14 +101,14 @@ def seed_orb_tenant():
             print("Created membership tiers: Silver, Gold, Platinum")
 
         # Create API key if none exists
-        existing_key = ApiKey.query.filter_by(tenant_id=tenant.id, is_active=True).first()
+        existing_key = APIKey.query.filter_by(tenant_id=tenant.id, is_active=True).first()
         if existing_key:
             print(f"API key already exists: {existing_key.key_prefix}...")
         else:
             import secrets
 
             key = secrets.token_urlsafe(32)
-            api_key = ApiKey(
+            api_key = APIKey(
                 tenant_id=tenant.id,
                 key_hash=key,  # In production, this should be hashed
                 key_prefix=key[:8],
