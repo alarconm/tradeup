@@ -13,7 +13,7 @@ trade_ins_bp = Blueprint('trade_ins', __name__)
 @trade_ins_bp.route('', methods=['GET'])
 def list_batches():
     """List trade-in batches."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
@@ -57,7 +57,7 @@ def get_batch_by_reference(batch_reference):
 @trade_ins_bp.route('', methods=['POST'])
 def create_batch():
     """Create a new trade-in batch."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
 
     service = TradeInService(tenant_id)

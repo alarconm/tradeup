@@ -12,7 +12,7 @@ members_bp = Blueprint('members', __name__)
 @members_bp.route('', methods=['GET'])
 def list_members():
     """List all members for the tenant."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)  # Default to tenant 1 for MVP
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))  # Default to tenant 1 for MVP
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
@@ -46,7 +46,7 @@ def get_member(member_id):
 @members_bp.route('/by-number/<member_number>', methods=['GET'])
 def get_member_by_number(member_number):
     """Get member by member number (QF1001)."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     # Normalize member number
     if not member_number.upper().startswith('QF'):
@@ -63,7 +63,7 @@ def get_member_by_number(member_number):
 @members_bp.route('', methods=['POST'])
 def create_member():
     """Create a new member."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
 
     service = MembershipService(tenant_id)
@@ -111,7 +111,7 @@ def update_member(member_id):
 @members_bp.route('/tiers', methods=['GET'])
 def list_tiers():
     """List membership tiers for tenant."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     tiers = MembershipTier.query.filter_by(
         tenant_id=tenant_id,
@@ -126,7 +126,7 @@ def list_tiers():
 @members_bp.route('/tiers', methods=['POST'])
 def create_tier():
     """Create a new membership tier."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
 
     tier = MembershipTier(

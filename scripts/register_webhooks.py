@@ -183,7 +183,7 @@ def main():
     if args.clean:
         for webhook in existing:
             if "/webhook/shopify/" in webhook.get("callbackUrl", ""):
-                print(f"  Deleting: {webhook['topic']} → {webhook['callbackUrl']}")
+                print(f"  Deleting: {webhook['topic']} -> {webhook['callbackUrl']}")
                 delete_webhook(shop_domain, access_token, webhook["id"])
 
     # Register new webhooks
@@ -199,7 +199,7 @@ def main():
             None,
         )
         if existing_match:
-            print(f"  [EXISTS] {webhook_config['topic']} → {callback_url}")
+            print(f"  [EXISTS] {webhook_config['topic']} -> {callback_url}")
             continue
 
         result = register_webhook(
@@ -211,7 +211,7 @@ def main():
         )
 
         if result["success"]:
-            print(f"  [OK] {webhook_config['topic']} → {callback_url}")
+            print(f"  [OK] {webhook_config['topic']} -> {callback_url}")
         else:
             print(f"  [FAIL] {webhook_config['topic']}: {result['errors']}")
 

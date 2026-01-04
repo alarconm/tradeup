@@ -13,7 +13,7 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.route('/stats', methods=['GET'])
 def get_dashboard_stats():
     """Get dashboard statistics overview."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     # Active members count
     active_members = Member.query.filter_by(
@@ -77,7 +77,7 @@ def get_dashboard_stats():
 @dashboard_bp.route('/quick-flip-report', methods=['GET'])
 def get_quick_flip_report():
     """Get Quick Flip performance report."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     days = request.args.get('days', 30, type=int)
 
     start_date = datetime.utcnow() - timedelta(days=days)
@@ -130,7 +130,7 @@ def get_quick_flip_report():
 @dashboard_bp.route('/top-members', methods=['GET'])
 def get_top_members():
     """Get top members by bonus earned."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     limit = request.args.get('limit', 10, type=int)
 
     top_members = (
@@ -149,7 +149,7 @@ def get_top_members():
 @dashboard_bp.route('/recent-activity', methods=['GET'])
 def get_recent_activity():
     """Get recent trade-ins and bonuses."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     limit = request.args.get('limit', 20, type=int)
 
     # Recent trade-ins

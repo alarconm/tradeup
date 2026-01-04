@@ -13,7 +13,7 @@ bonuses_bp = Blueprint('bonuses', __name__)
 @bonuses_bp.route('/pending', methods=['GET'])
 def get_pending_bonuses():
     """Get items eligible for bonus but not yet processed."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     # Find items that are eligible but not yet issued
     pending_items = (
@@ -37,7 +37,7 @@ def get_pending_bonuses():
 @bonuses_bp.route('/process', methods=['POST'])
 def process_bonuses():
     """Process all pending bonuses and issue store credits."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json or {}
 
     processor = BonusProcessor(tenant_id)
@@ -66,7 +66,7 @@ def calculate_bonus(item_id):
 @bonuses_bp.route('/history', methods=['GET'])
 def get_bonus_history():
     """Get bonus transaction history."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
@@ -96,7 +96,7 @@ def get_bonus_history():
 @bonuses_bp.route('/stats', methods=['GET'])
 def get_bonus_stats():
     """Get bonus statistics."""
-    tenant_id = request.headers.get('X-Tenant-ID', 1)
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     # Total bonuses issued
     from sqlalchemy import func
