@@ -19,6 +19,10 @@ class MembershipTier(db.Model):
     name = db.Column(db.String(50), nullable=False)  # 'Silver', 'Gold', 'Platinum'
     monthly_price = db.Column(db.Numeric(10, 2), nullable=False)
 
+    # Stripe integration
+    stripe_product_id = db.Column(db.String(50))  # prod_xxxxx
+    stripe_price_id = db.Column(db.String(50))    # price_xxxxx (monthly)
+
     # Quick Flip bonus configuration
     bonus_rate = db.Column(db.Numeric(5, 4), nullable=False)  # 0.10, 0.20, 0.30
     quick_flip_days = db.Column(db.Integer, default=7)
@@ -46,14 +50,16 @@ class MembershipTier(db.Model):
             'bonus_rate': float(self.bonus_rate),
             'quick_flip_days': self.quick_flip_days,
             'benefits': self.benefits,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'stripe_product_id': self.stripe_product_id,
+            'stripe_price_id': self.stripe_price_id
         }
 
 
 class Member(db.Model):
     """
     Member of the Quick Flip program.
-    Linked to Shopify customer.
+    Linked to Shopify customer and Stripe subscription.
     """
     __tablename__ = 'members'
 
@@ -65,13 +71,28 @@ class Member(db.Model):
     member_number = db.Column(db.String(20), nullable=False)  # QF1001, QF1002, etc.
     shopify_customer_id = db.Column(db.String(50))
 
+    # Stripe integration
+    stripe_customer_id = db.Column(db.String(50))      # cus_xxxxx
+    stripe_subscription_id = db.Column(db.String(50))  # sub_xxxxx
+    payment_status = db.Column(db.String(20), default='pending')  # pending, active, past_due, cancelled
+
+    # Subscription tracking
+    current_period_start = db.Column(db.DateTime)
+    current_period_end = db.Column(db.DateTime)
+    cancel_at_period_end = db.Column(db.Boolean, default=False)
+
     # Contact info
     email = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255))
     phone = db.Column(db.String(50))
 
+    # Auth (for member portal login)
+    password_hash = db.Column(db.String(255))  # bcrypt hash
+    email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(100))
+
     # Membership status
-    status = db.Column(db.String(20), default='active')  # active, paused, cancelled, expired
+    status = db.Column(db.String(20), default='pending')  # pending, active, paused, cancelled, expired
     membership_start_date = db.Column(db.Date)
     membership_end_date = db.Column(db.Date)  # NULL = ongoing
 
@@ -98,7 +119,7 @@ class Member(db.Model):
     def __repr__(self):
         return f'<Member {self.member_number}>'
 
-    def to_dict(self, include_stats=False):
+    def to_dict(self, include_stats=False, include_subscription=False):
         data = {
             'id': self.id,
             'member_number': self.member_number,
@@ -119,7 +140,35 @@ class Member(db.Model):
                 'total_trade_value': float(self.total_trade_value)
             }
 
+        if include_subscription:
+            data['subscription'] = {
+                'stripe_customer_id': self.stripe_customer_id,
+                'stripe_subscription_id': self.stripe_subscription_id,
+                'payment_status': self.payment_status,
+                'current_period_start': self.current_period_start.isoformat() if self.current_period_start else None,
+                'current_period_end': self.current_period_end.isoformat() if self.current_period_end else None,
+                'cancel_at_period_end': self.cancel_at_period_end
+            }
+
         return data
+
+    def set_password(self, password: str):
+        """Hash and store password."""
+        import bcrypt
+        self.password_hash = bcrypt.hashpw(
+            password.encode('utf-8'),
+            bcrypt.gensalt()
+        ).decode('utf-8')
+
+    def check_password(self, password: str) -> bool:
+        """Verify password against stored hash."""
+        import bcrypt
+        if not self.password_hash:
+            return False
+        return bcrypt.checkpw(
+            password.encode('utf-8'),
+            self.password_hash.encode('utf-8')
+        )
 
     @staticmethod
     def generate_member_number(tenant_id: int) -> str:

@@ -47,17 +47,33 @@ def create_app(config_name: str = None) -> Flask:
 
 def register_blueprints(app: Flask) -> None:
     """Register all API blueprints."""
+    # Core API
     from .api.members import members_bp
     from .api.trade_ins import trade_ins_bp
     from .api.bonuses import bonuses_bp
     from .api.dashboard import dashboard_bp
-    from .webhooks.shopify import webhooks_bp
 
+    # Auth and Membership
+    from .api.auth import auth_bp
+    from .api.membership import membership_bp
+
+    # Webhooks
+    from .webhooks.shopify import webhooks_bp
+    from .webhooks.stripe import stripe_webhook_bp
+
+    # Core API routes
     app.register_blueprint(members_bp, url_prefix='/api/members')
     app.register_blueprint(trade_ins_bp, url_prefix='/api/trade-ins')
     app.register_blueprint(bonuses_bp, url_prefix='/api/bonuses')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+
+    # Auth and Membership routes
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(membership_bp, url_prefix='/api/membership')
+
+    # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')
+    app.register_blueprint(stripe_webhook_bp, url_prefix='/webhook/stripe')
 
 
 def register_error_handlers(app: Flask) -> None:
