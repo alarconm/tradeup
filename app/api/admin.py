@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, g
 from functools import wraps
 
 from ..extensions import db
-from ..models.member import Member, Tier
+from ..models.member import Member, MembershipTier
 from ..services.shopify_client import ShopifyClient
 from ..services.store_credit_events import StoreCreditEventService
 
@@ -55,11 +55,11 @@ def get_dashboard_stats():
 
     # Members by tier
     tier_counts = db.session.query(
-        Tier.name,
+        MembershipTier.name,
         func.count(Member.id)
-    ).outerjoin(Member, Member.tier_id == Tier.id).filter(
-        Tier.tenant_id == tenant_id
-    ).group_by(Tier.name).all()
+    ).outerjoin(Member, Member.tier_id == MembershipTier.id).filter(
+        MembershipTier.tenant_id == tenant_id
+    ).group_by(MembershipTier.name).all()
 
     members_by_tier = {name: count for name, count in tier_counts}
 
