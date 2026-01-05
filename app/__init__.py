@@ -587,7 +587,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs v1.4</div>
+                <div class="logo-sub">by Cardflow Labs v1.5</div>
             </div>
         </div>
         <div class="header-actions">
@@ -858,7 +858,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         const API_BASE = '{app_url}/api';
 
         // Debug: Confirm script execution
-        console.log('[TradeUp v1.4] Script loaded, API_BASE:', API_BASE);
+        console.log('[TradeUp v1.5] Script loaded, API_BASE:', API_BASE);
 
         // Theme toggle
         function toggleTheme() {{
@@ -918,23 +918,31 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             setTimeout(() => toast.remove(), 3000);
         }}
 
-        // API helpers
-        async function apiGet(endpoint) {{
+        // API helpers - using .then() for better debugging
+        function apiGet(endpoint) {{
             const url = API_BASE + endpoint;
-            console.log('[TradeUp] API GET:', url);
-            try {{
-                const res = await fetch(url, {{
-                    headers: {{ 'X-Tenant-ID': '1' }}
+            console.log('[TradeUp v1.5] API GET starting:', url);
+
+            return new Promise((resolve, reject) => {{
+                console.log('[TradeUp v1.5] Creating fetch request...');
+                fetch(url, {{
+                    method: 'GET',
+                    headers: {{ 'X-Tenant-ID': '1' }},
+                    mode: 'cors'
+                }})
+                .then(res => {{
+                    console.log('[TradeUp v1.5] Response received, status:', res.status);
+                    return res.json();
+                }})
+                .then(data => {{
+                    console.log('[TradeUp v1.5] JSON parsed:', data);
+                    resolve(data);
+                }})
+                .catch(err => {{
+                    console.error('[TradeUp v1.5] Fetch failed:', err.message, err);
+                    reject(err);
                 }});
-                console.log('[TradeUp] Response status:', res.status);
-                const json = await res.json();
-                console.log('[TradeUp] Response data:', json);
-                if (!res.ok) throw new Error(json.error || 'API request failed');
-                return json;
-            }} catch (err) {{
-                console.error('[TradeUp] Fetch error:', err);
-                throw err;
-            }}
+            }});
         }}
 
         async function apiPost(endpoint, data) {{
@@ -1251,16 +1259,16 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         }}
 
         // Initialize
-        console.log('[TradeUp v1.4] Setting up DOMContentLoaded listener, readyState:', document.readyState);
+        console.log('[TradeUp v1.5] Setting up DOMContentLoaded listener, readyState:', document.readyState);
         document.addEventListener('DOMContentLoaded', () => {{
-            console.log('[TradeUp v1.4] DOMContentLoaded fired!');
+            console.log('[TradeUp v1.5] DOMContentLoaded fired!');
             loadDashboardStats();
             loadRecentMembers();
         }});
 
         // Fallback if DOMContentLoaded already fired
         if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-            console.log('[TradeUp v1.4] DOM already ready, calling init directly');
+            console.log('[TradeUp v1.5] DOM already ready, calling init directly');
             setTimeout(() => {{
                 loadDashboardStats();
                 loadRecentMembers();
