@@ -1,0 +1,37 @@
+#!/bin/bash
+# Pre-push hook for TradeUp
+# Validates code before pushing to prevent failed Railway deploys
+#
+# Install: cp scripts/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+
+echo "🔍 Running pre-push validation..."
+
+# Get the branch being pushed to
+remote="$1"
+url="$2"
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    # Only validate pushes to main branch
+    if [[ "$remote_ref" == "refs/heads/main" ]]; then
+        echo "📌 Pushing to main - running full validation..."
+
+        # Run validation script
+        python scripts/validate.py
+
+        if [ $? -ne 0 ]; then
+            echo ""
+            echo "❌ Validation failed! Push to main blocked."
+            echo "   Fix the issues above before pushing."
+            echo ""
+            echo "   To bypass (NOT RECOMMENDED): git push --no-verify"
+            exit 1
+        fi
+
+        echo "✅ Validation passed! Proceeding with push to main..."
+    else
+        echo "📌 Pushing to $remote_ref - skipping validation"
+    fi
+done
+
+exit 0
