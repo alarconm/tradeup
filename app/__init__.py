@@ -54,12 +54,17 @@ def create_app(config_name: str = None) -> Flask:
     # Shopify embedded app route - Full SPA
     @app.route('/app')
     def shopify_app():
-        from flask import request
+        from flask import request, make_response
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
 
-        return get_spa_html(shop, host, api_key)
+        # Create response with cache-control headers to prevent Shopify iframe caching
+        response = make_response(get_spa_html(shop, host, api_key))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
     return app
 
@@ -581,7 +586,7 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs v1.1</div>
+                <div class="logo-sub">by Cardflow Labs v1.2</div>
             </div>
         </div>
         <div class="header-actions">
