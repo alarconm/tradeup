@@ -858,7 +858,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         const API_BASE = '{app_url}/api';
 
         // Debug: Confirm script execution
-        console.log('[TradeUp v1.5] Script loaded, API_BASE:', API_BASE);
+        console.log('[TradeUp v1.6] Script loaded, API_BASE:', API_BASE);
 
         // Theme toggle
         function toggleTheme() {{
@@ -921,25 +921,25 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         // API helpers - using .then() for better debugging
         function apiGet(endpoint) {{
             const url = API_BASE + endpoint;
-            console.log('[TradeUp v1.5] API GET starting:', url);
+            console.log('[TradeUp v1.6] API GET starting:', url);
 
             return new Promise((resolve, reject) => {{
-                console.log('[TradeUp v1.5] Creating fetch request...');
+                console.log('[TradeUp v1.6] Creating fetch request...');
                 fetch(url, {{
                     method: 'GET',
                     headers: {{ 'X-Tenant-ID': '1' }},
                     mode: 'cors'
                 }})
                 .then(res => {{
-                    console.log('[TradeUp v1.5] Response received, status:', res.status);
+                    console.log('[TradeUp v1.6] Response received, status:', res.status);
                     return res.json();
                 }})
                 .then(data => {{
-                    console.log('[TradeUp v1.5] JSON parsed:', data);
+                    console.log('[TradeUp v1.6] JSON parsed:', data);
                     resolve(data);
                 }})
                 .catch(err => {{
-                    console.error('[TradeUp v1.5] Fetch failed:', err.message, err);
+                    console.error('[TradeUp v1.6] Fetch failed:', err.message, err);
                     reject(err);
                 }});
             }});
@@ -980,20 +980,44 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             return 'tier-silver';
         }}
 
-        // Load dashboard stats
-        async function loadDashboardStats() {{
-            console.log('[TradeUp] loadDashboardStats() called');
-            try {{
-                const stats = await apiGet('/dashboard/stats');
-                console.log('[TradeUp] Stats loaded:', stats);
-                document.getElementById('stat-members').textContent = stats.members?.total || 0;
-                document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
-                document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
-                document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
-                console.log('[TradeUp] Stats applied to DOM');
-            }} catch (e) {{
-                console.error('[TradeUp] Failed to load stats:', e);
-            }}
+        // Load dashboard stats - using XHR as fallback for debugging
+        function loadDashboardStats() {{
+            console.log('[TradeUp v1.6] loadDashboardStats() called');
+            const url = API_BASE + '/dashboard/stats';
+            console.log('[TradeUp v1.6] Using XHR for:', url);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.setRequestHeader('X-Tenant-ID', '1');
+
+            xhr.onreadystatechange = function() {{
+                console.log('[TradeUp v1.6] XHR readyState:', xhr.readyState);
+                if (xhr.readyState === 4) {{
+                    console.log('[TradeUp v1.6] XHR status:', xhr.status);
+                    if (xhr.status === 200) {{
+                        try {{
+                            const stats = JSON.parse(xhr.responseText);
+                            console.log('[TradeUp v1.6] Stats loaded:', stats);
+                            document.getElementById('stat-members').textContent = stats.members?.total || 0;
+                            document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
+                            document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
+                            document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
+                            console.log('[TradeUp v1.6] Stats applied to DOM!');
+                        }} catch (e) {{
+                            console.error('[TradeUp v1.6] JSON parse error:', e);
+                        }}
+                    }} else {{
+                        console.error('[TradeUp v1.6] XHR failed with status:', xhr.status);
+                    }}
+                }}
+            }};
+
+            xhr.onerror = function() {{
+                console.error('[TradeUp v1.6] XHR network error');
+            }};
+
+            console.log('[TradeUp v1.6] Sending XHR...');
+            xhr.send();
         }}
 
         // Load recent members
@@ -1259,16 +1283,16 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         }}
 
         // Initialize
-        console.log('[TradeUp v1.5] Setting up DOMContentLoaded listener, readyState:', document.readyState);
+        console.log('[TradeUp v1.6] Setting up DOMContentLoaded listener, readyState:', document.readyState);
         document.addEventListener('DOMContentLoaded', () => {{
-            console.log('[TradeUp v1.5] DOMContentLoaded fired!');
+            console.log('[TradeUp v1.6] DOMContentLoaded fired!');
             loadDashboardStats();
             loadRecentMembers();
         }});
 
         // Fallback if DOMContentLoaded already fired
         if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-            console.log('[TradeUp v1.5] DOM already ready, calling init directly');
+            console.log('[TradeUp v1.6] DOM already ready, calling init directly');
             setTimeout(() => {{
                 loadDashboardStats();
                 loadRecentMembers();
