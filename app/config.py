@@ -36,7 +36,21 @@ class DevelopmentConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     """Production configuration."""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+
+    # Handle DATABASE_URL with PostgreSQL SSL (Railway requires this)
+    _db_url = os.getenv('DATABASE_URL', '')
+    if _db_url.startswith('postgres://'):
+        # SQLAlchemy requires postgresql:// not postgres://
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+
+    SQLALCHEMY_DATABASE_URI = _db_url
+
+    # PostgreSQL SSL configuration for Railway
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,  # Verify connections before using
+    }
 
     # Override SECRET_KEY for production - must be set via environment
     SECRET_KEY = os.getenv('SECRET_KEY') or 'MISSING-SECRET-KEY-SET-IN-ENV'

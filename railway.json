@@ -4,8 +4,10 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "sh -c 'flask db upgrade && python scripts/seed_orb.py && gunicorn --bind 0.0.0.0:${PORT:-8080} run:app'",
+    "startCommand": "sh -c 'echo \"[Deploy] Starting TradeUp...\" && flask db upgrade && python scripts/seed_orb.py && gunicorn -c gunicorn.conf.py run:app'",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
+    "restartPolicyMaxRetries": 5
   }
 }

@@ -22,9 +22,22 @@ from app.models import Tenant, MembershipTier, APIKey
 
 def seed_orb_tenant():
     """Create ORB Sports Cards tenant with default tiers."""
-    app = create_app()
+    import os
+    config_name = os.getenv('FLASK_ENV', 'production')
+    print(f"[Seed] Using config: {config_name}")
+
+    app = create_app(config_name)
 
     with app.app_context():
+        # Test database connection first
+        try:
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1'))
+            print("[Seed] Database connection OK")
+        except Exception as e:
+            print(f"[Seed] WARNING: Database connection failed: {e}")
+            print("[Seed] Skipping seed - will retry on next deploy")
+            return  # Don't crash, just skip seeding
         # Check if ORB tenant already exists
         existing = Tenant.query.filter_by(shop_slug="orb").first()
         if existing:

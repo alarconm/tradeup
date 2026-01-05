@@ -4,7 +4,12 @@ Quick Flip platform entry point.
 import os
 from app import create_app
 
-app = create_app(os.getenv('FLASK_ENV', 'development'))
+# Default to production for Railway deployment
+# Set FLASK_ENV=development explicitly for local development
+config_name = os.getenv('FLASK_ENV', 'production')
+print(f"[TradeUp] Starting with config: {config_name}")
+
+app = create_app(config_name)
 
 if __name__ == '__main__':
     app.run(
