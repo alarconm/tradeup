@@ -42,6 +42,128 @@ def create_app(config_name: str = None) -> Flask:
     def health_check():
         return {'status': 'healthy', 'service': 'quick-flip'}
 
+    # Root route - redirect to app
+    @app.route('/')
+    def index():
+        from flask import request, redirect
+        shop = request.args.get('shop')
+        if shop:
+            return redirect(f'/app?shop={shop}')
+        return {'service': 'TradeUp by Cardflow Labs', 'status': 'running'}
+
+    # Shopify embedded app route
+    @app.route('/app')
+    def shopify_app():
+        from flask import request
+        shop = request.args.get('shop', '')
+        host = request.args.get('host', '')
+        setup = request.args.get('setup', '')
+
+        api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
+
+        return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp by Cardflow Labs</title>
+    <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .container {{
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            max-width: 500px;
+        }}
+        h1 {{
+            color: #1a1a2e;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }}
+        .subtitle {{
+            color: #667eea;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }}
+        .status {{
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #166534;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }}
+        .info {{
+            color: #6b7280;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }}
+        .shop {{
+            background: #f3f4f6;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            margin: 1rem 0;
+        }}
+        .btn {{
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-top: 1.5rem;
+            transition: background 0.2s;
+        }}
+        .btn:hover {{
+            background: #5a67d8;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 TradeUp</h1>
+        <p class="subtitle">by Cardflow Labs</p>
+
+        <div class="status">
+            ✅ App installed successfully!
+        </div>
+
+        <p class="info">
+            Your membership rewards platform is connected.
+        </p>
+
+        <div class="shop">{shop}</div>
+
+        <p class="info">
+            {"Setup billing to activate your subscription." if setup == "billing" else "Dashboard coming soon!"}
+        </p>
+
+        {"<a href='/api/billing/plans?shop=" + shop + "' class='btn'>Set Up Billing</a>" if setup == "billing" else ""}
+    </div>
+
+    <script>
+        var AppBridge = window['app-bridge'];
+        var createApp = AppBridge.default;
+        var app = createApp({{
+            apiKey: '{api_key}',
+            host: '{host}',
+        }});
+    </script>
+</body>
+</html>'''
+
     return app
 
 
