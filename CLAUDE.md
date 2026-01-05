@@ -7,133 +7,148 @@ TradeUp is a Shopify app for trade-in programs and store credit management.
 - **Hosting**: Railway (auto-deploys from main branch)
 - **Repository**: https://github.com/alarconm/quick-flip
 
-## Critical Deployment Workflow
+## CRITICAL: Deployment Workflow
 
-**NEVER push directly to main without validation!** Railway auto-deploys on every push to main, and failed deploys generate email spam.
+**Railway auto-deploys every push to main. Failed deploys = email spam.**
 
-### Before ANY Push to Main
-
-1. **Run validation locally:**
-   ```bash
-   python scripts/validate.py
-   ```
-
-2. **Or use the pre-push hook (recommended):**
-   ```bash
-   # One-time setup
-   cp scripts/pre-push .git/hooks/pre-push
-   chmod +x .git/hooks/pre-push
-   ```
-
-3. **For iterative development, use a feature branch:**
-   ```bash
-   git checkout -b feature/my-feature
-   # ... make changes ...
-   git push origin feature/my-feature
-   # Only merge to main after validation passes
-   ```
-
-### Local Testing Environment
+### Quick Commands
 
 ```bash
-# Copy local env file
-cp .env.local .env
+# Windows
+scripts\validate.bat     # Validate locally
+scripts\push.bat         # Validate + push
 
-# Run validation
-python scripts/validate.py
-
-# Start local server (optional)
-flask run --port 5000
+# Unix/Mac (or Git Bash)
+make validate            # Validate locally
+make push                # Validate + push
+make status              # Check production health
 ```
 
-### What the Validation Checks
+### First-Time Setup
 
-1. **Imports** - All modules can be imported without errors
-2. **App Creation** - Flask app starts successfully
-3. **Migrations** - No syntax errors in migration files
-4. **Models** - All expected columns exist
+```bash
+python scripts/setup.py
+```
 
-## Common Issues & Fixes
+This installs git hooks and sets up local environment.
 
-### Import Errors
-- Check relative imports (`from ..extensions` not `from app.extensions`)
-- Verify service classes are imported correctly (class vs instance)
+### The Golden Rule
 
-### Database/Migration Errors
-- Use idempotent migrations with `IF NOT EXISTS` checks
-- Test migrations locally with SQLite before pushing
+**NEVER run `git push origin main` directly.**
 
-### Railway Not Deploying
-- Check Railway dashboard for build logs
-- Verify GitHub webhook is connected
-- Manual redeploy from Railway dashboard if needed
+Always use:
+- `scripts\push.bat` (Windows)
+- `make push` (Unix/Mac)
 
-## Technology Stack
+These validate first, blocking bad deploys.
 
-| Layer | Technology |
-|-------|------------|
-| Backend | Flask 3.x, SQLAlchemy 2.x |
-| Database | PostgreSQL (Railway) / SQLite (local) |
-| Frontend | React, TypeScript, Vite |
-| Hosting | Railway |
+## What Validation Checks
+
+| Check | Catches |
+|-------|---------|
+| **Imports** | Missing modules, circular imports, typos |
+| **App Creation** | Blueprint registration, config issues |
+| **Migrations** | Syntax errors before they break DB |
+| **Models** | Missing columns that cause 500 errors |
+
+## Development Workflow
+
+### For Small Changes
+```bash
+# Edit files...
+scripts\validate.bat     # Check locally
+scripts\push.bat         # Deploy if passes
+```
+
+### For Larger Features
+```bash
+# Create feature branch
+git checkout -b feature/my-feature
+
+# Iterate freely (no Railway deploys)
+git add . && git commit -m "wip"
+git push origin feature/my-feature
+
+# When ready, validate and merge
+scripts\validate.bat
+git checkout main
+git merge feature/my-feature
+scripts\push.bat
+```
+
+## API Endpoints
+
+### Core
+- `GET /` - Health check, shows version
+- `GET /api/promotions/health` - Promotions API health
+
+### Promotions
+- `GET /api/promotions/tiers` - Membership tiers
+- `GET/POST /api/promotions/promotions` - CRUD promotions
+- `GET /api/promotions/stats` - Dashboard stats
+
+### Store Credit
+- `POST /api/promotions/credit/add` - Issue credit
+- `POST /api/promotions/credit/deduct` - Deduct credit
+- `GET /api/promotions/credit/bulk` - Bulk operations
+
+### Trade-ins
+- `GET/POST /api/trade-ins` - Trade-in management
 
 ## Directory Structure
 
 ```
 quick-flip-standalone/
 ├── app/                    # Flask application
-│   ├── api/               # REST API endpoints
+│   ├── api/               # REST API blueprints
 │   ├── models/            # SQLAlchemy models
 │   ├── services/          # Business logic
-│   ├── webhooks/          # Shopify webhooks
-│   └── __init__.py        # App factory
-├── frontend/              # React SPA
+│   └── webhooks/          # Shopify webhooks
+├── frontend/              # React SPA (Vite)
 ├── migrations/            # Alembic migrations
-├── scripts/               # Utility scripts
+├── scripts/               # Dev tools
 │   ├── validate.py        # Pre-deploy validation
-│   └── pre-push           # Git hook
+│   ├── validate.bat       # Windows shortcut
+│   ├── push.bat           # Windows validate+push
+│   ├── pre-push           # Git hook
+│   └── setup.py           # First-time setup
+├── .github/workflows/     # CI/CD
+│   └── validate.yml       # GitHub Actions validation
+├── Makefile               # Unix dev commands
 └── railway.json           # Railway config
 ```
 
-## Key API Endpoints
-
-### Promotions & Store Credit
-- `GET /api/promotions/health` - Health check
-- `GET /api/promotions/tiers` - List membership tiers
-- `GET/POST /api/promotions/promotions` - CRUD promotions
-- `POST /api/promotions/credit/add` - Issue store credit
-- `GET /api/promotions/stats` - Dashboard statistics
-
-### Trade-ins
-- `GET/POST /api/trade-ins` - Trade-in management
-- `GET /api/dashboard` - Dashboard data
-
 ## Environment Variables
 
-### Required for Production (Railway provides DATABASE_URL automatically)
-- `DATABASE_URL` - PostgreSQL connection string
-- `SECRET_KEY` - Flask session secret
+### Production (Railway provides automatically)
+- `DATABASE_URL` - PostgreSQL
+- `PORT` - Server port
+
+### Required Secrets
+- `SECRET_KEY` - Flask sessions
 - `SHOPIFY_*` - Shopify app credentials
 
 ### Local Development
-Copy `.env.local` to `.env` for SQLite-based local testing.
+Copy `.env.local.example` to `.env` for SQLite-based testing.
 
-## Git Workflow
+## Common Issues
 
-```
-main (production) ← Only merge validated code here
-  └── feature/* branches (iterate here)
-```
+### Import Error on Deploy
+- Use relative imports: `from ..extensions` not `from app.extensions`
+- Check circular imports
 
-1. Create feature branch: `git checkout -b feature/xyz`
-2. Make changes and test locally
-3. Run `python scripts/validate.py`
-4. If passes, merge to main
-5. Railway auto-deploys
+### Database 500 Errors
+- Run `POST /api/promotions/init-db` to create tables
+- Check migration has `IF NOT EXISTS`
+
+### Railway Not Deploying
+- Check Railway dashboard for build logs
+- Try `make status` to verify current version
+- Manual redeploy from Railway dashboard
 
 ## Coding Standards
 
-- Use relative imports within the app package
-- Maximum 1000 lines per file
-- Add error handling with try/except for database operations
-- Use type hints for function signatures
+- Relative imports within app package
+- Max 1000 lines per file
+- Error handling with try/except for DB operations
+- Type hints for function signatures
