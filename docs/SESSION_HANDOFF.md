@@ -1,103 +1,77 @@
 # Cardflow Labs - Session Handoff
 
-*Created: January 4, 2026*
+*Updated: January 4, 2026 - 5:45 PM*
 
 ---
 
-## What Was Accomplished This Session
+## COMPLETED THIS SESSION
 
-### 1. Deep Monetization Research
-- Analyzed competitors: Furloop ($69-99/mo), Smile.io ($49-599/mo), Tern ($99-599/mo)
-- Researched card shop economics ($30-70K income, $50-150/mo app budget)
-- Created pricing strategy that undercuts competition
+### 1. Shopify App Created in Partners Dashboard
+- **App Name**: TradeUp by Cardflow Labs
+- **Client ID**: `f27841c5cf965100dfa81a212d7d9c10`
+- **Client Secret**: (in .env file - do not commit)
+- **Version**: v1.0.0-cardflow-labs (Active)
+- **App URL**: https://app.cardflowlabs.com
+- **Scopes**: read_customers,write_customers,read_orders,read_products,write_products,read_inventory,read_fulfillments
 
-### 2. Brand Identity: Cardflow Labs
-- **Name:** Cardflow Labs
-- **Tagline:** "Built by card shop owners. For card shop owners."
-- **Domain:** cardflowlabs.com - **PURCHASED** ($11.28/yr on Namecheap)
-- **Story:** "We're not a tech company that Googled 'card shop problems.' We're card shop owners who got tired of the problems and built the solutions ourselves."
+### 2. All Code Committed & Pushed
+- 48 files, 12,139 lines of Cardflow Labs branding
+- `shopify.app.toml` updated with client_id
+- `.env` updated with Shopify app credentials
+- Repo: github.com/alarconm/quick-flip
 
-### 3. Pricing Structure (Updated in Code)
-| Tier | Price | Members | Key Feature |
-|------|-------|---------|-------------|
-| Free | $0 | 50 | Get reviews/adoption |
-| Starter | $19/mo | 200 | Undercuts Furloop |
-| Growth | $49/mo | 1,000 | **Most Popular** |
-| Pro | $99/mo | Unlimited | + Quick Flip |
-
-### 4. Files Created/Updated
-- `docs/MONETIZATION_STRATEGY.md` - Full competitive analysis & plan
-- `docs/BRAND.md` - Complete brand guidelines
-- `docs/BETA_OUTREACH.md` - Marketing templates (for later)
-- `app/services/shopify_billing.py` - Updated pricing tiers
-- `app/services/onboarding.py` - 5 tier templates for easy setup
-- `shopify.app.toml` - Updated URLs to cardflowlabs.com
+### 3. Railway Status Checked
+- **Account**: Mike (malarconii@yahoo.com)
+- **Trial**: 24 days remaining
+- **Live Project**: `natural-perception` at https://web-production-41bb1.up.railway.app
 
 ---
 
-## What Needs To Happen Next
+## NEXT SESSION - DO THIS FIRST
 
-### Immediate Priority: Deploy TradeUp on ORB Shopify
-
-1. **Check deployment setup** - Look at Railway config, environment vars
-2. **Create Shopify app** in Partners Dashboard (if not exists)
-3. **Connect to ORB's Shopify store** as first customer
-4. **Test the full flow** - OAuth, tier setup, member portal
-
-### Then: Landing Page
-- Create simple landing page at cardflowlabs.com
-- Tell the ORB story
-- Show pricing
-- Link to Shopify App Store
-
-### Then: Shopify App Store Submission
-- App listing copy
-- Screenshots
-- Privacy policy
-
----
-
-## Key Decisions Made
-
-1. **Skip beta program** - Use ORB as first customer instead (faster, more authentic)
-2. **Cardflow Labs as umbrella brand** - TradeUp is first product, Quick Flip is add-on
-3. **Low price strategy** - $19 entry undercuts $69 competition significantly
-4. **Free tier for adoption** - Get App Store reviews before worrying about revenue
-
----
-
-## Revenue Target
-
-**Goal:** Replace Brandon's income ASAP
-
-- 100 customers at $40 ARPU = $4,000 MRR
-- Conservative Year 1: $45K ARR
-- Optimistic Year 1: $110K ARR
-- Breakeven: Just 2 customers at Starter tier
-
----
-
-## Quick Reference
-
+### 1. Check Railway Project
 ```
-Brand: Cardflow Labs
-Domain: cardflowlabs.com (PURCHASED)
-Product: TradeUp by Cardflow Labs
-Pricing: Free / $19 / $49 / $99
-Parent: ORB Sports Cards LLC
-Repo: quick-flip (this repo)
+Go to: https://railway.com/project/67c0d36e-54b0-495d-a2f9-16b478238acb
+Verify it's the quick-flip/TradeUp app
+Check environment variables are set
+```
+
+### 2. Set Up DNS for cardflowlabs.com
+- Domain on Namecheap - point to Railway or set custom domain
+
+### 3. Install on ORB Shopify
+- Test OAuth flow at: https://uy288y-nx.myshopify.com
+
+---
+
+## KEY CREDENTIALS
+
+| Service | Value |
+|---------|-------|
+| Shopify Client ID | f27841c5cf965100dfa81a212d7d9c10 |
+| Shopify Client Secret | (in .env file) |
+| ORB Shopify Domain | uy288y-nx.myshopify.com |
+| Railway Live URL | https://web-production-41bb1.up.railway.app |
+| Domain | cardflowlabs.com (Namecheap) |
+
+---
+
+## PRICING (Already in Code)
+
+| Tier | Price | Members |
+|------|-------|---------|
+| Free | $0 | 50 |
+| Starter | $19/mo | 200 |
+| Growth | $49/mo | 1,000 |
+| Pro | $99/mo | Unlimited |
+
+---
+
+## REPO LOCATION
+```
+C:\Users\malar\OneDrive\Documents\Coding Projects\quick-flip
 ```
 
 ---
 
-## Files to Read First in Next Session
-
-1. `shopify.app.toml` - App configuration
-2. `app/services/shopify_billing.py` - Pricing & billing logic
-3. `app/services/onboarding.py` - Tier templates
-4. `docs/BRAND.md` - Brand guidelines
-5. Look for Railway/deployment configs in repo root
-
----
-
-*Ready to deploy and get first revenue!*
+*Start next session: "Continue Cardflow Labs - check Railway deployment, set up DNS"*
