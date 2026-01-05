@@ -31,6 +31,18 @@ from ..services.store_credit_service import store_credit_service
 promotions_bp = Blueprint('promotions', __name__)
 
 
+# ==================== Health Check ====================
+
+@promotions_bp.route('/health', methods=['GET'])
+def health_check():
+    """Simple health check that doesn't hit the database."""
+    return jsonify({
+        'status': 'ok',
+        'module': 'promotions',
+        'message': 'Promotions API is loaded'
+    }), 200
+
+
 # ==================== Promotions CRUD ====================
 
 @promotions_bp.route('/promotions', methods=['GET'])
