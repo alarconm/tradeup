@@ -71,6 +71,15 @@ class TradeInService:
         db.session.add(batch)
         db.session.commit()
 
+        # Sync to partner integrations (async/non-blocking)
+        try:
+            from .partner_sync_service import PartnerSyncService
+            sync_service = PartnerSyncService(self.tenant_id)
+            sync_service.sync_trade_in(batch)
+        except Exception as e:
+            # Log but don't fail the trade-in creation
+            print(f"Partner sync error (non-blocking): {e}")
+
         return batch
 
     def add_item(

@@ -1587,6 +1587,9 @@ def register_blueprints(app: Flask) -> None:
     # Billing (Shopify Billing API - replaces Stripe)
     from .api.billing import billing_bp
 
+    # Partner Integrations
+    from .api.partners import partners_bp
+
     # Webhooks
     from .webhooks.shopify import webhooks_bp
     from .webhooks.shopify_billing import shopify_billing_webhook_bp
@@ -1615,6 +1618,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Billing API routes (Shopify Billing)
     app.register_blueprint(billing_bp, url_prefix='/api/billing')
+
+    # Partner Integration routes
+    app.register_blueprint(partners_bp, url_prefix='/api/partners')
 
     # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')

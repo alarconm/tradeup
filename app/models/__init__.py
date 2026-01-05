@@ -7,6 +7,7 @@ from .member import MembershipTier, Member
 from .trade_in import TradeInBatch, TradeInItem
 from .bonus import BonusTransaction
 from .points import PointsTransaction, StoreCreditTransaction
+from .partner_integration import PartnerIntegration, PartnerSyncLog
 
 __all__ = [
     'Tenant',
@@ -17,5 +18,7 @@ __all__ = [
     'TradeInItem',
     'BonusTransaction',
     'PointsTransaction',
-    'StoreCreditTransaction'
+    'StoreCreditTransaction',
+    'PartnerIntegration',
+    'PartnerSyncLog'
 ]
