@@ -835,10 +835,15 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
     </nav>
 
     <script>
-        // App Bridge initialization
-        var AppBridge = window['app-bridge'];
-        var createApp = AppBridge.default;
-        var app = createApp({{ apiKey: '{api_key}', host: '{host}' }});
+        // App Bridge initialization (optional - works embedded in Shopify)
+        var app = null;
+        try {{
+            var AppBridge = window['app-bridge'];
+            if (AppBridge && AppBridge.default) {{
+                var createApp = AppBridge.default;
+                app = createApp({{ apiKey: '{api_key}', host: '{host}' }});
+            }}
+        }} catch (e) {{ console.log('App Bridge not available, running standalone'); }}
 
         // State
         let currentPage = 'home';
@@ -909,7 +914,9 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
             const res = await fetch(API_BASE + endpoint, {{
                 headers: {{ 'X-Tenant-ID': '1' }}
             }});
-            return res.json();
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'API request failed');
+            return json;
         }}
 
         async function apiPost(endpoint, data) {{
@@ -918,7 +925,9 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
                 headers: {{ 'Content-Type': 'application/json', 'X-Tenant-ID': '1' }},
                 body: JSON.stringify(data)
             }});
-            return res.json();
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'API request failed');
+            return json;
         }}
 
         // Format helpers
@@ -1191,7 +1200,7 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
                 loadDashboardStats();
                 if (currentPage === 'members') loadAllMembers();
             }} catch (e) {{
-                showToast('Failed to create member', 'error');
+                showToast(e.message || 'Failed to create member', 'error');
             }}
         }}
 
