@@ -14,7 +14,7 @@ from datetime import datetime, time
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List, Dict, Any
-from app import db
+from ..extensions import db
 
 
 # ==================== Enums ====================

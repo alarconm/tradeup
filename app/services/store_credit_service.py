@@ -14,9 +14,9 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from flask import current_app
 
-from app import db
-from app.models.member import Member
-from app.models.promotions import (
+from ..extensions import db
+from ..models.member import Member
+from ..models.promotions import (
     Promotion,
     StoreCreditLedger,
     MemberCreditBalance,
@@ -25,7 +25,7 @@ from app.models.promotions import (
     CreditEventType,
     TIER_CASHBACK,
 )
-from app.services.shopify_client import shopify_client
+from .shopify_client import shopify_client
 
 
 class StoreCreditService:

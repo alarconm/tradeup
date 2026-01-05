@@ -14,9 +14,9 @@ from decimal import Decimal
 from flask import Blueprint, request, jsonify, current_app
 from sqlalchemy import func, and_, or_
 
-from app import db
-from app.models.member import Member
-from app.models.promotions import (
+from ..extensions import db
+from ..models.member import Member
+from ..models.promotions import (
     Promotion,
     StoreCreditLedger,
     MemberCreditBalance,
@@ -25,7 +25,7 @@ from app.models.promotions import (
     CreditEventType,
     seed_tier_configurations,
 )
-from app.services.store_credit_service import store_credit_service
+from ..services.store_credit_service import store_credit_service
 
 
 promotions_bp = Blueprint('promotions', __name__)

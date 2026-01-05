@@ -1,17 +1,14 @@
-"""Models package."""
-
-from app.models.member import Member, StoreCreditEvent
-from app.models.tradein import (
-    TradeInCategory,
-    TradeIn,
-    TradeInItem,
-    AppSettings,
-    CONDITION_MODIFIERS,
-    BULK_BONUSES,
-    TIER_BONUSES,
-    seed_default_categories,
-)
-from app.models.promotions import (
+"""
+Database models for TradeUp platform.
+Store credit, rewards, and membership management for Shopify.
+"""
+from .tenant import Tenant, APIKey
+from .member import MembershipTier, Member
+from .trade_in import TradeInBatch, TradeInItem
+from .bonus import BonusTransaction
+from .points import PointsTransaction, StoreCreditTransaction
+from .partner_integration import PartnerIntegration, PartnerSyncLog
+from .promotions import (
     Promotion,
     StoreCreditLedger,
     MemberCreditBalance,
@@ -25,19 +22,18 @@ from app.models.promotions import (
 )
 
 __all__ = [
-    # Member models
+    'Tenant',
+    'APIKey',
+    'MembershipTier',
     'Member',
-    'StoreCreditEvent',
-    # Trade-in models
-    'TradeInCategory',
-    'TradeIn',
+    'TradeInBatch',
     'TradeInItem',
-    'AppSettings',
-    'CONDITION_MODIFIERS',
-    'BULK_BONUSES',
-    'TIER_BONUSES',
-    'seed_default_categories',
-    # Promotions models
+    'BonusTransaction',
+    'PointsTransaction',
+    'StoreCreditTransaction',
+    'PartnerIntegration',
+    'PartnerSyncLog',
+    # Promotions & Store Credit
     'Promotion',
     'StoreCreditLedger',
     'MemberCreditBalance',
