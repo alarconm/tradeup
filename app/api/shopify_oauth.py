@@ -7,8 +7,8 @@ import hmac
 import hashlib
 import secrets
 import requests
-from urllib.parse import urlencode, parse_qs
-from flask import Blueprint, request, redirect, jsonify, session
+from urllib.parse import urlencode
+from flask import Blueprint, request, redirect, jsonify
 from ..models import Tenant
 from ..extensions import db
 
@@ -77,6 +77,41 @@ def verify_webhook_hmac(data: bytes, hmac_header: str) -> bool:
     return hmac.compare_digest(computed, hmac_header)
 
 
+def generate_state(shop: str) -> str:
+    """Generate a secure state parameter that encodes the shop."""
+    if not SHOPIFY_API_SECRET:
+        return secrets.token_urlsafe(32)
+
+    # Create state as: nonce.hmac(nonce+shop)
+    nonce = secrets.token_urlsafe(16)
+    message = f"{nonce}:{shop}"
+    signature = hmac.new(
+        SHOPIFY_API_SECRET.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()[:16]
+
+    return f"{nonce}.{signature}"
+
+
+def verify_state(state: str, shop: str) -> bool:
+    """Verify the state parameter matches the shop."""
+    if not SHOPIFY_API_SECRET:
+        return True  # Skip verification in dev
+
+    try:
+        nonce, signature = state.split('.', 1)
+        message = f"{nonce}:{shop}"
+        expected = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()[:16]
+        return hmac.compare_digest(signature, expected)
+    except (ValueError, AttributeError):
+        return False
+
+
 @shopify_oauth_bp.route('/install', methods=['GET'])
 def install():
     """
@@ -99,17 +134,15 @@ def install():
         # Already installed, redirect to app
         return redirect(f"https://{shop}/admin/apps/{SHOPIFY_API_KEY}")
 
-    # Generate nonce for OAuth state
-    nonce = secrets.token_urlsafe(32)
-    session['oauth_nonce'] = nonce
-    session['oauth_shop'] = shop
+    # Generate state that encodes shop for verification (no session needed)
+    state = generate_state(shop)
 
     # Build OAuth URL
     oauth_params = {
         'client_id': SHOPIFY_API_KEY,
         'scope': ','.join(SCOPES),
         'redirect_uri': f"{APP_URL}/api/shopify/callback",
-        'state': nonce,
+        'state': state,
     }
 
     auth_url = f"https://{shop}/admin/oauth/authorize?{urlencode(oauth_params)}"
@@ -134,11 +167,8 @@ def callback():
     if not verify_hmac(dict(request.args)):
         return jsonify({'error': 'Invalid HMAC signature'}), 401
 
-    # Verify state matches nonce
-    expected_nonce = session.get('oauth_nonce')
-    expected_shop = session.get('oauth_shop')
-
-    if state != expected_nonce or shop != expected_shop:
+    # Verify state parameter (no session needed)
+    if not verify_state(state, shop):
         return jsonify({'error': 'Invalid state parameter'}), 401
 
     # Exchange code for access token
@@ -189,10 +219,6 @@ def callback():
 
     # Register webhooks
     register_webhooks(shop, access_token)
-
-    # Clear session
-    session.pop('oauth_nonce', None)
-    session.pop('oauth_shop', None)
 
     # Redirect to billing (for new installs) or app dashboard
     if not tenant.subscription_active:
