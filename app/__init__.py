@@ -49,7 +49,7 @@ def create_app(config_name: str = None) -> Flask:
         shop = request.args.get('shop')
         if shop:
             return redirect(f'/app?shop={shop}')
-        return {'service': 'TradeUp by Cardflow Labs', 'status': 'running', 'version': '1.2.3'}
+        return {'service': 'TradeUp by Cardflow Labs', 'status': 'running', 'version': '1.2.4'}
 
     # Shopify embedded app route - Full SPA
     @app.route('/app')

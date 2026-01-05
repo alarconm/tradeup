@@ -6,7 +6,7 @@ import sys
 import traceback
 
 print("[TradeUp] ========================================")
-print("[TradeUp] Starting TradeUp v1.2.3")
+print("[TradeUp] Starting TradeUp v1.2.4")
 print("[TradeUp] ========================================")
 
 # Default to production for Railway deployment

@@ -46,21 +46,41 @@ def health_check():
 @promotions_bp.route('/init-db', methods=['POST'])
 def init_database():
     """Initialize promotions database tables (for debugging)."""
+    results = {}
     try:
         # Try to create tables
         db.create_all()
+        results['create_all'] = 'success'
+
+        # Check if tier_configurations table exists and count rows
+        try:
+            count_before = TierConfiguration.query.count()
+            results['tier_count_before'] = count_before
+        except Exception as e:
+            results['tier_count_before'] = f'error: {e}'
+            count_before = -1
 
         # Seed tier configurations
         seed_tier_configurations()
 
+        # Check count after seeding
+        try:
+            count_after = TierConfiguration.query.count()
+            results['tier_count_after'] = count_after
+        except Exception as e:
+            results['tier_count_after'] = f'error: {e}'
+
         return jsonify({
             'status': 'success',
-            'message': 'Database tables created and seeded'
+            'message': 'Database tables created and seeded',
+            'details': results
         }), 200
     except Exception as e:
+        results['error'] = str(e)
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': str(e),
+            'details': results
         }), 500
 
 
@@ -562,6 +582,7 @@ def list_tiers():
         return jsonify({
             'tiers': [],
             'error': 'Tier configurations not available - database may need migration',
+            'error_detail': str(e),
             'hint': 'POST to /api/promotions/init-db to initialize tables'
         }), 200
 
