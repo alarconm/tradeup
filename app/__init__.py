@@ -58,7 +58,14 @@ def create_app(config_name: str = None) -> Flask:
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
-        app_url = os.getenv('APP_URL', 'https://web-production-41bb1.up.railway.app')
+        # Get app URL from environment or construct from Railway domain
+        app_url = os.getenv('APP_URL')
+        if not app_url:
+            railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+            if railway_domain:
+                app_url = f'https://{railway_domain}'
+            else:
+                app_url = request.url_root.rstrip('/')
 
         # Create response with cache-control headers to prevent Shopify iframe caching
         response = make_response(get_spa_html(shop, host, api_key, app_url))
