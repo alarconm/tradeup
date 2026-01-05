@@ -59,7 +59,7 @@ class MembershipTier(db.Model):
 class Member(db.Model):
     """
     Member of the Quick Flip program.
-    Linked to Shopify customer and Stripe subscription.
+    MUST be linked to a Shopify customer - no standalone members.
     """
     __tablename__ = 'members'
 
@@ -67,11 +67,15 @@ class Member(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False)
     tier_id = db.Column(db.Integer, db.ForeignKey('membership_tiers.id'))
 
-    # Member identification
+    # Member identification - Shopify customer is REQUIRED
     member_number = db.Column(db.String(20), nullable=False)  # QF1001, QF1002, etc.
-    shopify_customer_id = db.Column(db.String(50))
+    shopify_customer_id = db.Column(db.String(50), nullable=False)  # Numeric ID (required)
+    shopify_customer_gid = db.Column(db.String(100))  # Full GID: gid://shopify/Customer/123
 
-    # Stripe integration
+    # Partner integration fields (e.g., ORB# from ORB Sports Cards)
+    partner_customer_id = db.Column(db.String(50))  # e.g., "ORB1050"
+
+    # Stripe integration (for customer membership billing)
     stripe_customer_id = db.Column(db.String(50))      # cus_xxxxx
     stripe_subscription_id = db.Column(db.String(50))  # sub_xxxxx
     payment_status = db.Column(db.String(20), default='pending')  # pending, active, past_due, cancelled
@@ -81,15 +85,10 @@ class Member(db.Model):
     current_period_end = db.Column(db.DateTime)
     cancel_at_period_end = db.Column(db.Boolean, default=False)
 
-    # Contact info
+    # Contact info (synced from Shopify customer)
     email = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255))
     phone = db.Column(db.String(50))
-
-    # Auth (for member portal login)
-    password_hash = db.Column(db.String(255))  # bcrypt hash
-    email_verified = db.Column(db.Boolean, default=False)
-    email_verification_token = db.Column(db.String(100))
 
     # Membership status
     status = db.Column(db.String(20), default='pending')  # pending, active, paused, cancelled, expired
@@ -114,6 +113,7 @@ class Member(db.Model):
     __table_args__ = (
         db.UniqueConstraint('tenant_id', 'member_number', name='uq_tenant_member_number'),
         db.UniqueConstraint('tenant_id', 'email', name='uq_tenant_email'),
+        db.UniqueConstraint('tenant_id', 'shopify_customer_id', name='uq_tenant_shopify_customer'),
     )
 
     def __repr__(self):
@@ -124,6 +124,8 @@ class Member(db.Model):
             'id': self.id,
             'member_number': self.member_number,
             'shopify_customer_id': self.shopify_customer_id,
+            'shopify_customer_gid': self.shopify_customer_gid,
+            'partner_customer_id': self.partner_customer_id,
             'email': self.email,
             'name': self.name,
             'phone': self.phone,
@@ -151,24 +153,6 @@ class Member(db.Model):
             }
 
         return data
-
-    def set_password(self, password: str):
-        """Hash and store password."""
-        import bcrypt
-        self.password_hash = bcrypt.hashpw(
-            password.encode('utf-8'),
-            bcrypt.gensalt()
-        ).decode('utf-8')
-
-    def check_password(self, password: str) -> bool:
-        """Verify password against stored hash."""
-        import bcrypt
-        if not self.password_hash:
-            return False
-        return bcrypt.checkpw(
-            password.encode('utf-8'),
-            self.password_hash.encode('utf-8')
-        )
 
     @staticmethod
     def generate_member_number(tenant_id: int) -> str:

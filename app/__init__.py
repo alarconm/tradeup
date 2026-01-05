@@ -623,9 +623,9 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                     <h2 class="section-title">Quick Actions</h2>
                 </div>
                 <div class="quick-actions">
-                    <div class="action-btn" onclick="openModal('add-member')">
-                        <div class="action-icon">👤</div>
-                        <div class="action-label">Add Member</div>
+                    <div class="action-btn" onclick="openModal('enroll-customer')">
+                        <div class="action-icon">🔍</div>
+                        <div class="action-label">Enroll Customer</div>
                     </div>
                     <div class="action-btn" onclick="openModal('new-tradein')">
                         <div class="action-icon">📦</div>
@@ -659,7 +659,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">All Members</h2>
-                <button class="btn btn-primary btn-sm" onclick="openModal('add-member')">+ Add</button>
+                <button class="btn btn-primary btn-sm" onclick="openModal('enroll-customer')">+ Enroll</button>
             </div>
             <div class="form-group">
                 <input type="text" class="form-input" id="member-search" placeholder="Search by name or email..." oninput="filterMembers(this.value)">
@@ -733,39 +733,55 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         </div>
     </div>
 
-    <!-- ADD MEMBER MODAL -->
-    <div id="modal-add-member" class="modal-overlay" onclick="closeModalOnOverlay(event)">
-        <div class="modal">
+    <!-- ENROLL CUSTOMER MODAL -->
+    <div id="modal-enroll-customer" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal" style="max-width: 500px;">
             <div class="modal-header">
-                <span class="modal-title">Add New Member</span>
-                <button class="modal-close" onclick="closeModal('add-member')">&times;</button>
+                <span class="modal-title">Enroll Shopify Customer</span>
+                <button class="modal-close" onclick="closeModal('enroll-customer')">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="add-member-form" onsubmit="submitAddMember(event)">
-                    <div class="form-group">
-                        <label class="form-label">Email *</label>
-                        <input type="email" class="form-input" name="email" required placeholder="customer@example.com">
+                <!-- Search Section -->
+                <div class="form-group">
+                    <label class="form-label">Search Shopify Customers</label>
+                    <input type="text" class="form-input" id="customer-search-input"
+                           placeholder="Search by name, email, phone, or ORB#..."
+                           oninput="debounceCustomerSearch(this.value)">
+                    <small class="text-muted" style="display:block;margin-top:4px;">
+                        Search your Shopify customers to enroll them in Quick Flip
+                    </small>
+                </div>
+
+                <!-- Search Results -->
+                <div id="customer-search-results" class="customer-results" style="max-height: 250px; overflow-y: auto; margin: 12px 0;">
+                    <div class="text-muted text-center" style="padding: 20px;">
+                        Enter a search term to find customers
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" class="form-input" name="name" placeholder="John Doe">
+                </div>
+
+                <!-- Enrollment Form (hidden until customer selected) -->
+                <div id="enroll-form-section" style="display: none; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
+                    <div class="selected-customer-card" style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div id="selected-customer-name" style="font-weight: 600;"></div>
+                                <div id="selected-customer-email" class="text-muted" style="font-size: 13px;"></div>
+                                <div id="selected-customer-orb" class="text-muted" style="font-size: 12px;"></div>
+                            </div>
+                            <button class="btn btn-sm" onclick="clearSelectedCustomer()" style="padding: 4px 8px;">✕</button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Phone</label>
-                        <input type="tel" class="form-input" name="phone" placeholder="+1 (555) 123-4567">
-                    </div>
+                    <input type="hidden" id="selected-customer-id">
                     <div class="form-group">
                         <label class="form-label">Membership Tier</label>
-                        <select class="form-input form-select" name="tier_id" id="tier-select">
-                            <option value="">Select tier...</option>
+                        <select class="form-input form-select" id="enroll-tier-select">
+                            <option value="">Default (Lowest Tier)</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Shopify Customer ID (optional)</label>
-                        <input type="text" class="form-input" name="shopify_customer_id" placeholder="gid://shopify/Customer/...">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Create Member</button>
-                </form>
+                    <button class="btn btn-primary btn-block" onclick="submitEnrollment()">
+                        Enroll Customer
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1274,24 +1290,132 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 membersData.map(m => `<option value="${{m.id}}">${{m.name || m.email}} (${{m.member_number}})</option>`).join('');
         }}
 
-        // Submit add member
-        async function submitAddMember(e) {{
-            e.preventDefault();
-            const form = e.target;
-            const data = Object.fromEntries(new FormData(form));
-            if (data.tier_id) data.tier_id = parseInt(data.tier_id);
+        // ==================== Shopify Customer Search & Enroll ====================
+
+        let searchTimeout = null;
+        let selectedCustomer = null;
+
+        function debounceCustomerSearch(query) {{
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (!query || query.length < 2) {{
+                document.getElementById('customer-search-results').innerHTML =
+                    '<div class="text-muted text-center" style="padding: 20px;">Enter at least 2 characters to search</div>';
+                return;
+            }}
+            document.getElementById('customer-search-results').innerHTML =
+                '<div class="loading"><div class="spinner"></div></div>';
+            searchTimeout = setTimeout(() => searchShopifyCustomers(query), 300);
+        }}
+
+        async function searchShopifyCustomers(query) {{
+            try {{
+                const result = await apiGet('/members/search-shopify?q=' + encodeURIComponent(query));
+                renderCustomerResults(result.customers || []);
+            }} catch (e) {{
+                document.getElementById('customer-search-results').innerHTML =
+                    '<div class="text-muted text-center" style="padding: 20px;">Search failed: ' + (e.message || 'Unknown error') + '</div>';
+            }}
+        }}
+
+        function renderCustomerResults(customers) {{
+            const container = document.getElementById('customer-search-results');
+            if (!customers.length) {{
+                container.innerHTML = '<div class="text-muted text-center" style="padding: 20px;">No customers found</div>';
+                return;
+            }}
+
+            container.innerHTML = customers.map(c => `
+                <div class="customer-result-item" onclick="selectCustomer(${{JSON.stringify(c).replace(/"/g, '&quot;')}})"
+                     style="padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+                            background: var(--bg-secondary); border: 2px solid transparent;
+                            ${{c.is_member ? 'opacity: 0.6;' : ''}}"
+                     onmouseover="this.style.borderColor='var(--primary)'"
+                     onmouseout="this.style.borderColor='transparent'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600;">${{c.name || c.email || 'Unknown'}}</div>
+                            <div class="text-muted" style="font-size: 13px;">${{c.email || ''}}</div>
+                            ${{c.orb_number ? `<div style="font-size: 12px; color: var(--primary);">#${{c.orb_number}}</div>` : ''}}
+                        </div>
+                        <div style="text-align: right;">
+                            ${{c.is_member
+                                ? `<span class="status-badge status-active">${{c.member_number}}</span>`
+                                : '<span class="status-badge" style="background: var(--success); color: white;">Available</span>'
+                            }}
+                            ${{c.storeCredit > 0 ? `<div style="font-size: 12px; margin-top: 4px;">$${{c.storeCredit.toFixed(2)}} credit</div>` : ''}}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }}
+
+        function selectCustomer(customer) {{
+            if (customer.is_member) {{
+                showToast(`${{customer.name}} is already enrolled as ${{customer.member_number}}`, 'error');
+                return;
+            }}
+
+            selectedCustomer = customer;
+            document.getElementById('selected-customer-id').value = customer.id;
+            document.getElementById('selected-customer-name').textContent = customer.name || customer.email;
+            document.getElementById('selected-customer-email').textContent = customer.email || '';
+            document.getElementById('selected-customer-orb').textContent = customer.orb_number ? '#' + customer.orb_number : '';
+
+            document.getElementById('enroll-form-section').style.display = 'block';
+            document.getElementById('customer-search-results').style.display = 'none';
+
+            // Populate tier dropdown
+            populateEnrollTierSelect();
+        }}
+
+        function clearSelectedCustomer() {{
+            selectedCustomer = null;
+            document.getElementById('selected-customer-id').value = '';
+            document.getElementById('enroll-form-section').style.display = 'none';
+            document.getElementById('customer-search-results').style.display = 'block';
+        }}
+
+        function populateEnrollTierSelect() {{
+            const select = document.getElementById('enroll-tier-select');
+            const tiers = allTiers || [];
+            select.innerHTML = '<option value="">Default (Lowest Tier)</option>' +
+                tiers.map(t => `<option value="${{t.id}}">${{t.name}} - $${{t.monthly_price}}/mo (${{(t.bonus_rate * 100).toFixed(0)}}% bonus)</option>`).join('');
+        }}
+
+        async function submitEnrollment() {{
+            if (!selectedCustomer) {{
+                showToast('Please select a customer first', 'error');
+                return;
+            }}
+
+            const tierId = document.getElementById('enroll-tier-select').value;
+            const data = {{
+                shopify_customer_id: selectedCustomer.id,
+                partner_customer_id: selectedCustomer.orb_number || null
+            }};
+            if (tierId) data.tier_id = parseInt(tierId);
 
             try {{
-                await apiPost('/members', data);
-                showToast('Member created!');
-                closeModal('add-member');
-                form.reset();
+                const result = await apiPost('/members/enroll', data);
+                showToast(`Enrolled as ${{result.member.member_number}}!`);
+                closeModal('enroll-customer');
+                resetEnrollModal();
                 loadRecentMembers();
                 loadDashboardStats();
                 if (currentPage === 'members') loadAllMembers();
             }} catch (e) {{
-                showToast(e.message || 'Failed to create member', 'error');
+                showToast(e.message || 'Enrollment failed', 'error');
             }}
+        }}
+
+        function resetEnrollModal() {{
+            selectedCustomer = null;
+            document.getElementById('customer-search-input').value = '';
+            document.getElementById('selected-customer-id').value = '';
+            document.getElementById('enroll-form-section').style.display = 'none';
+            document.getElementById('customer-search-results').style.display = 'block';
+            document.getElementById('customer-search-results').innerHTML =
+                '<div class="text-muted text-center" style="padding: 20px;">Enter a search term to find customers</div>';
         }}
 
         // Submit new trade-in

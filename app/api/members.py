@@ -1,5 +1,10 @@
 """
 Member API endpoints.
+
+Shopify-Native Member System:
+- Members MUST be linked to existing Shopify customers
+- No manual member creation - use search & enroll workflow
+- Flow: Search Shopify customers → Enroll as member → Create trade-ins
 """
 from flask import Blueprint, request, jsonify
 from ..extensions import db
@@ -8,6 +13,81 @@ from ..services.membership_service import MembershipService
 
 members_bp = Blueprint('members', __name__)
 
+
+# ==================== Shopify Customer Search & Enroll ====================
+
+@members_bp.route('/search-shopify', methods=['GET'])
+def search_shopify_customers():
+    """
+    Search Shopify customers for enrollment.
+
+    Query params:
+        q: Search query (name, email, phone, or ORB#)
+
+    Returns customers with enrollment status (is_member, member_number, member_tier).
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    query = request.args.get('q', '').strip()
+
+    if not query or len(query) < 2:
+        return jsonify({'error': 'Search query must be at least 2 characters'}), 400
+
+    service = MembershipService(tenant_id)
+
+    try:
+        customers = service.search_shopify_customers(query)
+        return jsonify({
+            'customers': customers,
+            'query': query,
+            'count': len(customers)
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Search failed: {str(e)}'}), 500
+
+
+@members_bp.route('/enroll', methods=['POST'])
+def enroll_shopify_customer():
+    """
+    Enroll an existing Shopify customer as a Quick Flip member.
+
+    JSON body:
+        shopify_customer_id: Shopify customer ID (numeric) - REQUIRED
+        tier_id: Membership tier ID (optional, defaults to lowest tier)
+        partner_customer_id: Partner ID like ORB# (optional)
+        notes: Internal notes (optional)
+
+    Customer name/email/phone are pulled from Shopify automatically.
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json or {}
+
+    shopify_customer_id = data.get('shopify_customer_id')
+    if not shopify_customer_id:
+        return jsonify({'error': 'shopify_customer_id is required'}), 400
+
+    service = MembershipService(tenant_id)
+
+    try:
+        member = service.enroll_shopify_customer(
+            shopify_customer_id=str(shopify_customer_id),
+            tier_id=data.get('tier_id'),
+            partner_customer_id=data.get('partner_customer_id'),
+            notes=data.get('notes')
+        )
+        return jsonify({
+            'success': True,
+            'member': member.to_dict(include_stats=True),
+            'message': f'Successfully enrolled as {member.member_number}'
+        }), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Enrollment failed: {str(e)}'}), 500
+
+
+# ==================== Member CRUD ====================
 
 @members_bp.route('', methods=['GET'])
 def list_members():

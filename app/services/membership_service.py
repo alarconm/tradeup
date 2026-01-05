@@ -29,6 +29,121 @@ class MembershipService:
         self.tenant_id = tenant_id
         self.shopify_client = shopify_client or get_shopify_client()
 
+    def enroll_shopify_customer(
+        self,
+        shopify_customer_id: str,
+        tier_id: Optional[int] = None,
+        partner_customer_id: Optional[str] = None,
+        notes: Optional[str] = None
+    ) -> Member:
+        """
+        Enroll an existing Shopify customer as a Quick Flip member.
+        Pulls name/email/phone from Shopify - no manual input.
+
+        Args:
+            shopify_customer_id: Shopify customer ID (numeric, NOT gid)
+            tier_id: Membership tier ID (optional, defaults to lowest tier)
+            partner_customer_id: Partner ID like ORB# (optional)
+            notes: Internal notes
+
+        Returns:
+            Created Member object
+
+        Raises:
+            ValueError: If customer already enrolled or not found in Shopify
+        """
+        # Check if already enrolled
+        existing = Member.query.filter_by(
+            tenant_id=self.tenant_id,
+            shopify_customer_id=shopify_customer_id
+        ).first()
+
+        if existing:
+            raise ValueError(f'Customer {shopify_customer_id} is already a member ({existing.member_number})')
+
+        # Get customer info from Shopify
+        if not self.shopify_client:
+            raise ValueError('Shopify not configured')
+
+        customers = self.shopify_client.search_customers(shopify_customer_id, limit=1)
+        if not customers:
+            raise ValueError(f'Shopify customer {shopify_customer_id} not found')
+
+        customer = customers[0]
+
+        # Check for duplicate email
+        existing_email = Member.query.filter_by(
+            tenant_id=self.tenant_id,
+            email=customer['email']
+        ).first()
+
+        if existing_email:
+            raise ValueError(f"Customer email {customer['email']} already enrolled as {existing_email.member_number}")
+
+        # Use default tier if not specified
+        if not tier_id:
+            default_tier = self.get_default_tier()
+            tier_id = default_tier.id if default_tier else None
+
+        # Extract ORB# from tags if not provided
+        if not partner_customer_id and customer.get('orb_number'):
+            partner_customer_id = customer['orb_number']
+
+        # Generate member number
+        member_number = Member.generate_member_number(self.tenant_id)
+
+        member = Member(
+            tenant_id=self.tenant_id,
+            member_number=member_number,
+            shopify_customer_id=customer['id'],
+            shopify_customer_gid=customer['gid'],
+            partner_customer_id=partner_customer_id,
+            email=customer['email'],
+            name=customer['name'],
+            phone=customer.get('phone'),
+            tier_id=tier_id,
+            status='active',
+            membership_start_date=date.today(),
+            notes=notes
+        )
+
+        db.session.add(member)
+        db.session.commit()
+
+        # Sync tier tags to Shopify
+        self.sync_member_tags(member)
+
+        return member
+
+    def search_shopify_customers(self, query: str) -> List[Dict[str, Any]]:
+        """
+        Search Shopify customers and check enrollment status.
+
+        Args:
+            query: Search query (name, email, phone, or ORB#)
+
+        Returns:
+            List of customers with is_member flag
+        """
+        if not self.shopify_client:
+            raise ValueError('Shopify not configured')
+
+        customers = self.shopify_client.search_customers(query, limit=20)
+
+        # Check enrollment status for each customer
+        for customer in customers:
+            existing = Member.query.filter_by(
+                tenant_id=self.tenant_id,
+                shopify_customer_id=customer['id']
+            ).first()
+
+            customer['is_member'] = existing is not None
+            if existing:
+                customer['member_number'] = existing.member_number
+                customer['member_tier'] = existing.tier.name if existing.tier else None
+
+        return customers
+
     def create_member(
         self,
         email: str,
@@ -36,25 +151,44 @@ class MembershipService:
         phone: Optional[str] = None,
         tier_id: Optional[int] = None,
         shopify_customer_id: Optional[str] = None,
+        shopify_customer_gid: Optional[str] = None,
+        partner_customer_id: Optional[str] = None,
         notes: Optional[str] = None
     ) -> Member:
         """
-        Create a new member.
+        Create a new member. REQUIRES Shopify customer ID.
+
+        For easier enrollment, use enroll_shopify_customer() instead.
 
         Args:
             email: Member email address
             name: Member name
             phone: Member phone number
             tier_id: Membership tier ID
-            shopify_customer_id: Shopify customer ID
+            shopify_customer_id: Shopify customer ID (REQUIRED)
+            shopify_customer_gid: Full GID format (optional)
+            partner_customer_id: Partner ID like ORB# (optional)
             notes: Internal notes
 
         Returns:
             Created Member object
 
         Raises:
-            ValueError: If email already exists for tenant
+            ValueError: If shopify_customer_id not provided or duplicate
         """
+        # Shopify customer ID is REQUIRED
+        if not shopify_customer_id:
+            raise ValueError('Shopify customer ID is required. Use the customer search to find and enroll customers.')
+
+        # Check for duplicate Shopify customer
+        existing_shopify = Member.query.filter_by(
+            tenant_id=self.tenant_id,
+            shopify_customer_id=shopify_customer_id
+        ).first()
+
+        if existing_shopify:
+            raise ValueError(f'Shopify customer {shopify_customer_id} is already enrolled as {existing_shopify.member_number}')
+
         # Check for duplicate email
         existing = Member.query.filter_by(
             tenant_id=self.tenant_id,
@@ -75,6 +209,8 @@ class MembershipService:
             phone=phone,
             tier_id=tier_id,
             shopify_customer_id=shopify_customer_id,
+            shopify_customer_gid=shopify_customer_gid,
+            partner_customer_id=partner_customer_id,
             status='active',
             membership_start_date=date.today(),
             notes=notes

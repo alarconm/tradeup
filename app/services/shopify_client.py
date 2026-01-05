@@ -258,6 +258,112 @@ class ShopifyClient:
             'tags': mutation_result.get('customer', {}).get('tags', [])
         }
 
+    def search_customers(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Search for customers by name, email, or phone.
+
+        Args:
+            query: Search query (name, email, or phone)
+            limit: Maximum results to return
+
+        Returns:
+            List of matching customer dicts
+        """
+        # Build Shopify search query
+        # Shopify search supports: email:, phone:, name:, or just text
+        search_query = query.strip()
+
+        # If it looks like an email, search by email
+        if '@' in search_query:
+            shopify_query = f'email:{search_query}'
+        # If it looks like a phone number (mostly digits), search by phone
+        elif search_query.replace('-', '').replace(' ', '').replace('(', '').replace(')', '').isdigit():
+            digits = ''.join(c for c in search_query if c.isdigit())
+            shopify_query = f'phone:*{digits}*'
+        # If it looks like an ORB# tag, search by tag
+        elif search_query.upper().startswith('ORB') or search_query.startswith('#ORB'):
+            tag = search_query.upper().replace('#', '')
+            shopify_query = f'tag:#{tag}'
+        # Otherwise, search by name
+        else:
+            shopify_query = search_query
+
+        gql_query = """
+        query searchCustomers($query: String!, $first: Int!) {
+            customers(first: $first, query: $query) {
+                edges {
+                    node {
+                        id
+                        email
+                        firstName
+                        lastName
+                        displayName
+                        phone
+                        tags
+                        numberOfOrders
+                        amountSpent {
+                            amount
+                            currencyCode
+                        }
+                        createdAt
+                        storeCreditAccounts(first: 1) {
+                            edges {
+                                node {
+                                    balance {
+                                        amount
+                                        currencyCode
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        result = self._execute_query(gql_query, {'query': shopify_query, 'first': limit})
+
+        customers = []
+        for edge in result.get('customers', {}).get('edges', []):
+            node = edge.get('node', {})
+
+            # Extract store credit balance
+            credit_accounts = node.get('storeCreditAccounts', {}).get('edges', [])
+            store_credit = 0
+            if credit_accounts:
+                store_credit = float(credit_accounts[0].get('node', {}).get('balance', {}).get('amount', 0))
+
+            # Extract ORB# from tags if present
+            orb_number = None
+            for tag in node.get('tags', []):
+                if tag.upper().startswith('#ORB') or tag.upper().startswith('ORB'):
+                    orb_number = tag.upper().replace('#', '')
+                    break
+
+            # Extract numeric ID from GID
+            gid = node.get('id', '')
+            numeric_id = gid.split('/')[-1] if gid else None
+
+            customers.append({
+                'id': numeric_id,
+                'gid': gid,
+                'email': node.get('email'),
+                'firstName': node.get('firstName'),
+                'lastName': node.get('lastName'),
+                'displayName': node.get('displayName'),
+                'name': node.get('displayName') or f"{node.get('firstName', '')} {node.get('lastName', '')}".strip(),
+                'phone': node.get('phone'),
+                'tags': node.get('tags', []),
+                'orb_number': orb_number,
+                'numberOfOrders': node.get('numberOfOrders', 0),
+                'amountSpent': float(node.get('amountSpent', {}).get('amount', 0)),
+                'storeCredit': store_credit,
+                'createdAt': node.get('createdAt')
+            })
+
+        return customers
+
     def get_customer_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """
         Find a customer by email.
@@ -268,47 +374,8 @@ class ShopifyClient:
         Returns:
             Customer data or None
         """
-        query = """
-        query findCustomer($query: String!) {
-            customers(first: 1, query: $query) {
-                edges {
-                    node {
-                        id
-                        email
-                        firstName
-                        lastName
-                        phone
-                        tags
-                        numberOfOrders
-                        amountSpent {
-                            amount
-                            currencyCode
-                        }
-                        createdAt
-                    }
-                }
-            }
-        }
-        """
-
-        result = self._execute_query(query, {'query': f'email:{email}'})
-
-        customers = result.get('customers', {}).get('edges', [])
-        if not customers:
-            return None
-
-        customer = customers[0].get('node', {})
-        return {
-            'id': customer.get('id'),
-            'email': customer.get('email'),
-            'firstName': customer.get('firstName'),
-            'lastName': customer.get('lastName'),
-            'phone': customer.get('phone'),
-            'tags': customer.get('tags', []),
-            'numberOfOrders': customer.get('numberOfOrders', 0),
-            'amountSpent': customer.get('amountSpent', {}),
-            'createdAt': customer.get('createdAt')
-        }
+        results = self.search_customers(email, limit=1)
+        return results[0] if results else None
 
     def get_collections(self) -> List[Dict[str, Any]]:
         """
