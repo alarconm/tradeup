@@ -43,6 +43,27 @@ def health_check():
     }), 200
 
 
+@promotions_bp.route('/init-db', methods=['POST'])
+def init_database():
+    """Initialize promotions database tables (for debugging)."""
+    try:
+        # Try to create tables
+        db.create_all()
+
+        # Seed tier configurations
+        seed_tier_configurations()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Database tables created and seeded'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
 # ==================== Promotions CRUD ====================
 
 @promotions_bp.route('/promotions', methods=['GET'])
