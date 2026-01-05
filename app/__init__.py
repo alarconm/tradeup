@@ -829,6 +829,31 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             </div>
 
             <div class="settings-section">
+                <div class="settings-header">Branding</div>
+                <div id="branding-settings">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-header">Features</div>
+                <div id="feature-settings" class="checkbox-group" style="padding: 12px 0;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-points" onchange="toggleFeature('points_enabled', this.checked)">
+                        <label for="feature-points">Points Program</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-referrals" onchange="toggleFeature('referrals_enabled', this.checked)">
+                        <label for="feature-referrals">Referral Program</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-self-signup" onchange="toggleFeature('self_signup_enabled', this.checked)">
+                        <label for="feature-self-signup">Self Signup (Members can sign up themselves)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
                 <div class="settings-header">Shop Info</div>
                 <div class="settings-item">
                     <span class="settings-label">Shop Domain</span>
@@ -1479,8 +1504,22 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             }}
         }}
 
-        // Load settings (tiers)
+        // Global branding data
+        var brandingData = {{}};
+        var featuresData = {{}};
+
+        // Load settings (tiers, branding, features)
         async function loadSettings() {{
+            // Load tiers
+            loadTiers();
+            // Load branding
+            loadBranding();
+            // Load features
+            loadFeatures();
+        }}
+
+        // Load tiers
+        async function loadTiers() {{
             try {{
                 const data = await apiGet('/members/tiers');
                 tiersData = data.tiers || [];
@@ -1692,6 +1731,147 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 xhr.onerror = () => reject(new Error('Network error'));
                 xhr.send(JSON.stringify(data));
             }});
+        }}
+
+        // API PATCH helper
+        function apiPatch(endpoint, data) {{
+            const url = API_BASE + endpoint;
+            return new Promise((resolve, reject) => {{
+                const xhr = new XMLHttpRequest();
+                xhr.open('PATCH', url, true);
+                xhr.setRequestHeader('X-Tenant-ID', '1');
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onreadystatechange = function() {{
+                    if (xhr.readyState === 4) {{
+                        if (xhr.status >= 200 && xhr.status < 300) {{
+                            try {{
+                                resolve(JSON.parse(xhr.responseText));
+                            }} catch (e) {{
+                                resolve({{}});
+                            }}
+                        }} else {{
+                            try {{
+                                const err = JSON.parse(xhr.responseText);
+                                reject(new Error(err.error || 'Request failed'));
+                            }} catch (e) {{
+                                reject(new Error('Request failed'));
+                            }}
+                        }}
+                    }}
+                }};
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send(JSON.stringify(data));
+            }});
+        }}
+
+        // Load branding settings
+        async function loadBranding() {{
+            try {{
+                const data = await apiGet('/settings/branding');
+                brandingData = data.branding || {{}};
+
+                const container = document.getElementById('branding-settings');
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">App Name</label>
+                        <input type="text" class="form-input" id="branding-app-name"
+                               value="${{brandingData.app_name || 'Quick Flip'}}"
+                               placeholder="Your app name" onchange="updateBranding('app_name', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tagline</label>
+                        <input type="text" class="form-input" id="branding-tagline"
+                               value="${{brandingData.tagline || 'Trade-in Loyalty Program'}}"
+                               placeholder="Short tagline" onchange="updateBranding('tagline', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Primary Color</label>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <input type="color" id="branding-primary-color"
+                                   value="${{brandingData.colors?.primary || '#e85d27'}}"
+                                   onchange="updateBrandingColor('primary', this.value)"
+                                   style="width: 60px; height: 40px; border: none; cursor: pointer;">
+                            <input type="text" class="form-input" id="branding-primary-hex"
+                                   value="${{brandingData.colors?.primary || '#e85d27'}}"
+                                   placeholder="#e85d27" style="flex: 1;"
+                                   onchange="updateBrandingColor('primary', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Style</label>
+                        <select class="form-input form-select" id="branding-style"
+                                onchange="updateBranding('style', this.value)">
+                            <option value="glass" ${{brandingData.style === 'glass' ? 'selected' : ''}}>Glass (Modern)</option>
+                            <option value="solid" ${{brandingData.style === 'solid' ? 'selected' : ''}}>Solid (Classic)</option>
+                            <option value="minimal" ${{brandingData.style === 'minimal' ? 'selected' : ''}}>Minimal (Clean)</option>
+                        </select>
+                    </div>
+                `;
+            }} catch (e) {{
+                console.error('Failed to load branding:', e);
+                document.getElementById('branding-settings').innerHTML =
+                    '<div class="text-muted">Failed to load branding settings</div>';
+            }}
+        }}
+
+        async function updateBranding(key, value) {{
+            try {{
+                const data = {{}};
+                data[key] = value;
+                await apiPatch('/settings/branding', data);
+                showToast('Branding updated!');
+            }} catch (e) {{
+                showToast('Failed to update branding', 'error');
+            }}
+        }}
+
+        async function updateBrandingColor(colorKey, value) {{
+            try {{
+                // Validate hex color
+                if (!/^#[0-9A-Fa-f]{{6}}$/.test(value)) {{
+                    showToast('Invalid color format', 'error');
+                    return;
+                }}
+                await apiPatch('/settings/branding', {{
+                    colors: {{ [colorKey]: value }}
+                }});
+                // Update both color picker and hex input
+                document.getElementById('branding-primary-color').value = value;
+                document.getElementById('branding-primary-hex').value = value;
+                // Update CSS variable for live preview
+                document.documentElement.style.setProperty('--primary', value);
+                showToast('Color updated!');
+            }} catch (e) {{
+                showToast('Failed to update color', 'error');
+            }}
+        }}
+
+        // Load feature settings
+        async function loadFeatures() {{
+            try {{
+                const data = await apiGet('/settings/features');
+                featuresData = data.features || {{}};
+
+                // Set checkbox states
+                document.getElementById('feature-points').checked = featuresData.points_enabled || false;
+                document.getElementById('feature-referrals').checked = featuresData.referrals_enabled || false;
+                document.getElementById('feature-self-signup').checked = featuresData.self_signup_enabled !== false;
+            }} catch (e) {{
+                console.error('Failed to load features:', e);
+            }}
+        }}
+
+        async function toggleFeature(key, enabled) {{
+            try {{
+                const data = {{}};
+                data[key] = enabled;
+                await apiPatch('/settings/features', data);
+                showToast(`Feature ${{enabled ? 'enabled' : 'disabled'}}!`);
+            }} catch (e) {{
+                showToast('Failed to update feature', 'error');
+                // Revert checkbox
+                loadFeatures();
+            }}
         }}
 
         // Load tier options for form
@@ -1942,6 +2122,9 @@ def register_blueprints(app: Flask) -> None:
     # Admin API
     from .api.admin import admin_bp
 
+    # Tenant Settings
+    from .api.settings import settings_bp
+
     # Billing (Shopify Billing API - replaces Stripe)
     from .api.billing import billing_bp
 
@@ -1973,6 +2156,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Admin API routes
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+
+    # Tenant Settings routes
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
 
     # Billing API routes (Shopify Billing)
     app.register_blueprint(billing_bp, url_prefix='/api/billing')
