@@ -496,9 +496,14 @@ DEFAULT_TIER_CONFIGS = [
 
 def seed_tier_configurations():
     """Seed default tier configurations if none exist."""
-    if TierConfiguration.query.count() == 0:
-        for config in DEFAULT_TIER_CONFIGS:
-            tier = TierConfiguration(**config)
-            db.session.add(tier)
-        db.session.commit()
-        print(f"✅ Seeded {len(DEFAULT_TIER_CONFIGS)} tier configurations")
+    try:
+        if TierConfiguration.query.count() == 0:
+            for config in DEFAULT_TIER_CONFIGS:
+                tier = TierConfiguration(**config)
+                db.session.add(tier)
+            db.session.commit()
+            print(f"[Promotions] Seeded {len(DEFAULT_TIER_CONFIGS)} tier configurations")
+    except Exception as e:
+        # Table may not exist yet - that's ok, will be created by migration
+        db.session.rollback()
+        print(f"[Promotions] Could not seed tier configurations: {e}")

@@ -545,16 +545,25 @@ def list_bulk_operations():
 @promotions_bp.route('/tiers', methods=['GET'])
 def list_tiers():
     """Get all tier configurations."""
-    # Ensure defaults exist
-    seed_tier_configurations()
+    try:
+        # Ensure defaults exist
+        seed_tier_configurations()
 
-    tiers = TierConfiguration.query.filter_by(active=True).order_by(
-        TierConfiguration.display_order.asc()
-    ).all()
+        tiers = TierConfiguration.query.filter_by(active=True).order_by(
+            TierConfiguration.display_order.asc()
+        ).all()
 
-    return jsonify({
-        'tiers': [t.to_dict() for t in tiers],
-    }), 200
+        return jsonify({
+            'tiers': [t.to_dict() for t in tiers],
+        }), 200
+    except Exception as e:
+        # Table may not exist yet - return empty with migration hint
+        print(f"[Promotions] Tiers endpoint error: {e}")
+        return jsonify({
+            'tiers': [],
+            'error': 'Tier configurations not available - database may need migration',
+            'hint': 'POST to /api/promotions/init-db to initialize tables'
+        }), 200
 
 
 @promotions_bp.route('/tiers/<int:tier_id>', methods=['PUT'])
