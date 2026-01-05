@@ -44,6 +44,7 @@ class TradeInBatch(db.Model):
             'id': self.id,
             'member_id': self.member_id,
             'member_number': self.member.member_number if self.member else None,
+            'member_name': self.member.name if self.member else None,
             'batch_reference': self.batch_reference,
             'trade_in_date': self.trade_in_date.isoformat(),
             'total_items': self.total_items,

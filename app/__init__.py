@@ -1170,14 +1170,14 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                     <div class="item-card">
                         <div class="item-header">
                             <div>
-                                <div class="item-title">${{t.batch_number}}</div>
+                                <div class="item-title">${{t.member_name || t.batch_reference}}</div>
                                 <div class="item-meta">${{formatDate(t.created_at)}}</div>
                             </div>
                             <div class="item-amount amount-positive">${{formatCurrency(t.total_trade_value)}}</div>
                         </div>
                         <div class="flex gap-sm">
                             <span class="status-badge status-${{t.status}}">${{t.status}}</span>
-                            <span class="text-muted">${{t.item_count || 0}} items</span>
+                            <span class="text-muted">${{t.total_items || 0}} items</span>
                         </div>
                     </div>
                 `).join('');
