@@ -51,7 +51,7 @@ def create_app(config_name: str = None) -> Flask:
             return redirect(f'/app?shop={shop}')
         return {'service': 'TradeUp by Cardflow Labs', 'status': 'running'}
 
-    # Shopify embedded app route
+    # Shopify embedded app route - Full SPA
     @app.route('/app')
     def shopify_app():
         from flask import request
@@ -59,11 +59,18 @@ def create_app(config_name: str = None) -> Flask:
         host = request.args.get('host', '')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
 
-        return f'''<!DOCTYPE html>
+        return get_spa_html(shop, host, api_key)
+
+    return app
+
+
+def get_spa_html(shop: str, host: str, api_key: str) -> str:
+    """Return the full SPA HTML for the TradeUp dashboard."""
+    return f'''<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
     <title>TradeUp Dashboard</title>
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -71,143 +78,393 @@ def create_app(config_name: str = None) -> Flask:
         :root {{
             --brand: #e85d27;
             --brand-light: #ff7a42;
+            --brand-dark: #c94d1f;
             --success: #00d68f;
             --warning: #ffb547;
             --info: #00cfe8;
+            --danger: #ff4757;
             --processing: #a855f7;
-            --space-xs: 6px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px;
+            --space-xs: 6px;
+            --space-sm: 12px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 50px;
         }}
         [data-theme="dark"] {{
-            --bg-primary: #050508; --bg-secondary: #0d0d12; --bg-card: #16161d;
-            --text-primary: #f8f8fa; --text-secondary: #a1a1aa; --border: #27272a;
+            --bg-primary: #050508;
+            --bg-secondary: #0d0d12;
+            --bg-card: #16161d;
+            --bg-input: #1e1e26;
+            --text-primary: #f8f8fa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --border-focus: #e85d27;
         }}
         [data-theme="light"] {{
-            --bg-primary: #ffffff; --bg-secondary: #f5f5f6; --bg-card: #ffffff;
-            --text-primary: #1a1a1a; --text-secondary: #6b7280; --border: #e5e5e5;
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-input: #f1f1f1;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border: #e5e5e5;
+            --border-focus: #e85d27;
         }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        html {{ scroll-behavior: smooth; }}
         body {{
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+            min-height: 100dvh;
             padding-bottom: 80px;
+            -webkit-font-smoothing: antialiased;
         }}
+
+        /* Header */
         .header {{
             background: var(--bg-secondary);
-            padding: var(--space-md) var(--space-lg);
+            padding: var(--space-sm) var(--space-md);
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }}
         .logo {{ display: flex; align-items: center; gap: var(--space-sm); }}
-        .logo-icon {{ font-size: 1.5rem; }}
-        .logo-text {{ font-weight: 700; font-size: 1.25rem; }}
-        .logo-sub {{ color: var(--text-secondary); font-size: 0.75rem; }}
-        .theme-toggle {{
-            background: var(--bg-card); border: 1px solid var(--border);
-            padding: 8px 12px; border-radius: 8px; cursor: pointer;
-            color: var(--text-primary); font-size: 1rem;
+        .logo-icon {{ font-size: 1.25rem; }}
+        .logo-text {{ font-weight: 700; font-size: 1.1rem; }}
+        .logo-sub {{ color: var(--text-secondary); font-size: 0.65rem; }}
+        .header-actions {{ display: flex; gap: var(--space-xs); align-items: center; }}
+        .shop-badge {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            display: none;
         }}
-        .container {{ max-width: 900px; margin: 0 auto; padding: var(--space-lg); }}
+        @media (min-width: 480px) {{ .shop-badge {{ display: block; }} }}
+        .icon-btn {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }}
+        .icon-btn:hover {{ border-color: var(--brand); }}
+
+        /* Container */
+        .container {{ max-width: 800px; margin: 0 auto; padding: var(--space-md); }}
+        @media (max-width: 480px) {{ .container {{ padding: var(--space-sm); }} }}
+
+        /* Pages */
+        .page {{ display: none; animation: fadeIn 0.3s ease; }}
+        .page.active {{ display: block; }}
+        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(8px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+
+        /* Stats Grid */
         .stats-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: var(--space-md);
-            margin-bottom: var(--space-xl);
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
         }}
+        @media (min-width: 600px) {{ .stats-grid {{ grid-template-columns: repeat(4, 1fr); }} }}
         .stat-card {{
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
             text-align: center;
         }}
         .stat-value {{
-            font-size: 2.5rem;
+            font-size: 1.75rem;
             font-weight: 800;
             font-family: 'JetBrains Mono', monospace;
             background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
         }}
-        .stat-label {{ color: var(--text-secondary); margin-top: var(--space-xs); font-size: 0.9rem; }}
-        .section {{ margin-bottom: var(--space-xl); }}
+        @media (max-width: 480px) {{ .stat-value {{ font-size: 1.5rem; }} }}
+        .stat-label {{ color: var(--text-secondary); margin-top: 4px; font-size: 0.75rem; }}
+
+        /* Section */
+        .section {{ margin-bottom: var(--space-lg); }}
         .section-header {{
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--space-md);
+            margin-bottom: var(--space-sm);
         }}
-        .section-title {{ font-size: 1.25rem; font-weight: 700; }}
+        .section-title {{ font-size: 1rem; font-weight: 700; }}
         .badge {{
             background: var(--brand);
             color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: var(--radius-full);
+            font-size: 0.7rem;
             font-weight: 600;
         }}
-        .member-list {{ display: flex; flex-direction: column; gap: var(--space-sm); }}
-        .member-card {{
-            background: var(--bg-card);
+        .badge-outline {{
+            background: transparent;
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: var(--space-md);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            color: var(--text-secondary);
         }}
-        .member-info {{ display: flex; align-items: center; gap: var(--space-md); }}
-        .member-avatar {{
-            width: 48px; height: 48px;
-            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: white;
-        }}
-        .member-name {{ font-weight: 600; }}
-        .member-tier {{ color: var(--text-secondary); font-size: 0.85rem; }}
-        .member-credit {{
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
-            color: var(--success);
-        }}
-        .tier-badge {{
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }}
-        .tier-silver {{ background: #71717a20; color: #a1a1aa; }}
-        .tier-gold {{ background: #fbbf2420; color: #fbbf24; }}
-        .tier-platinum {{ background: #a855f720; color: #a855f7; }}
+
+        /* Quick Actions */
         .quick-actions {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: var(--space-md);
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-sm);
         }}
+        @media (min-width: 600px) {{ .quick-actions {{ grid-template-columns: repeat(4, 1fr); }} }}
         .action-btn {{
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             text-decoration: none;
             color: var(--text-primary);
         }}
-        .action-btn:hover {{
-            border-color: var(--brand);
-            transform: translateY(-2px);
-        }}
+        .action-btn:hover {{ border-color: var(--brand); transform: translateY(-2px); }}
+        .action-btn:active {{ transform: translateY(0); }}
         .action-icon {{ font-size: 1.5rem; margin-bottom: var(--space-xs); }}
-        .action-label {{ font-size: 0.9rem; font-weight: 500; }}
+        .action-label {{ font-size: 0.8rem; font-weight: 500; }}
+
+        /* Member List */
+        .member-list {{ display: flex; flex-direction: column; gap: var(--space-sm); }}
+        .member-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        .member-card:hover {{ border-color: var(--brand); }}
+        .member-info {{ display: flex; align-items: center; gap: var(--space-sm); flex: 1; min-width: 0; }}
+        .member-avatar {{
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: white;
+        }}
+        .member-details {{ min-width: 0; }}
+        .member-name {{ font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .member-meta {{ color: var(--text-secondary); font-size: 0.75rem; }}
+        .member-right {{ display: flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }}
+        .member-credit {{
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--success);
+            font-size: 0.85rem;
+        }}
+
+        /* Tier Badges */
+        .tier-badge {{
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }}
+        .tier-silver {{ background: #71717a20; color: #a1a1aa; }}
+        .tier-gold {{ background: #fbbf2420; color: #fbbf24; }}
+        .tier-platinum {{ background: #a855f720; color: #a855f7; }}
+
+        /* Forms */
+        .form-group {{ margin-bottom: var(--space-md); }}
+        .form-label {{
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: var(--space-xs);
+            color: var(--text-secondary);
+        }}
+        .form-input {{
+            width: 100%;
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }}
+        .form-input:focus {{ outline: none; border-color: var(--border-focus); }}
+        .form-input::placeholder {{ color: var(--text-muted); }}
+        .form-select {{
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23a1a1aa' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }}
+
+        /* Buttons */
+        .btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-xs);
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            text-decoration: none;
+        }}
+        .btn-primary {{
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            color: white;
+        }}
+        .btn-primary:hover {{ transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232, 93, 39, 0.3); }}
+        .btn-secondary {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }}
+        .btn-secondary:hover {{ border-color: var(--brand); }}
+        .btn-success {{ background: var(--success); color: white; }}
+        .btn-danger {{ background: var(--danger); color: white; }}
+        .btn-block {{ width: 100%; }}
+        .btn-sm {{ padding: var(--space-xs) var(--space-sm); font-size: 0.8rem; }}
+
+        /* Modal */
+        .modal-overlay {{
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }}
+        .modal-overlay.active {{ opacity: 1; visibility: visible; }}
+        @media (min-width: 600px) {{ .modal-overlay {{ align-items: center; }} }}
+        .modal {{
+            background: var(--bg-secondary);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            transform: translateY(100%);
+            transition: transform 0.3s;
+        }}
+        .modal-overlay.active .modal {{ transform: translateY(0); }}
+        @media (min-width: 600px) {{ .modal {{ border-radius: var(--radius-lg); }} }}
+        .modal-header {{
+            padding: var(--space-md);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .modal-title {{ font-weight: 700; font-size: 1.1rem; }}
+        .modal-close {{
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            line-height: 1;
+        }}
+        .modal-body {{ padding: var(--space-md); }}
+        .modal-footer {{ padding: var(--space-md); border-top: 1px solid var(--border); display: flex; gap: var(--space-sm); }}
+
+        /* Empty State */
+        .empty-state {{
+            text-align: center;
+            padding: var(--space-xl);
+            color: var(--text-secondary);
+        }}
+        .empty-icon {{ font-size: 3rem; margin-bottom: var(--space-md); opacity: 0.5; }}
+        .empty-text {{ font-size: 0.9rem; }}
+
+        /* Loading */
+        .loading {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-xl);
+        }}
+        .spinner {{
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+
+        /* Toast */
+        .toast-container {{
+            position: fixed;
+            top: var(--space-md);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }}
+        .toast {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease;
+        }}
+        .toast-success {{ border-left: 3px solid var(--success); }}
+        .toast-error {{ border-left: 3px solid var(--danger); }}
+        @keyframes slideDown {{ from {{ opacity: 0; transform: translateY(-10px); }} }}
+
+        /* Bottom Nav */
         .bottom-nav {{
             position: fixed;
             bottom: 0;
@@ -217,40 +474,108 @@ def create_app(config_name: str = None) -> Flask:
             border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-around;
-            padding: var(--space-sm) 0;
-            padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+            padding: var(--space-xs) 0;
+            padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
+            z-index: 100;
         }}
         .nav-item {{
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
-            color: var(--text-secondary);
+            gap: 2px;
+            color: var(--text-muted);
             text-decoration: none;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             cursor: pointer;
-            transition: color 0.2s;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }}
-        .nav-item.active, .nav-item:hover {{ color: var(--brand); }}
+        .nav-item.active {{ color: var(--brand); }}
+        .nav-item:hover {{ color: var(--brand); }}
         .nav-icon {{ font-size: 1.25rem; }}
-        .shop-badge {{
+
+        /* Trade-in & Bonus Cards */
+        .item-card {{
             background: var(--bg-card);
             border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 8px;
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            margin-bottom: var(--space-sm);
+        }}
+        .item-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-sm);
+        }}
+        .item-title {{ font-weight: 600; }}
+        .item-meta {{ color: var(--text-secondary); font-size: 0.8rem; }}
+        .item-amount {{
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 1.1rem;
         }}
-        .empty-state {{
-            text-align: center;
-            padding: var(--space-xl);
-            color: var(--text-secondary);
+        .amount-positive {{ color: var(--success); }}
+        .amount-pending {{ color: var(--warning); }}
+
+        /* Status Badges */
+        .status-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            font-size: 0.7rem;
+            font-weight: 600;
         }}
-        .empty-icon {{ font-size: 3rem; margin-bottom: var(--space-md); opacity: 0.5; }}
+        .status-active {{ background: #00d68f20; color: var(--success); }}
+        .status-pending {{ background: #ffb54720; color: var(--warning); }}
+        .status-processing {{ background: #a855f720; color: var(--processing); }}
+        .status-completed {{ background: #00cfe820; color: var(--info); }}
+
+        /* Settings */
+        .settings-section {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+            overflow: hidden;
+        }}
+        .settings-header {{
+            padding: var(--space-md);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }}
+        .settings-item {{
+            padding: var(--space-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }}
+        .settings-item:last-child {{ border-bottom: none; }}
+        .settings-label {{ font-size: 0.9rem; }}
+        .settings-value {{ color: var(--text-secondary); font-size: 0.85rem; }}
+
+        /* Utility */
+        .text-center {{ text-align: center; }}
+        .text-success {{ color: var(--success); }}
+        .text-warning {{ color: var(--warning); }}
+        .text-muted {{ color: var(--text-muted); }}
+        .mt-sm {{ margin-top: var(--space-sm); }}
+        .mt-md {{ margin-top: var(--space-md); }}
+        .mb-sm {{ margin-bottom: var(--space-sm); }}
+        .mb-md {{ margin-bottom: var(--space-md); }}
+        .flex {{ display: flex; }}
+        .gap-sm {{ gap: var(--space-sm); }}
+        .hidden {{ display: none !important; }}
     </style>
 </head>
 <body>
+    <div id="toast-container" class="toast-container"></div>
+
     <header class="header">
         <div class="logo">
             <span class="logo-icon">🚀</span>
@@ -259,146 +584,649 @@ def create_app(config_name: str = None) -> Flask:
                 <div class="logo-sub">by Cardflow Labs</div>
             </div>
         </div>
-        <div style="display: flex; gap: var(--space-sm); align-items: center;">
+        <div class="header-actions">
             <span class="shop-badge">{shop.replace('.myshopify.com', '')}</span>
-            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">🌓</button>
         </div>
     </header>
 
-    <div class="container">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">127</div>
-                <div class="stat-label">Total Members</div>
+    <!-- HOME PAGE -->
+    <div id="page-home" class="page active">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-members">--</div>
+                    <div class="stat-label">Members</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-credit">--</div>
+                    <div class="stat-label">Credit Issued</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-tradeins">--</div>
+                    <div class="stat-label">Trade-Ins</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-bonuses">--</div>
+                    <div class="stat-label">Bonuses</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">$4,280</div>
-                <div class="stat-label">Store Credit Issued</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">23</div>
-                <div class="stat-label">Active Trade-Ins</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">$892</div>
-                <div class="stat-label">Pending Bonuses</div>
-            </div>
-        </div>
 
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-title">Quick Actions</h2>
-            </div>
-            <div class="quick-actions">
-                <a class="action-btn" href="#">
-                    <div class="action-icon">👤</div>
-                    <div class="action-label">Add Member</div>
-                </a>
-                <a class="action-btn" href="#">
-                    <div class="action-icon">📦</div>
-                    <div class="action-label">New Trade-In</div>
-                </a>
-                <a class="action-btn" href="#">
-                    <div class="action-icon">💰</div>
-                    <div class="action-label">Process Bonuses</div>
-                </a>
-                <a class="action-btn" href="#">
-                    <div class="action-icon">📊</div>
-                    <div class="action-label">View Reports</div>
-                </a>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-title">Recent Members</h2>
-                <span class="badge">5 new this week</span>
-            </div>
-            <div class="member-list">
-                <div class="member-card">
-                    <div class="member-info">
-                        <div class="member-avatar">JD</div>
-                        <div>
-                            <div class="member-name">John Doe</div>
-                            <div class="member-tier">Member since Jan 2026</div>
-                        </div>
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Quick Actions</h2>
+                </div>
+                <div class="quick-actions">
+                    <div class="action-btn" onclick="openModal('add-member')">
+                        <div class="action-icon">👤</div>
+                        <div class="action-label">Add Member</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: var(--space-md);">
-                        <span class="tier-badge tier-platinum">Platinum</span>
-                        <span class="member-credit">$245.00</span>
+                    <div class="action-btn" onclick="openModal('new-tradein')">
+                        <div class="action-icon">📦</div>
+                        <div class="action-label">New Trade-In</div>
+                    </div>
+                    <div class="action-btn" onclick="navigateTo('bonuses')">
+                        <div class="action-icon">💰</div>
+                        <div class="action-label">Bonuses</div>
+                    </div>
+                    <div class="action-btn" onclick="navigateTo('settings')">
+                        <div class="action-icon">⚙️</div>
+                        <div class="action-label">Settings</div>
                     </div>
                 </div>
-                <div class="member-card">
-                    <div class="member-info">
-                        <div class="member-avatar">SM</div>
-                        <div>
-                            <div class="member-name">Sarah Miller</div>
-                            <div class="member-tier">Member since Dec 2025</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: var(--space-md);">
-                        <span class="tier-badge tier-gold">Gold</span>
-                        <span class="member-credit">$128.50</span>
-                    </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Recent Members</h2>
+                    <span class="badge" id="new-members-badge">--</span>
                 </div>
-                <div class="member-card">
-                    <div class="member-info">
-                        <div class="member-avatar">MJ</div>
-                        <div>
-                            <div class="member-name">Mike Johnson</div>
-                            <div class="member-tier">Member since Jan 2026</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: var(--space-md);">
-                        <span class="tier-badge tier-silver">Silver</span>
-                        <span class="member-credit">$52.00</span>
-                    </div>
+                <div class="member-list" id="recent-members">
+                    <div class="loading"><div class="spinner"></div></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- MEMBERS PAGE -->
+    <div id="page-members" class="page">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">All Members</h2>
+                <button class="btn btn-primary btn-sm" onclick="openModal('add-member')">+ Add</button>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-input" id="member-search" placeholder="Search by name or email..." oninput="filterMembers(this.value)">
+            </div>
+            <div class="member-list" id="all-members">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRADE-INS PAGE -->
+    <div id="page-tradeins" class="page">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Trade-Ins</h2>
+                <button class="btn btn-primary btn-sm" onclick="openModal('new-tradein')">+ New</button>
+            </div>
+            <div id="tradein-list">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BONUSES PAGE -->
+    <div id="page-bonuses" class="page">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Pending Bonuses</h2>
+            </div>
+            <div id="bonus-list">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="page-settings" class="page">
+        <div class="container">
+            <h2 class="section-title mb-md">Settings</h2>
+
+            <div class="settings-section">
+                <div class="settings-header">Membership Tiers</div>
+                <div id="tiers-list">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-header">Shop Info</div>
+                <div class="settings-item">
+                    <span class="settings-label">Shop Domain</span>
+                    <span class="settings-value">{shop}</span>
+                </div>
+                <div class="settings-item">
+                    <span class="settings-label">Plan</span>
+                    <span class="settings-value">Pro (Unlimited)</span>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-header">App Info</div>
+                <div class="settings-item">
+                    <span class="settings-label">Version</span>
+                    <span class="settings-value">1.0.0</span>
+                </div>
+                <div class="settings-item">
+                    <span class="settings-label">Support</span>
+                    <span class="settings-value">support@cardflowlabs.com</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD MEMBER MODAL -->
+    <div id="modal-add-member" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Add New Member</span>
+                <button class="modal-close" onclick="closeModal('add-member')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-member-form" onsubmit="submitAddMember(event)">
+                    <div class="form-group">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-input" name="email" required placeholder="customer@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-input" name="name" placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" class="form-input" name="phone" placeholder="+1 (555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Membership Tier</label>
+                        <select class="form-input form-select" name="tier_id" id="tier-select">
+                            <option value="">Select tier...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Shopify Customer ID (optional)</label>
+                        <input type="text" class="form-input" name="shopify_customer_id" placeholder="gid://shopify/Customer/...">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Create Member</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW TRADE-IN MODAL -->
+    <div id="modal-new-tradein" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">New Trade-In</span>
+                <button class="modal-close" onclick="closeModal('new-tradein')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-tradein-form" onsubmit="submitNewTradeIn(event)">
+                    <div class="form-group">
+                        <label class="form-label">Member *</label>
+                        <select class="form-input form-select" name="member_id" id="tradein-member-select" required>
+                            <option value="">Select member...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Item Description *</label>
+                        <input type="text" class="form-input" name="description" required placeholder="Pokemon Charizard VMAX">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Trade-In Value *</label>
+                        <input type="number" class="form-input" name="value" required step="0.01" min="0" placeholder="50.00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notes</label>
+                        <input type="text" class="form-input" name="notes" placeholder="Condition, grade, etc.">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Create Trade-In</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MEMBER DETAIL MODAL -->
+    <div id="modal-member-detail" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Member Details</span>
+                <button class="modal-close" onclick="closeModal('member-detail')">&times;</button>
+            </div>
+            <div class="modal-body" id="member-detail-content">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
     <nav class="bottom-nav">
-        <a class="nav-item active">
+        <a class="nav-item active" data-page="home" onclick="navigateTo('home')">
             <span class="nav-icon">🏠</span>
             <span>Home</span>
         </a>
-        <a class="nav-item">
+        <a class="nav-item" data-page="members" onclick="navigateTo('members')">
             <span class="nav-icon">👥</span>
             <span>Members</span>
         </a>
-        <a class="nav-item">
+        <a class="nav-item" data-page="tradeins" onclick="navigateTo('tradeins')">
             <span class="nav-icon">📦</span>
             <span>Trade-Ins</span>
         </a>
-        <a class="nav-item">
+        <a class="nav-item" data-page="bonuses" onclick="navigateTo('bonuses')">
             <span class="nav-icon">💰</span>
             <span>Bonuses</span>
         </a>
-        <a class="nav-item">
+        <a class="nav-item" data-page="settings" onclick="navigateTo('settings')">
             <span class="nav-icon">⚙️</span>
             <span>Settings</span>
         </a>
     </nav>
 
     <script>
+        // App Bridge initialization
         var AppBridge = window['app-bridge'];
         var createApp = AppBridge.default;
         var app = createApp({{ apiKey: '{api_key}', host: '{host}' }});
 
+        // State
+        let currentPage = 'home';
+        let membersData = [];
+        let tiersData = [];
+        const API_BASE = '/api';
+
+        // Theme toggle
         function toggleTheme() {{
             const html = document.documentElement;
             const current = html.getAttribute('data-theme');
-            html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
-            localStorage.setItem('tradeup-theme', current === 'dark' ? 'light' : 'dark');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('tradeup-theme', next);
         }}
-        const saved = localStorage.getItem('tradeup-theme');
-        if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('tradeup-theme');
+        if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+        // Navigation
+        function navigateTo(page) {{
+            currentPage = page;
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector('[data-page="' + page + '"]').classList.add('active');
+
+            // Load page data
+            if (page === 'members') loadAllMembers();
+            if (page === 'tradeins') loadTradeIns();
+            if (page === 'bonuses') loadBonuses();
+            if (page === 'settings') loadSettings();
+        }}
+
+        // Modal functions
+        function openModal(name) {{
+            document.getElementById('modal-' + name).classList.add('active');
+            document.body.style.overflow = 'hidden';
+            if (name === 'add-member') loadTierOptions();
+            if (name === 'new-tradein') loadMemberOptions();
+        }}
+
+        function closeModal(name) {{
+            document.getElementById('modal-' + name).classList.remove('active');
+            document.body.style.overflow = '';
+        }}
+
+        function closeModalOnOverlay(e) {{
+            if (e.target.classList.contains('modal-overlay')) {{
+                e.target.classList.remove('active');
+                document.body.style.overflow = '';
+            }}
+        }}
+
+        // Toast notifications
+        function showToast(message, type = 'success') {{
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }}
+
+        // API helpers
+        async function apiGet(endpoint) {{
+            const res = await fetch(API_BASE + endpoint, {{
+                headers: {{ 'X-Tenant-ID': '1' }}
+            }});
+            return res.json();
+        }}
+
+        async function apiPost(endpoint, data) {{
+            const res = await fetch(API_BASE + endpoint, {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json', 'X-Tenant-ID': '1' }},
+                body: JSON.stringify(data)
+            }});
+            return res.json();
+        }}
+
+        // Format helpers
+        function formatCurrency(amount) {{
+            return '$' + Number(amount || 0).toLocaleString('en-US', {{ minimumFractionDigits: 0, maximumFractionDigits: 0 }});
+        }}
+
+        function formatDate(dateStr) {{
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-US', {{ month: 'short', year: 'numeric' }});
+        }}
+
+        function getInitials(name) {{
+            if (!name) return '??';
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }}
+
+        function getTierClass(tierName) {{
+            if (!tierName) return '';
+            const name = tierName.toLowerCase();
+            if (name.includes('plat')) return 'tier-platinum';
+            if (name.includes('gold')) return 'tier-gold';
+            return 'tier-silver';
+        }}
+
+        // Load dashboard stats
+        async function loadDashboardStats() {{
+            try {{
+                const stats = await apiGet('/dashboard/stats');
+                document.getElementById('stat-members').textContent = stats.members?.total || 0;
+                document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
+                document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
+                document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
+            }} catch (e) {{
+                console.error('Failed to load stats:', e);
+            }}
+        }}
+
+        // Load recent members
+        async function loadRecentMembers() {{
+            try {{
+                const data = await apiGet('/members?per_page=5');
+                membersData = data.members || [];
+
+                const container = document.getElementById('recent-members');
+                if (!membersData.length) {{
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No members yet</div><button class="btn btn-primary btn-sm mt-md" onclick="openModal(\\'add-member\\')">Add First Member</button></div>';
+                    document.getElementById('new-members-badge').textContent = '0 members';
+                    return;
+                }}
+
+                document.getElementById('new-members-badge').textContent = data.total + ' total';
+                container.innerHTML = membersData.map(m => memberCardHTML(m)).join('');
+            }} catch (e) {{
+                console.error('Failed to load members:', e);
+                document.getElementById('recent-members').innerHTML = '<div class="empty-state text-muted">Failed to load members</div>';
+            }}
+        }}
+
+        // Load all members
+        async function loadAllMembers() {{
+            try {{
+                const data = await apiGet('/members?per_page=100');
+                membersData = data.members || [];
+
+                const container = document.getElementById('all-members');
+                if (!membersData.length) {{
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No members yet</div></div>';
+                    return;
+                }}
+
+                container.innerHTML = membersData.map(m => memberCardHTML(m)).join('');
+            }} catch (e) {{
+                console.error('Failed to load members:', e);
+            }}
+        }}
+
+        function memberCardHTML(m) {{
+            const tierName = m.tier?.name || 'Silver';
+            return `<div class="member-card" onclick="showMemberDetail(${{m.id}})">
+                <div class="member-info">
+                    <div class="member-avatar">${{getInitials(m.name)}}</div>
+                    <div class="member-details">
+                        <div class="member-name">${{m.name || m.email}}</div>
+                        <div class="member-meta">${{m.member_number}} · ${{formatDate(m.created_at)}}</div>
+                    </div>
+                </div>
+                <div class="member-right">
+                    <span class="tier-badge ${{getTierClass(tierName)}}">${{tierName}}</span>
+                    <span class="member-credit">${{formatCurrency(m.stats?.total_bonus_earned)}}</span>
+                </div>
+            </div>`;
+        }}
+
+        function filterMembers(query) {{
+            const q = query.toLowerCase();
+            const filtered = membersData.filter(m =>
+                (m.name && m.name.toLowerCase().includes(q)) ||
+                (m.email && m.email.toLowerCase().includes(q)) ||
+                (m.member_number && m.member_number.toLowerCase().includes(q))
+            );
+            document.getElementById('all-members').innerHTML = filtered.map(m => memberCardHTML(m)).join('');
+        }}
+
+        // Show member detail
+        async function showMemberDetail(id) {{
+            openModal('member-detail');
+            const container = document.getElementById('member-detail-content');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            try {{
+                const m = await apiGet('/members/' + id);
+                container.innerHTML = `
+                    <div class="text-center mb-md">
+                        <div class="member-avatar" style="width:64px;height:64px;font-size:1.25rem;margin:0 auto">${{getInitials(m.name)}}</div>
+                        <h3 class="mt-sm">${{m.name || 'No Name'}}</h3>
+                        <div class="text-muted">${{m.member_number}}</div>
+                        <span class="tier-badge ${{getTierClass(m.tier?.name)}} mt-sm">${{m.tier?.name || 'Silver'}}</span>
+                    </div>
+                    <div class="settings-section">
+                        <div class="settings-item"><span>Email</span><span class="text-muted">${{m.email}}</span></div>
+                        <div class="settings-item"><span>Phone</span><span class="text-muted">${{m.phone || '-'}}</span></div>
+                        <div class="settings-item"><span>Status</span><span class="status-badge status-${{m.status}}">${{m.status}}</span></div>
+                        <div class="settings-item"><span>Member Since</span><span class="text-muted">${{formatDate(m.created_at)}}</span></div>
+                    </div>
+                    <div class="stats-grid mt-md">
+                        <div class="stat-card"><div class="stat-value" style="font-size:1.5rem">${{m.stats?.total_trade_ins || 0}}</div><div class="stat-label">Trade-Ins</div></div>
+                        <div class="stat-card"><div class="stat-value" style="font-size:1.5rem">${{formatCurrency(m.stats?.total_bonus_earned)}}</div><div class="stat-label">Earned</div></div>
+                    </div>
+                `;
+            }} catch (e) {{
+                container.innerHTML = '<div class="empty-state text-muted">Failed to load member</div>';
+            }}
+        }}
+
+        // Load trade-ins
+        async function loadTradeIns() {{
+            try {{
+                const data = await apiGet('/trade-ins?per_page=20');
+                const items = data.batches || [];
+
+                const container = document.getElementById('tradein-list');
+                if (!items.length) {{
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No trade-ins yet</div><button class="btn btn-primary btn-sm mt-md" onclick="openModal(\\'new-tradein\\')">Create Trade-In</button></div>';
+                    return;
+                }}
+
+                container.innerHTML = items.map(t => `
+                    <div class="item-card">
+                        <div class="item-header">
+                            <div>
+                                <div class="item-title">${{t.batch_number}}</div>
+                                <div class="item-meta">${{formatDate(t.created_at)}}</div>
+                            </div>
+                            <div class="item-amount amount-positive">${{formatCurrency(t.total_trade_value)}}</div>
+                        </div>
+                        <div class="flex gap-sm">
+                            <span class="status-badge status-${{t.status}}">${{t.status}}</span>
+                            <span class="text-muted">${{t.item_count || 0}} items</span>
+                        </div>
+                    </div>
+                `).join('');
+            }} catch (e) {{
+                document.getElementById('tradein-list').innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No trade-ins yet</div></div>';
+            }}
+        }}
+
+        // Load bonuses
+        async function loadBonuses() {{
+            try {{
+                const data = await apiGet('/bonuses?status=pending&per_page=20');
+                const items = data.transactions || [];
+
+                const container = document.getElementById('bonus-list');
+                if (!items.length) {{
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No pending bonuses</div></div>';
+                    return;
+                }}
+
+                container.innerHTML = items.map(b => `
+                    <div class="item-card">
+                        <div class="item-header">
+                            <div>
+                                <div class="item-title">${{b.member?.name || 'Member'}}</div>
+                                <div class="item-meta">${{b.description || 'Quick Flip Bonus'}}</div>
+                            </div>
+                            <div class="item-amount amount-pending">${{formatCurrency(b.bonus_amount)}}</div>
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="processBonus(${{b.id}})">Process</button>
+                    </div>
+                `).join('');
+            }} catch (e) {{
+                document.getElementById('bonus-list').innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No pending bonuses</div></div>';
+            }}
+        }}
+
+        async function processBonus(id) {{
+            try {{
+                await apiPost('/bonuses/' + id + '/process', {{}});
+                showToast('Bonus processed!');
+                loadBonuses();
+                loadDashboardStats();
+            }} catch (e) {{
+                showToast('Failed to process bonus', 'error');
+            }}
+        }}
+
+        // Load settings (tiers)
+        async function loadSettings() {{
+            try {{
+                const data = await apiGet('/members/tiers');
+                tiersData = data.tiers || [];
+
+                const container = document.getElementById('tiers-list');
+                if (!tiersData.length) {{
+                    container.innerHTML = '<div class="settings-item"><span class="text-muted">No tiers configured</span></div>';
+                    return;
+                }}
+
+                container.innerHTML = tiersData.map(t => `
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-label">${{t.name}}</div>
+                            <div class="text-muted" style="font-size:0.75rem">${{(t.bonus_rate * 100).toFixed(0)}}% bonus · ${{t.quick_flip_days}} days</div>
+                        </div>
+                        <span>${{formatCurrency(t.monthly_price)}}/mo</span>
+                    </div>
+                `).join('');
+            }} catch (e) {{
+                console.error('Failed to load tiers:', e);
+            }}
+        }}
+
+        // Load tier options for form
+        async function loadTierOptions() {{
+            if (!tiersData.length) {{
+                const data = await apiGet('/members/tiers');
+                tiersData = data.tiers || [];
+            }}
+            const select = document.getElementById('tier-select');
+            select.innerHTML = '<option value="">Select tier...</option>' +
+                tiersData.map(t => `<option value="${{t.id}}">${{t.name}} - ${{formatCurrency(t.monthly_price)}}/mo</option>`).join('');
+        }}
+
+        // Load member options for trade-in form
+        async function loadMemberOptions() {{
+            if (!membersData.length) {{
+                const data = await apiGet('/members?per_page=100');
+                membersData = data.members || [];
+            }}
+            const select = document.getElementById('tradein-member-select');
+            select.innerHTML = '<option value="">Select member...</option>' +
+                membersData.map(m => `<option value="${{m.id}}">${{m.name || m.email}} (${{m.member_number}})</option>`).join('');
+        }}
+
+        // Submit add member
+        async function submitAddMember(e) {{
+            e.preventDefault();
+            const form = e.target;
+            const data = Object.fromEntries(new FormData(form));
+            if (data.tier_id) data.tier_id = parseInt(data.tier_id);
+
+            try {{
+                await apiPost('/members', data);
+                showToast('Member created!');
+                closeModal('add-member');
+                form.reset();
+                loadRecentMembers();
+                loadDashboardStats();
+                if (currentPage === 'members') loadAllMembers();
+            }} catch (e) {{
+                showToast('Failed to create member', 'error');
+            }}
+        }}
+
+        // Submit new trade-in
+        async function submitNewTradeIn(e) {{
+            e.preventDefault();
+            const form = e.target;
+            const data = Object.fromEntries(new FormData(form));
+            data.member_id = parseInt(data.member_id);
+            data.items = [{{
+                description: data.description,
+                trade_value: parseFloat(data.value),
+                notes: data.notes
+            }}];
+
+            try {{
+                await apiPost('/trade-ins', data);
+                showToast('Trade-in created!');
+                closeModal('new-tradein');
+                form.reset();
+                loadDashboardStats();
+                if (currentPage === 'tradeins') loadTradeIns();
+            }} catch (e) {{
+                showToast('Failed to create trade-in', 'error');
+            }}
+        }}
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {{
+            loadDashboardStats();
+            loadRecentMembers();
+        }});
     </script>
 </body>
 </html>'''
-
-    return app
 
 
 def register_blueprints(app: Flask) -> None:
