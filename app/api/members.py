@@ -223,3 +223,112 @@ def create_tier():
     db.session.commit()
 
     return jsonify(tier.to_dict()), 201
+
+
+@members_bp.route('/tiers/<int:tier_id>', methods=['GET'])
+def get_tier(tier_id):
+    """Get a single membership tier."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tier = MembershipTier.query.filter_by(
+        id=tier_id,
+        tenant_id=tenant_id
+    ).first_or_404()
+
+    return jsonify(tier.to_dict())
+
+
+@members_bp.route('/tiers/<int:tier_id>', methods=['PUT'])
+def update_tier(tier_id):
+    """Update a membership tier."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tier = MembershipTier.query.filter_by(
+        id=tier_id,
+        tenant_id=tenant_id
+    ).first_or_404()
+
+    # Update allowed fields
+    if 'name' in data:
+        tier.name = data['name']
+    if 'monthly_price' in data:
+        tier.monthly_price = data['monthly_price']
+    if 'bonus_rate' in data:
+        tier.bonus_rate = data['bonus_rate']
+    if 'quick_flip_days' in data:
+        tier.quick_flip_days = data['quick_flip_days']
+    if 'benefits' in data:
+        tier.benefits = data['benefits']
+    if 'display_order' in data:
+        tier.display_order = data['display_order']
+    if 'is_active' in data:
+        tier.is_active = data['is_active']
+
+    db.session.commit()
+    return jsonify(tier.to_dict())
+
+
+@members_bp.route('/tiers/<int:tier_id>', methods=['DELETE'])
+def delete_tier(tier_id):
+    """Delete (deactivate) a membership tier.
+
+    Soft delete - sets is_active=False rather than removing.
+    Cannot delete tier if members are using it.
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tier = MembershipTier.query.filter_by(
+        id=tier_id,
+        tenant_id=tenant_id
+    ).first_or_404()
+
+    # Check if any members are using this tier
+    member_count = Member.query.filter_by(tier_id=tier_id).count()
+    if member_count > 0:
+        return jsonify({
+            'error': f'Cannot delete tier with {member_count} active members'
+        }), 400
+
+    # Soft delete
+    tier.is_active = False
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': f'Tier "{tier.name}" deleted'})
+
+
+@members_bp.route('/tiers/reorder', methods=['POST'])
+def reorder_tiers():
+    """Reorder membership tiers.
+
+    JSON body:
+        tier_ids: List of tier IDs in desired order
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tier_ids = data.get('tier_ids', [])
+    if not tier_ids:
+        return jsonify({'error': 'tier_ids is required'}), 400
+
+    # Update display_order for each tier
+    for order, tier_id in enumerate(tier_ids):
+        tier = MembershipTier.query.filter_by(
+            id=tier_id,
+            tenant_id=tenant_id
+        ).first()
+        if tier:
+            tier.display_order = order
+
+    db.session.commit()
+
+    # Return updated tiers
+    tiers = MembershipTier.query.filter_by(
+        tenant_id=tenant_id,
+        is_active=True
+    ).order_by(MembershipTier.display_order).all()
+
+    return jsonify({
+        'success': True,
+        'tiers': [t.to_dict() for t in tiers]
+    })

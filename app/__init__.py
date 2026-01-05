@@ -541,6 +541,96 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         .status-processing {{ background: #a855f720; color: var(--processing); }}
         .status-completed {{ background: #00cfe820; color: var(--info); }}
 
+        /* Tier Cards */
+        .tier-card {{
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }}
+        .tier-card-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }}
+        .tier-card-name {{
+            font-weight: 600;
+            font-size: 1.1rem;
+        }}
+        .tier-card-price {{
+            color: var(--primary);
+            font-weight: 600;
+        }}
+        .tier-card-details {{
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }}
+        .tier-stat {{
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }}
+        .tier-stat strong {{
+            color: var(--text-primary);
+        }}
+        .tier-card-benefits {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }}
+        .benefit-tag {{
+            background: rgba(232, 93, 39, 0.15);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }}
+        .tier-card-actions {{
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }}
+        .btn-danger {{
+            background: #ef4444 !important;
+            border-color: #ef4444 !important;
+        }}
+        .btn-danger:hover {{
+            background: #dc2626 !important;
+            border-color: #dc2626 !important;
+        }}
+
+        /* Checkbox Group */
+        .checkbox-group {{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }}
+        .checkbox-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .checkbox-item input[type="checkbox"] {{
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }}
+        .checkbox-item label {{
+            margin: 0;
+            cursor: pointer;
+        }}
+        .inline-input {{
+            width: 60px;
+            padding: 4px 8px;
+            margin-left: 8px;
+        }}
+
         /* Settings */
         .settings-section {{
             background: var(--bg-card);
@@ -882,6 +972,78 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             </div>
             <div class="modal-body" id="member-detail-content">
                 <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TIER EDIT MODAL -->
+    <div id="modal-tier-edit" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <span class="modal-title" id="tier-modal-title">Create New Tier</span>
+                <button class="modal-close" onclick="closeTierModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="tier-edit-form" onsubmit="saveTier(event)">
+                    <div class="form-group">
+                        <label class="form-label">Tier Name *</label>
+                        <input type="text" class="form-input" id="tier-name" required
+                               placeholder="e.g., Silver, Gold, Platinum">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Monthly Price *</label>
+                            <input type="number" class="form-input" id="tier-monthly-price" required
+                                   min="0" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bonus Rate % *</label>
+                            <input type="number" class="form-input" id="tier-bonus-rate" required
+                                   min="0" max="100" step="1" placeholder="10">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Quick Flip Window (Days)</label>
+                        <input type="number" class="form-input" id="tier-qf-days"
+                               min="1" max="30" value="7">
+                        <small class="text-muted" style="display:block;margin-top:4px;">
+                            How many days members have to flip items for bonus
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Benefits</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="benefit-discount">
+                                <label for="benefit-discount">Store Discount</label>
+                                <input type="number" class="form-input inline-input" id="benefit-discount-value"
+                                       min="1" max="50" value="5" placeholder="%">
+                                <span class="text-muted">%</span>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="benefit-early-access">
+                                <label for="benefit-early-access">Early Access to New Products</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="benefit-free-shipping">
+                                <label for="benefit-free-shipping">Free Shipping</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="benefit-events">
+                                <label for="benefit-events">Event Access</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="benefit-vip">
+                                <label for="benefit-vip">VIP Perks</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">Save Tier</button>
+                </form>
             </div>
         </div>
     </div>
@@ -1318,22 +1480,211 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 
                 const container = document.getElementById('tiers-list');
                 if (!tiersData.length) {{
-                    container.innerHTML = '<div class="settings-item"><span class="text-muted">No tiers configured</span></div>';
+                    container.innerHTML = `
+                        <div class="settings-item" style="justify-content: center;">
+                            <span class="text-muted">No tiers configured</span>
+                        </div>
+                        <button class="btn btn-primary btn-block mt-md" onclick="openTierModal()">
+                            + Add First Tier
+                        </button>`;
                     return;
                 }}
 
-                container.innerHTML = tiersData.map(t => `
-                    <div class="settings-item">
-                        <div>
-                            <div class="settings-label">${{t.name}}</div>
-                            <div class="text-muted" style="font-size:0.75rem">${{(t.bonus_rate * 100).toFixed(0)}}% bonus · ${{t.quick_flip_days}} days</div>
+                container.innerHTML = tiersData.map((t, i) => `
+                    <div class="tier-card" data-tier-id="${{t.id}}">
+                        <div class="tier-card-header">
+                            <div class="tier-card-name">${{t.name}}</div>
+                            <div class="tier-card-price">${{formatCurrency(t.monthly_price)}}/mo</div>
                         </div>
-                        <span>${{formatCurrency(t.monthly_price)}}/mo</span>
+                        <div class="tier-card-details">
+                            <span class="tier-stat"><strong>${{(t.bonus_rate * 100).toFixed(0)}}%</strong> bonus</span>
+                            <span class="tier-stat"><strong>${{t.quick_flip_days}}</strong> day window</span>
+                        </div>
+                        ${{t.benefits && Object.keys(t.benefits).length > 0 ? `
+                            <div class="tier-card-benefits">
+                                ${{Object.entries(t.benefits).map(([k, v]) =>
+                                    v ? `<span class="benefit-tag">${{formatBenefitName(k)}}</span>` : ''
+                                ).join('')}}
+                            </div>
+                        ` : ''}}
+                        <div class="tier-card-actions">
+                            <button class="btn btn-sm" onclick="openTierModal(${{t.id}})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteTier(${{t.id}}, '${{t.name}}')">Delete</button>
+                        </div>
                     </div>
-                `).join('');
+                `).join('') + `
+                    <button class="btn btn-primary btn-block mt-md" onclick="openTierModal()">
+                        + Add New Tier
+                    </button>`;
             }} catch (e) {{
                 console.error('Failed to load tiers:', e);
+                document.getElementById('tiers-list').innerHTML = '<div class="text-muted">Failed to load tiers</div>';
             }}
+        }}
+
+        function formatBenefitName(key) {{
+            const names = {{
+                'discount': 'Discount',
+                'early_access': 'Early Access',
+                'free_shipping': 'Free Shipping',
+                'events': 'Events',
+                'vip_perks': 'VIP Perks'
+            }};
+            return names[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }}
+
+        // Tier CRUD functions
+        let editingTierId = null;
+
+        function openTierModal(tierId = null) {{
+            editingTierId = tierId;
+            const modal = document.getElementById('modal-tier-edit');
+            const title = document.getElementById('tier-modal-title');
+            const form = document.getElementById('tier-edit-form');
+
+            if (tierId) {{
+                title.textContent = 'Edit Tier';
+                const tier = tiersData.find(t => t.id === tierId);
+                if (tier) {{
+                    document.getElementById('tier-name').value = tier.name;
+                    document.getElementById('tier-monthly-price').value = tier.monthly_price;
+                    document.getElementById('tier-bonus-rate').value = (tier.bonus_rate * 100).toFixed(0);
+                    document.getElementById('tier-qf-days').value = tier.quick_flip_days;
+                    // Set benefit checkboxes
+                    const benefits = tier.benefits || {{}};
+                    document.getElementById('benefit-discount').checked = !!benefits.discount;
+                    document.getElementById('benefit-early-access').checked = !!benefits.early_access;
+                    document.getElementById('benefit-free-shipping').checked = !!benefits.free_shipping;
+                    document.getElementById('benefit-events').checked = !!benefits.events;
+                    document.getElementById('benefit-vip').checked = !!benefits.vip_perks;
+                    if (benefits.discount && typeof benefits.discount === 'number') {{
+                        document.getElementById('benefit-discount-value').value = benefits.discount;
+                    }}
+                }}
+            }} else {{
+                title.textContent = 'Create New Tier';
+                form.reset();
+                document.getElementById('tier-bonus-rate').value = '10';
+                document.getElementById('tier-qf-days').value = '7';
+            }}
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }}
+
+        function closeTierModal() {{
+            document.getElementById('modal-tier-edit').classList.remove('active');
+            document.body.style.overflow = '';
+            editingTierId = null;
+        }}
+
+        async function saveTier(e) {{
+            e.preventDefault();
+
+            const benefits = {{}};
+            if (document.getElementById('benefit-discount').checked) {{
+                benefits.discount = parseInt(document.getElementById('benefit-discount-value').value) || 5;
+            }}
+            if (document.getElementById('benefit-early-access').checked) benefits.early_access = true;
+            if (document.getElementById('benefit-free-shipping').checked) benefits.free_shipping = true;
+            if (document.getElementById('benefit-events').checked) benefits.events = true;
+            if (document.getElementById('benefit-vip').checked) benefits.vip_perks = true;
+
+            const data = {{
+                name: document.getElementById('tier-name').value,
+                monthly_price: parseFloat(document.getElementById('tier-monthly-price').value),
+                bonus_rate: parseFloat(document.getElementById('tier-bonus-rate').value) / 100,
+                quick_flip_days: parseInt(document.getElementById('tier-qf-days').value),
+                benefits: benefits
+            }};
+
+            try {{
+                if (editingTierId) {{
+                    await apiPut('/members/tiers/' + editingTierId, data);
+                    showToast('Tier updated!');
+                }} else {{
+                    await apiPost('/members/tiers', data);
+                    showToast('Tier created!');
+                }}
+                closeTierModal();
+                loadSettings();
+            }} catch (e) {{
+                showToast(e.message || 'Failed to save tier', 'error');
+            }}
+        }}
+
+        async function deleteTier(tierId, tierName) {{
+            if (!confirm(`Delete tier "${{tierName}}"? This cannot be undone.`)) return;
+
+            try {{
+                await apiDelete('/members/tiers/' + tierId);
+                showToast('Tier deleted!');
+                loadSettings();
+            }} catch (e) {{
+                showToast(e.message || 'Failed to delete tier', 'error');
+            }}
+        }}
+
+        // API DELETE helper
+        function apiDelete(endpoint) {{
+            const url = API_BASE + endpoint;
+            return new Promise((resolve, reject) => {{
+                const xhr = new XMLHttpRequest();
+                xhr.open('DELETE', url, true);
+                xhr.setRequestHeader('X-Tenant-ID', '1');
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onreadystatechange = function() {{
+                    if (xhr.readyState === 4) {{
+                        if (xhr.status >= 200 && xhr.status < 300) {{
+                            try {{
+                                resolve(JSON.parse(xhr.responseText));
+                            }} catch (e) {{
+                                resolve({{}});
+                            }}
+                        }} else {{
+                            try {{
+                                const err = JSON.parse(xhr.responseText);
+                                reject(new Error(err.error || 'Request failed'));
+                            }} catch (e) {{
+                                reject(new Error('Request failed'));
+                            }}
+                        }}
+                    }}
+                }};
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send();
+            }});
+        }}
+
+        // API PUT helper
+        function apiPut(endpoint, data) {{
+            const url = API_BASE + endpoint;
+            return new Promise((resolve, reject) => {{
+                const xhr = new XMLHttpRequest();
+                xhr.open('PUT', url, true);
+                xhr.setRequestHeader('X-Tenant-ID', '1');
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onreadystatechange = function() {{
+                    if (xhr.readyState === 4) {{
+                        if (xhr.status >= 200 && xhr.status < 300) {{
+                            try {{
+                                resolve(JSON.parse(xhr.responseText));
+                            }} catch (e) {{
+                                resolve({{}});
+                            }}
+                        }} else {{
+                            try {{
+                                const err = JSON.parse(xhr.responseText);
+                                reject(new Error(err.error || 'Request failed'));
+                            }} catch (e) {{
+                                reject(new Error('Request failed'));
+                            }}
+                        }}
+                    }}
+                }};
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send(JSON.stringify(data));
+            }});
         }}
 
         // Load tier options for form
@@ -1445,7 +1796,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 
         function populateEnrollTierSelect() {{
             const select = document.getElementById('enroll-tier-select');
-            const tiers = allTiers || [];
+            const tiers = tiersData || [];
             select.innerHTML = '<option value="">Default (Lowest Tier)</option>' +
                 tiers.map(t => `<option value="${{t.id}}">${{t.name}} - $${{t.monthly_price}}/mo (${{(t.bonus_rate * 100).toFixed(0)}}% bonus)</option>`).join('');
         }}
