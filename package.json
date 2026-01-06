@@ -1,0 +1,16 @@
+{
+  "name": "tradeup",
+  "version": "2.0.0",
+  "description": "TradeUp: Store Credit, Rewards & Membership for Shopify",
+  "private": true,
+  "scripts": {
+    "shopify": "shopify",
+    "dev": "shopify app dev",
+    "deploy": "shopify app deploy",
+    "info": "shopify app info"
+  },
+  "devDependencies": {
+    "@shopify/cli": "^3.0.0",
+    "@shopify/app": "^3.0.0"
+  }
+}

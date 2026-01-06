@@ -1,0 +1,23 @@
+{
+  "tradeup": {
+    "membership_signup": {
+      "title": "Join Our Rewards Program",
+      "description": "Unlock exclusive benefits, store credit, and trade-in bonuses",
+      "button": "View Membership Tiers"
+    },
+    "credit_badge": {
+      "label": "Store Credit",
+      "no_credit": "No credit available"
+    },
+    "trade_in": {
+      "title": "Trade-In Program",
+      "description": "Turn your pre-owned items into store credit",
+      "button": "Start Trade-In"
+    },
+    "refer_friend": {
+      "title": "Refer a Friend",
+      "description": "Share your referral link and earn rewards",
+      "button": "Get Referral Link"
+    }
+  }
+}

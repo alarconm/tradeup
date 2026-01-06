@@ -2,6 +2,9 @@
 # https://shopify.dev/docs/apps/build/online-store/theme-app-extensions
 
 api_version = "2024-10"
+
+uid = "6affd0a8-f9e9-2e63-0065-5c4d23923da1e2828233"
+
 type = "theme"
 name = "TradeUp Theme Blocks"
 
