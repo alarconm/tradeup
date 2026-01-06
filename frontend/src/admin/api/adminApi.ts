@@ -1,5 +1,5 @@
 /**
- * Quick Flip Admin API Client
+ * TradeUp Admin API Client
  * Handles all admin operations: members, events, Shopify lookups
  */
 
@@ -44,7 +44,7 @@ export interface Member {
   status: 'active' | 'pending' | 'paused' | 'cancelled';
   membership_start_date: string;
   membership_end_date: string | null;
-  total_bonus_earned: number;
+  total_credit_earned: number;
   total_trade_ins: number;
   total_trade_value: number;
   created_at: string;
@@ -394,7 +394,7 @@ export interface CompleteResult {
   member: {
     id: number;
     member_number: string;
-    total_bonus_earned: number;
+    total_credit_earned: number;
   };
 }
 

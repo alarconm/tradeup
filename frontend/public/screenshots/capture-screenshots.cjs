@@ -10,7 +10,6 @@ async function captureScreenshots() {
 
     const pages = [
         { file: 'screenshot-dashboard.html', output: 'screenshot-dashboard.png' },
-        { file: 'screenshot-quick-flip.html', output: 'screenshot-quick-flip.png' },
         { file: 'screenshot-members.html', output: 'screenshot-members.png' },
         { file: 'screenshot-trade-ins.html', output: 'screenshot-trade-ins.png' }
     ];

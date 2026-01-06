@@ -15,7 +15,7 @@ export interface Member {
   created_at: string;
   shopify_customer_id: string | null;
   stats?: {
-    total_bonus_earned: number;
+    total_credit_earned: number;
     total_trade_ins: number;
     total_trade_value: number;
   };
@@ -33,7 +33,6 @@ export interface Tier {
   name: string;
   monthly_price: number;
   bonus_rate: number;
-  quick_flip_days: number;
   benefits: Record<string, unknown>;
   is_active: boolean;
   shopify_selling_plan_id: string | null;

@@ -1,5 +1,5 @@
 """
-Admin API routes for Quick Flip platform.
+Admin API routes for TradeUp platform.
 Handles admin dashboard, Shopify lookups, and store credit events.
 
 Authentication:

@@ -182,10 +182,10 @@ def register_webhook(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Register Shopify webhooks for Quick Flip")
-    parser.add_argument("--base-url", required=True, help="Base URL of Quick Flip deployment")
+    parser = argparse.ArgumentParser(description="Register Shopify webhooks for TradeUp")
+    parser.add_argument("--base-url", required=True, help="Base URL of TradeUp deployment")
     parser.add_argument("--tenant", default="orb", help="Tenant slug (default: orb)")
-    parser.add_argument("--clean", action="store_true", help="Delete existing Quick Flip webhooks first")
+    parser.add_argument("--clean", action="store_true", help="Delete existing TradeUp webhooks first")
     args = parser.parse_args()
 
     shop_domain = os.getenv("SHOPIFY_DOMAIN")
@@ -207,7 +207,7 @@ def main():
     print("Checking existing webhooks...")
     existing = get_existing_webhooks(shop_domain, access_token)
 
-    # Clean up existing Quick Flip webhooks if requested
+    # Clean up existing TradeUp webhooks if requested
     if args.clean:
         for webhook in existing:
             if "/webhook/shopify/" in webhook.get("callbackUrl", ""):

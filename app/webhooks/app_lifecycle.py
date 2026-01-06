@@ -134,13 +134,13 @@ def handle_shop_redact():
             return jsonify({'success': True, 'message': 'No data to redact'})
 
         # Delete all tenant data
-        from ..models import Member, TradeInBatch, TradeInItem, BonusTransaction, PointsTransaction
+        from ..models import Member, TradeInBatch, TradeInItem, PointsTransaction, StoreCreditLedger
 
         tenant_id = tenant.id
 
         # Delete in order to respect foreign keys
         PointsTransaction.query.filter_by(tenant_id=tenant_id).delete()
-        BonusTransaction.query.filter_by(tenant_id=tenant_id).delete()
+        StoreCreditLedger.query.filter_by(tenant_id=tenant_id).delete()
         TradeInItem.query.filter(
             TradeInItem.batch_id.in_(
                 db.session.query(TradeInBatch.id).filter_by(tenant_id=tenant_id)
@@ -212,9 +212,12 @@ def handle_customer_redact():
         member.redacted_at = datetime.utcnow()
 
         # Keep transaction history but anonymize references
-        from ..models import PointsTransaction, BonusTransaction
+        from ..models import PointsTransaction, StoreCreditLedger
 
         PointsTransaction.query.filter_by(member_id=member.id).update({
+            'description': 'REDACTED'
+        })
+        StoreCreditLedger.query.filter_by(member_id=member.id).update({
             'description': 'REDACTED'
         })
 
@@ -258,7 +261,7 @@ def handle_customer_data_request():
                 'message': 'No data stored for this shop'
             })
 
-        from ..models import Member, PointsTransaction, BonusTransaction, TradeInBatch, TradeInItem
+        from ..models import Member, PointsTransaction, StoreCreditLedger, TradeInBatch, TradeInItem
 
         member = Member.query.filter_by(
             tenant_id=tenant.id,
@@ -274,21 +277,19 @@ def handle_customer_data_request():
 
         # Compile all customer data
         points_history = PointsTransaction.query.filter_by(member_id=member.id).all()
-        bonus_history = BonusTransaction.query.filter_by(member_id=member.id).all()
+        credit_history = StoreCreditLedger.query.filter_by(member_id=member.id).all()
         trade_batches = TradeInBatch.query.filter_by(member_id=member.id).all()
 
         customer_export = {
             'member_info': {
                 'member_number': member.member_number,
                 'email': member.email,
-                'first_name': member.first_name,
-                'last_name': member.last_name,
+                'name': member.name,
                 'phone': member.phone,
                 'tier': member.tier.name if member.tier else None,
-                'store_credit_balance': float(member.store_credit_balance or 0),
-                'points_balance': member.points_balance or 0,
-                'lifetime_points': member.lifetime_points or 0,
-                'enrolled_at': member.enrolled_at.isoformat() if member.enrolled_at else None
+                'total_trade_value': float(member.total_trade_value or 0),
+                'total_trade_ins': member.total_trade_ins or 0,
+                'created_at': member.created_at.isoformat() if member.created_at else None
             },
             'points_transactions': [
                 {
@@ -298,19 +299,19 @@ def handle_customer_data_request():
                     'description': t.description
                 } for t in points_history
             ],
-            'bonus_transactions': [
+            'credit_transactions': [
                 {
                     'date': t.created_at.isoformat(),
                     'amount': float(t.amount),
-                    'type': t.transaction_type,
+                    'event_type': t.event_type,
                     'description': t.description
-                } for t in bonus_history
+                } for t in credit_history
             ],
             'trade_in_batches': [
                 {
-                    'batch_number': b.batch_number,
+                    'batch_reference': b.batch_reference,
                     'status': b.status,
-                    'total_credit': float(b.total_credit) if b.total_credit else 0,
+                    'total_value': float(b.total_trade_value) if b.total_trade_value else 0,
                     'created_at': b.created_at.isoformat()
                 } for b in trade_batches
             ]

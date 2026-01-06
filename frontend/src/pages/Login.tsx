@@ -31,7 +31,7 @@ export default function Login() {
       <div className="card max-w-md w-full p-8">
         <div className="text-center mb-8">
           <Link to="/" className="text-2xl font-bold text-orange-500">
-            Quick Flip
+            TradeUp
           </Link>
           <h1 className="text-2xl font-bold mt-4">Welcome Back</h1>
           <p className="text-gray-600">Sign in to your account</p>

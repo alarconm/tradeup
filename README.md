@@ -1,48 +1,31 @@
-# Quick Flip Membership Platform
+# TradeUp Membership Platform
 
-A SaaS platform for card shops offering membership programs with **Quick Flip Bonus** - a unique profit-sharing feature that rewards members when their traded-in items sell quickly.
-
-## What is Quick Flip Bonus?
-
-When a member trades in cards at your shop:
-1. Member receives **70% of market value** as store credit immediately
-2. Shop lists the items for sale
-3. If an item sells within **7 days**, the member gets a **bonus** (% of profit as store credit)
-4. Bonus rate varies by membership tier:
-   - **Silver**: 10% of profit
-   - **Gold**: 20% of profit
-   - **Platinum**: 30% of profit
-
-### Example
-- Gold member trades in a Charizard for $70 store credit
-- Shop lists it at $100, sells for $95 in 5 days
-- Profit = $95 - $70 = $25
-- Bonus = $25 × 20% = **$5 extra store credit**
-- Member effectively got $75 for the card!
+A Shopify app for card shops offering membership programs, trade-in tracking, and store credit management.
 
 ## Features
 
-- **Membership Management**: Silver, Gold, Platinum tiers with configurable benefits
+- **Membership Tiers**: Silver, Gold, Platinum tiers with configurable benefits
 - **Trade-In Tracking**: Batch processing, item-level tracking
-- **Quick Flip Bonus Engine**: Automatic bonus calculation when items sell fast
-- **Shopify Integration**: Webhooks, store credit, customer tagging
-- **Employee Dashboard**: Manage members, trade-ins, bonuses
+- **Cashback Rewards**: Members earn bonus store credit on purchases
+- **Shopify Integration**: Webhooks, store credit via Shopify's native system
+- **Store Credit Events**: Run promotional credit campaigns for targeted customers
 - **Multi-Tenant Ready**: Built for SaaS from day one
 
 ## Tech Stack
 
 - **Backend**: Python/Flask
+- **Frontend**: React/TypeScript (Vite)
 - **Database**: PostgreSQL
 - **E-commerce**: Shopify Admin API (GraphQL)
-- **Deployment**: Docker, Railway/Render
+- **Deployment**: Docker, Railway
 
 ## Quick Start
 
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/alarconm/quick-flip.git
-cd quick-flip
+git clone https://github.com/alarconm/tradeup.git
+cd tradeup
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -81,40 +64,40 @@ docker-compose up -d
 - `GET /api/members` - List members
 - `POST /api/members` - Create member
 - `GET /api/members/<id>` - Get member details
-- `GET /api/members/tiers` - List membership tiers
+- `GET /api/membership/tiers` - List membership tiers
 
 ### Trade-Ins
 - `POST /api/trade-ins` - Create trade-in batch
 - `POST /api/trade-ins/<id>/items` - Add items to batch
-- `PUT /api/trade-ins/items/<id>/listed` - Mark item as listed
+- `PUT /api/trade-ins/<id>/complete` - Complete batch and issue credit
 
-### Bonuses
-- `GET /api/bonuses/pending` - Get pending bonuses
-- `POST /api/bonuses/process` - Process and issue bonuses
-- `GET /api/bonuses/history` - Bonus transaction history
+### Store Credit
+- `GET /api/store-credit/balance` - Get member's balance
+- `POST /api/store-credit/add` - Issue store credit
+- `GET /api/store-credit/history` - Transaction history
 
 ### Webhooks
-- `POST /webhook/shopify/<tenant>/order-paid` - Handle sales
-- `POST /webhook/shopify/<tenant>/product-created` - Capture listings
+- `POST /webhook/shopify/<tenant>/order-paid` - Handle sales for cashback
+- `POST /webhook/shopify/<tenant>/app-installed` - Handle app installation
 
 ## Shopify Integration
 
 ### Required Webhooks
 Register these webhooks in Shopify:
 - `orders/paid` → `/webhook/shopify/{tenant}/order-paid`
-- `products/create` → `/webhook/shopify/{tenant}/product-created`
-- `refunds/create` → `/webhook/shopify/{tenant}/order-refunded`
+- `app/installed` → `/webhook/shopify/{tenant}/app-installed`
+- `customers/data_request` → `/webhook/shopify/{tenant}/customer-data-request`
 
-### Product Tagging
-When listing trade-in items, add the member's tag:
-- Tag format: `QF{member_number}` (e.g., `QF1001`)
-- This links the product to the member for bonus tracking
+### Customer Tagging
+Members are tagged in Shopify with:
+- `tu-member` - Indicates TradeUp member
+- `tu-tier-{tier}` - Their tier level (e.g., `tu-tier-gold`)
 
 ## License
 
-Proprietary - ORB Sports Cards
+Proprietary - Cardflow Labs
 
 ## Contact
 
-- **Repository**: https://github.com/alarconm/quick-flip
-- **ORB Sports Cards**: https://orbsportscards.com
+- **Repository**: https://github.com/alarconm/tradeup
+- **Support**: support@cardflowlabs.com

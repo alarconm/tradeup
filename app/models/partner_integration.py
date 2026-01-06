@@ -97,7 +97,7 @@ class PartnerSyncLog(db.Model):
 
     # What was synced
     sync_type = db.Column(db.String(50), nullable=False)  # trade_in, bonus, member
-    record_id = db.Column(db.Integer)  # TradeInBatch.id, BonusTransaction.id, etc.
+    record_id = db.Column(db.Integer)  # TradeInBatch.id, Member.id, etc.
     record_reference = db.Column(db.String(100))  # TI-20260105-001, etc.
 
     # Request/Response

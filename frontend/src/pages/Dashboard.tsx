@@ -54,7 +54,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-orange-500">Quick Flip</h1>
+          <h1 className="text-2xl font-bold text-orange-500">TradeUp</h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-600">{member.name || member.email}</span>
             <button onClick={logout} className="btn btn-secondary">
@@ -68,7 +68,7 @@ export default function Dashboard() {
         {/* Welcome Message */}
         {isWelcome && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <h2 className="text-green-800 font-semibold">🎉 Welcome to Quick Flip!</h2>
+            <h2 className="text-green-800 font-semibold">🎉 Welcome to TradeUp!</h2>
             <p className="text-green-700">Your membership is now active. Start trading in your cards to earn bonuses!</p>
           </div>
         )}
@@ -99,7 +99,7 @@ export default function Dashboard() {
             </p>
             {member.tier && (
               <p className="text-sm text-gray-600">
-                {Math.round(member.tier.bonus_rate * 100)}% Quick Flip Bonus
+                {Math.round(member.tier.bonus_rate * 100)}% Cashback
               </p>
             )}
           </div>
@@ -148,12 +148,12 @@ export default function Dashboard() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Bonus Stats */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Quick Flip Stats</h3>
+            <h3 className="text-lg font-semibold mb-4">Trade-In Stats</h3>
             <div className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-600">Total Bonus Earned</span>
+                <span className="text-gray-600">Total Credit Earned</span>
                 <span className="font-semibold text-green-600">
-                  ${member.stats?.total_bonus_earned?.toFixed(2) || '0.00'}
+                  ${member.stats?.total_credit_earned?.toFixed(2) || '0.00'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -218,7 +218,7 @@ export default function Dashboard() {
                 >
                   <div>
                     <p className="font-medium">
-                      {tx.transaction_type === 'credit' ? 'Quick Flip Bonus' : tx.transaction_type}
+                      {tx.transaction_type === 'credit' ? 'Store Credit' : tx.transaction_type}
                     </p>
                     <p className="text-sm text-gray-500">
                       {tx.reason || tx.notes || 'Bonus credit'}
@@ -236,7 +236,7 @@ export default function Dashboard() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <p>No bonus activity yet.</p>
-              <p className="text-sm">Trade in some cards to earn Quick Flip bonuses!</p>
+              <p className="text-sm">Trade in some cards to earn store credit!</p>
             </div>
           )}
         </div>

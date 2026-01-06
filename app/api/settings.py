@@ -310,3 +310,96 @@ def update_subscription_settings():
         'success': True,
         'subscriptions': get_settings_with_defaults(tenant.settings)['subscriptions']
     })
+
+
+@settings_bp.route('/auto-enrollment', methods=['GET'])
+def get_auto_enrollment_settings():
+    """Get auto-enrollment settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'auto_enrollment': settings['auto_enrollment']
+    })
+
+
+@settings_bp.route('/auto-enrollment', methods=['PATCH'])
+def update_auto_enrollment_settings():
+    """
+    Update auto-enrollment settings.
+
+    Request body:
+        enabled: bool - Auto-enroll on first purchase
+        default_tier_id: int - Tier to assign
+        min_order_value: float - Minimum order to trigger
+        excluded_tags: list - Customer tags to exclude
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    current_settings = tenant.settings or {}
+    current_enrollment = current_settings.get('auto_enrollment', {})
+
+    for key, value in data.items():
+        current_enrollment[key] = value
+
+    current_settings['auto_enrollment'] = current_enrollment
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'auto_enrollment': get_settings_with_defaults(tenant.settings)['auto_enrollment']
+    })
+
+
+@settings_bp.route('/notifications', methods=['GET'])
+def get_notification_settings():
+    """Get notification settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'notifications': settings['notifications']
+    })
+
+
+@settings_bp.route('/notifications', methods=['PATCH'])
+def update_notification_settings():
+    """
+    Update notification settings.
+
+    Request body:
+        enabled: bool - Master toggle
+        welcome_email: bool - Send on enrollment
+        trade_in_updates: bool - Trade-in status emails
+        tier_change: bool - Tier upgrade/downgrade emails
+        credit_issued: bool - Store credit issued emails
+        from_name: str - Sender name
+        from_email: str - Sender email (must be verified)
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    current_settings = tenant.settings or {}
+    current_notifications = current_settings.get('notifications', {})
+
+    for key, value in data.items():
+        current_notifications[key] = value
+
+    current_settings['notifications'] = current_notifications
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'notifications': get_settings_with_defaults(tenant.settings)['notifications']
+    })

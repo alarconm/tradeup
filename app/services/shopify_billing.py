@@ -631,7 +631,7 @@ TRADEUP_PLANS = {
         'features': [
             'Unlimited members',
             'Unlimited tiers',
-            'Quick Flip Bonus tracking',
+            'Tier cashback tracking',
             'API access',
             'White-label options',
             'Multi-location support',
@@ -646,12 +646,6 @@ TRADEUP_PLANS = {
 
 # Usage-based add-ons (can be added to any paid plan)
 TRADEUP_ADDONS = {
-    'quick_flip': {
-        'name': 'Quick Flip Bonus',
-        'price': 29,
-        'description': 'Track and auto-issue profit-sharing bonuses when trade-in items sell quickly',
-        'requires_plan': 'growth'  # Minimum plan required
-    },
     'extra_members': {
         'name': 'Extra Members',
         'price_per_unit': 0.10,  # Per member over limit

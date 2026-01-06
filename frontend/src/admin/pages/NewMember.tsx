@@ -197,7 +197,7 @@ export default function NewMember() {
           Back to Members
         </button>
         <h1 className="admin-page-title text-3xl">New Member</h1>
-        <p className="text-white/50 mt-2">Register a new Quick Flip membership</p>
+        <p className="text-white/50 mt-2">Register a new TradeUp membership</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -358,11 +358,7 @@ export default function NewMember() {
                     <div className="space-y-2 text-sm text-white/60">
                       <div className="flex items-center gap-2">
                         <span className="text-green-400">✓</span>
-                        <span>{Math.round(tier.bonus_rate * 100)}% Quick Flip Bonus</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-400">✓</span>
-                        <span>{tier.quick_flip_days}-day bonus window</span>
+                        <span>{Math.round(tier.bonus_rate * 100)}% Cashback</span>
                       </div>
                     </div>
                   </div>

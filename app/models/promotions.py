@@ -1,5 +1,5 @@
 """
-Promotions and Store Credit Events for Quick Flip.
+Promotions and Store Credit Events for TradeUp.
 
 World-class promotion system supporting:
 - Time-based promotions (holiday weekends, flash sales)

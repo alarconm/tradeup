@@ -6,7 +6,7 @@ import requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from ..extensions import db
-from ..models import PartnerIntegration, PartnerSyncLog, TradeInBatch, BonusTransaction, Member
+from ..models import PartnerIntegration, PartnerSyncLog, TradeInBatch, Member
 
 
 class PartnerSyncService:
@@ -15,7 +15,7 @@ class PartnerSyncService:
 
     Supports:
     - Pushing trade-ins to partner cash ledger
-    - Pushing bonus issuances to partner
+    - Pushing store credit issuance to partner
     - Pushing member enrollments to partner
     """
 
@@ -201,104 +201,8 @@ class PartnerSyncService:
 
         return payload
 
-    def sync_bonus(self, bonus: BonusTransaction) -> List[Dict[str, Any]]:
-        """
-        Sync a bonus transaction to all enabled partner integrations.
-
-        Args:
-            bonus: BonusTransaction to sync
-
-        Returns:
-            List of sync results
-        """
-        results = []
-        integrations = PartnerIntegration.query.filter_by(
-            tenant_id=self.tenant_id,
-            enabled=True,
-            sync_bonuses=True
-        ).all()
-
-        for integration in integrations:
-            result = self._sync_bonus_to_partner(integration, bonus)
-            results.append(result)
-
-        return results
-
-    def _sync_bonus_to_partner(
-        self,
-        integration: PartnerIntegration,
-        bonus: BonusTransaction
-    ) -> Dict[str, Any]:
-        """Sync a bonus transaction to a specific partner."""
-        member = bonus.member
-
-        if integration.partner_type == 'wordpress':
-            payload = {
-                'type': 'bonus_issued',
-                'amount': float(bonus.bonus_amount),
-                'shopify_customer_id': member.shopify_customer_id if member else None,
-                'partner_customer_id': member.partner_customer_id if member else None,
-                'member_number': member.member_number if member else None,
-                'trade_in_reference': bonus.trade_in_item.batch.batch_reference if bonus.trade_in_item else None,
-                'description': bonus.description,
-                'source': 'tradeup',
-                'created_at': bonus.created_at.isoformat()
-            }
-            endpoint = f"{integration.api_url}/tradeup/bonus"
-        else:
-            payload = {
-                'bonus_id': bonus.id,
-                'amount': float(bonus.bonus_amount),
-                'member_id': member.id if member else None,
-                'description': bonus.description,
-                'status': bonus.status,
-                'created_at': bonus.created_at.isoformat()
-            }
-            endpoint = f"{integration.api_url}/bonus"
-
-        # Create sync log
-        sync_log = PartnerSyncLog(
-            integration_id=integration.id,
-            sync_type='bonus',
-            record_id=bonus.id,
-            request_payload=payload,
-            status='pending'
-        )
-        db.session.add(sync_log)
-        db.session.commit()
-
-        try:
-            response = self._send_to_partner(integration, endpoint, payload)
-
-            sync_log.response_status = response.get('status_code')
-            sync_log.response_body = response.get('body')
-            sync_log.status = 'success' if response.get('success') else 'failed'
-            if not response.get('success'):
-                sync_log.error_message = response.get('error')
-
-            integration.last_sync_at = datetime.utcnow()
-            integration.last_sync_status = sync_log.status
-            if sync_log.status == 'success':
-                integration.sync_count += 1
-
-            db.session.commit()
-
-            return {
-                'integration': integration.name,
-                'success': response.get('success', False),
-                'error': response.get('error')
-            }
-
-        except Exception as e:
-            sync_log.status = 'failed'
-            sync_log.error_message = str(e)
-            db.session.commit()
-
-            return {
-                'integration': integration.name,
-                'success': False,
-                'error': str(e)
-            }
+    # Note: Bonus syncing has been removed. Store credit is now
+    # synced directly via StoreCreditService and Shopify's native store credit.
 
     def _send_to_partner(
         self,
@@ -412,10 +316,6 @@ class PartnerSyncService:
                 if batch:
                     result = self._sync_trade_in_to_partner(log.integration, batch)
                     results.append(result)
-            elif log.sync_type == 'bonus':
-                bonus = BonusTransaction.query.get(log.record_id)
-                if bonus:
-                    result = self._sync_bonus_to_partner(log.integration, bonus)
-                    results.append(result)
+            # Note: bonus sync_type logs are legacy and will be skipped
 
         return results

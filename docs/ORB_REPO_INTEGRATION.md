@@ -1,10 +1,10 @@
 # ORB_repo Integration Guide
 
-This document describes the changes needed in the ORB_repo listing app to support Quick Flip member tagging.
+This document describes the changes needed in the ORB_repo listing app to support TradeUp member tagging.
 
 ## Overview
 
-When listing trade-in items from a Quick Flip member, staff need to tag products with the member's number (e.g., `QF1001`) so the Quick Flip system can track sales and issue bonuses when items sell quickly.
+When listing trade-in items from a TradeUp member, staff need to tag products with the member's number (e.g., `TU1001`) so the TradeUp system can track sales and calculate cashback rewards.
 
 ## Changes Required
 
@@ -14,11 +14,11 @@ Add this function after `normalize_orb_tag()` (around line 557):
 
 ```python
 def normalize_member_tag(raw_value: str | None) -> str | None:
-    """Normalize user-supplied Quick Flip member tag to canonical QF#### format.
+    """Normalize user-supplied TradeUp member tag to canonical TU#### format.
 
-    Used for Quick Flip Membership program trade-ins. When items are listed with
-    this tag, the system can track sales and issue bonus store credit if items
-    sell within the quick flip window (typically 7 days).
+    Used for TradeUp Membership program trade-ins. When items are listed with
+    this tag, the system can track sales and issue cashback rewards based on
+    the member's tier.
     """
     if raw_value is None:
         return None
@@ -27,8 +27,8 @@ def normalize_member_tag(raw_value: str | None) -> str | None:
     if not candidate:
         return None
 
-    # Remove optional QF prefix before sanitizing
-    if candidate.startswith('QF'):
+    # Remove optional TU prefix before sanitizing
+    if candidate.startswith('TU'):
         candidate = candidate[2:]
 
     # Keep only alphanumeric characters
@@ -36,7 +36,7 @@ def normalize_member_tag(raw_value: str | None) -> str | None:
     if not candidate:
         return None
 
-    return f"QF{candidate}"
+    return f"TU{candidate}"
 ```
 
 ### 2. Update `/api/process-shopify-direct` route (around line 6247)
@@ -50,7 +50,7 @@ member_tag = None
 if member_enabled:
     member_tag = normalize_member_tag(request.form.get('member_tag'))
     if not member_tag:
-        return jsonify({'success': False, 'error': 'Quick Flip Member# is required when the toggle is enabled'}), 400
+        return jsonify({'success': False, 'error': 'TradeUp Member# is required when the toggle is enabled'}), 400
 
 # Combine tags
 extra_tags = []
@@ -82,10 +82,10 @@ Add this after the consignment toggle (around line 724):
 <div class="member-toggle">
     <label class="toggle-label">
         <input type="checkbox" id="memberToggle" onchange="toggleMemberInput()">
-        <span>Quick Flip Member</span>
+        <span>TradeUp Member</span>
     </label>
     <div id="memberInputGroup" class="input-with-prefix" style="display: none;">
-        <span class="input-prefix">QF</span>
+        <span class="input-prefix">TU</span>
         <input type="text" id="memberTag" class="input-field input-field--sm" placeholder="1001" style="width: 70px;">
     </div>
 </div>
@@ -121,7 +121,7 @@ var memberEnabled = memberToggle && memberToggle.checked;
 if (memberEnabled) {
     var memberTag = document.getElementById('memberTag').value.trim();
     if (!memberTag) {
-        alert('Please enter a Quick Flip Member# or disable the toggle');
+        alert('Please enter a TradeUp Member# or disable the toggle');
         return;
     }
     formData.append('member_enabled', 'true');
@@ -131,21 +131,21 @@ if (memberEnabled) {
 
 ## Usage
 
-1. When processing a trade-in from a Quick Flip member:
-   - Enable the "Quick Flip Member" toggle
+1. When processing a trade-in from a TradeUp member:
+   - Enable the "TradeUp Member" toggle
    - Enter the member's number (just the digits, e.g., "1001")
    - Push to Shopify as normal
 
-2. The product will be tagged with `QF1001` (or whatever member number)
+2. The product will be tagged with `TU1001` (or whatever member number)
 
-3. When the item sells, the Quick Flip platform webhook will:
+3. When the item sells, the TradeUp platform webhook will:
    - Match the product to the member by tag
-   - Check if it sold within the quick flip window (7 days)
-   - Calculate and issue bonus store credit if eligible
+   - Calculate cashback based on the member's tier
+   - Issue store credit to the member
 
 ## Notes
 
 - The member tag is SEPARATE from the consignment tag (#ORB)
 - Both can be used simultaneously (though unusual)
-- Member tags follow format: `QF{number}` (e.g., `QF1001`, `QF1002`)
+- Member tags follow format: `TU{number}` (e.g., `TU1001`, `TU1002`)
 - Consignment tags follow format: `#ORB{number}` (e.g., `#ORB123`)

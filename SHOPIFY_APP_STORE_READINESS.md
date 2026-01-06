@@ -1,6 +1,6 @@
 # TradeUp - Shopify App Store Readiness Review
 
-**Review Date:** January 5, 2026
+**Review Date:** January 6, 2026
 **Reviewer:** Claude Meridian
 **App Version:** 1.7
 
@@ -162,19 +162,20 @@ TRADEUP_PLANS = {
 | Membership tiers | `/members/tiers` | ✅ Working |
 | Trade-in batches | `/trade-ins/*` | ✅ Working |
 | Trade-in items | `/trade-ins/*/items` | ✅ Working |
-| Bonus calculation | `/bonuses/*` | ✅ Working |
-| Quick Flip tracking | Built-in | ✅ Working |
+| Cashback tracking | `/cashback/*` | ✅ Working |
+| Store credit ledger | Built-in | ✅ Working |
 
-### Quick Flip Bonus Logic (Correct)
+### Cashback Logic (Correct)
 
 ```python
-# Bonus = (Sale Price - Trade Value) × Tier Bonus Rate
-# Only if item sells within quick_flip_days
+# Cashback = Purchase Amount × Tier Cashback Rate
+# Applied automatically on qualifying purchases
 
 Tier rates:
-- Silver: 10% bonus, 7-day window
-- Gold: 20% bonus, 7-day window
-- Platinum: 30% bonus, 7-day window
+- Bronze: 1% cashback
+- Silver: 2% cashback
+- Gold: 3% cashback
+- Platinum: 5% cashback
 ```
 
 ---
@@ -196,20 +197,19 @@ Tier rates:
 ### App Store Description (Draft Ready)
 
 ```
-TradeUp is the complete loyalty solution for Shopify stores.
+TradeUp is the complete loyalty solution for Shopify stores with trade-in programs.
+
+MEMBERSHIP TIERS
+Create Bronze, Silver, Gold, and Platinum tiers with customizable trade-in rates.
 
 STORE CREDIT
 Issue, track, and redeem store credit at checkout. No more spreadsheets.
 
-REWARDS PROGRAM
-Award points for purchases, referrals, reviews, and more.
+CASHBACK REWARDS
+Award cashback on purchases based on membership tier. Automatic credit issuance.
 
-PAID MEMBERSHIPS
-Offer Bronze, Silver, and Gold tiers with exclusive perks.
-
-QUICK FLIP BONUS (Unique Feature)
-When a trade-in item sells quickly, the original customer gets a bonus
-share of the profit as extra store credit.
+TRADE-IN TRACKING
+Track trade-ins from intake to sale with full history and analytics.
 
 ✓ Free tier for small stores
 ✓ No per-transaction fees
@@ -237,7 +237,7 @@ SHOPIFY_API_SECRET=<from-partner-dashboard>
 SHOPIFY_BILLING_TEST=false  # Set to false for production
 
 # App URLs
-APP_URL=https://gettradeup.com
+APP_URL=https://app.cardflowlabs.com
 ```
 
 ### Production Deployment Checklist
@@ -282,7 +282,7 @@ APP_URL=https://gettradeup.com
 
 ## Conclusion
 
-TradeUp is a well-architected Shopify app with solid functionality. The Quick Flip Bonus feature is unique and compelling. The Shopify Billing integration is correct.
+TradeUp is a well-architected Shopify app with solid functionality. The tiered membership and cashback rewards features provide clear value. The Shopify Billing integration is correct.
 
 **Primary blockers for App Store submission:**
 1. Security: Fix admin route authentication

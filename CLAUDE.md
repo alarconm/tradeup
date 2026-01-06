@@ -3,9 +3,9 @@
 ## Overview
 TradeUp is a Shopify app for trade-in programs and store credit management.
 
-- **Production**: https://quick-flip-production.up.railway.app
+- **Production**: https://tradeup-production.up.railway.app
 - **Hosting**: Railway (auto-deploys from main branch)
-- **Repository**: https://github.com/alarconm/quick-flip
+- **Repository**: https://github.com/alarconm/tradeup
 
 ## CRITICAL: Deployment Workflow
 
@@ -102,7 +102,7 @@ scripts\push.bat
 ## Directory Structure
 
 ```
-quick-flip-standalone/
+tradeup/
 ├── app/                    # Flask application
 │   ├── api/               # REST API blueprints
 │   ├── models/            # SQLAlchemy models

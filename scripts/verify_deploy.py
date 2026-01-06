@@ -16,7 +16,7 @@ import urllib.request
 import urllib.error
 import json
 
-PROD_URL = "https://quick-flip-production-4042.up.railway.app"
+PROD_URL = "https://tradeup-production.up.railway.app"
 
 def check_endpoint(url, name):
     """Check if endpoint returns 200 and valid JSON."""

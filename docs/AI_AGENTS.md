@@ -1,11 +1,11 @@
-# AI Agent Architecture for TradeUp/Quick Flip
+# AI Agent Architecture for TradeUp
 
 ## Vision
 
 Build an AI-native platform where agents handle:
 - 80% of customer interactions
 - 100% of pricing lookups
-- 100% of bonus calculations
+- 100% of cashback calculations
 - Real-time inventory tracking
 - Proactive alerts and recommendations
 
@@ -144,69 +144,52 @@ class TradeInAgent:
 
 ---
 
-### 3. Quick Flip Monitor Agent (ORB Exclusive)
+### 3. Cashback Monitor Agent
 
-**Purpose**: Track inventory and trigger bonuses automatically
+**Purpose**: Track purchases and issue cashback automatically
 
 **Workflow**:
 1. Listen to Shopify webhooks for order completions
-2. Match sold items to trade-in records
-3. Calculate days since listing
-4. If within Quick Flip window, calculate and issue bonus
+2. Check if customer is a TradeUp member
+3. Calculate cashback based on tier rate
+4. Issue store credit automatically
 
 **Implementation**:
 ```python
-class QuickFlipMonitorAgent:
+class CashbackMonitorAgent:
     """
-    Monitors sales and triggers Quick Flip bonuses.
+    Monitors purchases and issues cashback rewards.
     Runs as background process.
     """
 
     def on_order_paid(self, order: dict):
         """
         Handle order webhook.
-        Check each line item for Quick Flip eligibility.
+        Calculate and issue cashback for eligible members.
         """
-        for item in order['line_items']:
-            # Check if this was a trade-in item
-            trade_in = self.find_trade_in_item(item['sku'])
-            if not trade_in:
-                continue
+        customer_id = order.get('customer', {}).get('id')
+        if not customer_id:
+            return
 
-            # Calculate days since listing
-            days_since_listing = (
-                datetime.now() - trade_in.listed_at
-            ).days
+        # Find member by Shopify customer ID
+        member = self.find_member_by_shopify_id(customer_id)
+        if not member:
+            return
 
-            # Check Quick Flip eligibility
-            if days_since_listing <= 7:
-                self.issue_quick_flip_bonus(trade_in, order)
+        # Calculate cashback
+        order_total = float(order.get('total_price', 0))
+        cashback_rate = member.tier.bonus_rate
+        cashback_amount = order_total * cashback_rate
 
-    def issue_quick_flip_bonus(self, trade_in, order):
-        """
-        Calculate and issue the Quick Flip bonus.
-        """
-        # Calculate profit
-        sale_price = order['total_price']
-        trade_in_cost = trade_in.credit_issued
-        profit = sale_price - trade_in_cost
+        if cashback_amount > 0:
+            self.issue_store_credit(
+                member.shopify_customer_id,
+                cashback_amount,
+                f"Cashback - Order #{order['order_number']}"
+            )
 
-        # Get member's bonus rate
-        member = trade_in.member
-        bonus_rate = member.tier.quick_flip_bonus_rate
-
-        # Calculate bonus
-        bonus_amount = profit * bonus_rate
-
-        # Issue store credit
-        self.issue_store_credit(
-            member.shopify_customer_id,
-            bonus_amount,
-            f"Quick Flip Bonus - {trade_in.item_name}"
-        )
-
-        # Notify member
-        self.send_bonus_notification(member, bonus_amount, trade_in)
+            # Notify member
+            self.send_cashback_notification(member, cashback_amount, order)
 ```
 
 ---
@@ -218,7 +201,7 @@ class QuickFlipMonitorAgent:
 **Capabilities**:
 - Answer FAQs about membership tiers
 - Check trade-in status
-- Explain bonus calculations
+- Explain cashback calculations
 - Escalate to human when needed
 
 **Implementation**:
@@ -230,13 +213,13 @@ class MemberSupportAgent:
     """
 
     SYSTEM_PROMPT = """
-    You are a helpful assistant for TradeUp/Quick Flip membership program.
+    You are a helpful assistant for TradeUp membership program.
 
     You can help members with:
     - Checking their membership tier and benefits
-    - Explaining trade-in rates and bonuses
+    - Explaining trade-in rates and cashback
     - Tracking pending trade-ins
-    - Answering questions about the Quick Flip Bonus
+    - Answering questions about store credit
 
     Always be friendly and helpful. If you can't help with something,
     offer to connect them with a human team member.
@@ -246,7 +229,7 @@ class MemberSupportAgent:
         self.tools = [
             self.get_member_status,
             self.get_trade_in_history,
-            self.check_pending_bonuses,
+            self.check_store_credit,
             self.explain_tier_benefits,
             self.escalate_to_human
         ]
@@ -296,7 +279,7 @@ class AnalyticsAgent:
         return {
             'member_growth': self.calculate_growth(tenant_id),
             'trade_in_volume': self.calculate_volume(tenant_id),
-            'quick_flip_success_rate': self.calculate_quick_flip_rate(tenant_id),
+            'cashback_issued': self.calculate_cashback_total(tenant_id),
             'at_risk_members': self.identify_at_risk(tenant_id),
             'upgrade_candidates': self.find_upgrade_candidates(tenant_id),
             'recommendations': self.generate_recommendations(tenant_id)
@@ -308,7 +291,7 @@ class AnalyticsAgent:
 
         Criteria:
         - Trade-in volume exceeds tier threshold
-        - Quick Flip bonus savings would pay for upgrade
+        - Cashback savings would pay for upgrade
         - Consistent activity over 3+ months
         """
         pass
@@ -329,7 +312,7 @@ class AnalyticsAgent:
         │                     │                     │
         ▼                     ▼                     ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│ Pricing Agent │   │ Trade-In Agent│   │ Quick Flip    │
+│ Pricing Agent │   │ Trade-In Agent│   │ Cashback      │
 │               │   │               │   │ Monitor       │
 └───────────────┘   └───────────────┘   └───────────────┘
         │                     │                     │
@@ -347,8 +330,8 @@ class AnalyticsAgent:
 ```python
 EVENTS = {
     'trade_in.submitted': TradeInAgent,
-    'trade_in.approved': QuickFlipMonitorAgent,
-    'order.paid': QuickFlipMonitorAgent,
+    'trade_in.approved': CashbackMonitorAgent,
+    'order.paid': CashbackMonitorAgent,
     'member.created': MemberSupportAgent,
     'member.tier_changed': AnalyticsAgent,
     'pricing.requested': PricingAgent,
@@ -386,8 +369,8 @@ Expose agents as MCP tools for Claude Code integration:
       "inputSchema": {...}
     },
     {
-      "name": "check_quick_flip_status",
-      "description": "Check Quick Flip bonus eligibility",
+      "name": "check_cashback_status",
+      "description": "Check cashback reward eligibility",
       "inputSchema": {...}
     }
   ]
@@ -410,10 +393,10 @@ Expose agents as MCP tools for Claude Code integration:
 - [ ] Auto-approval rules
 - [ ] Offer generation
 
-### Phase 3: Quick Flip Monitor (Week 3)
+### Phase 3: Cashback Monitor (Week 3)
 - [ ] Webhook listeners
-- [ ] Item matching logic
-- [ ] Bonus calculation
+- [ ] Order matching logic
+- [ ] Cashback calculation
 - [ ] Store credit integration
 
 ### Phase 4: Support & Analytics (Week 4)

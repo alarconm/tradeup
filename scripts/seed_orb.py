@@ -72,7 +72,6 @@ def seed_orb_tenant():
                     name="Silver",
                     monthly_price=Decimal("10.00"),
                     bonus_rate=Decimal("0.10"),
-                    quick_flip_days=7,
                     benefits={
                         "discount": 5,
                         "early_access": True,
@@ -84,7 +83,6 @@ def seed_orb_tenant():
                     name="Gold",
                     monthly_price=Decimal("25.00"),
                     bonus_rate=Decimal("0.20"),
-                    quick_flip_days=7,
                     benefits={
                         "discount": 10,
                         "early_access": True,
@@ -98,7 +96,6 @@ def seed_orb_tenant():
                     name="Platinum",
                     monthly_price=Decimal("50.00"),
                     bonus_rate=Decimal("0.30"),
-                    quick_flip_days=7,
                     benefits={
                         "discount": 15,
                         "early_access": True,

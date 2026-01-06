@@ -50,7 +50,7 @@ def search_shopify_customers():
 @members_bp.route('/enroll', methods=['POST'])
 def enroll_shopify_customer():
     """
-    Enroll an existing Shopify customer as a Quick Flip member.
+    Enroll an existing Shopify customer as a TradeUp member.
 
     JSON body:
         shopify_customer_id: Shopify customer ID (numeric) - REQUIRED
@@ -125,16 +125,19 @@ def get_member(member_id):
 
 @members_bp.route('/by-number/<member_number>', methods=['GET'])
 def get_member_by_number(member_number):
-    """Get member by member number (QF1001)."""
+    """Get member by member number (TU1001)."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
-    # Normalize member number
-    if not member_number.upper().startswith('QF'):
-        member_number = f'QF{member_number}'
+    # Normalize member number - support both TU and legacy QF prefixes
+    upper_num = member_number.upper()
+    if not upper_num.startswith('TU') and not upper_num.startswith('QF'):
+        member_number = f'TU{member_number}'
+    else:
+        member_number = upper_num
 
     member = Member.query.filter_by(
         tenant_id=tenant_id,
-        member_number=member_number.upper()
+        member_number=member_number
     ).first_or_404()
 
     return jsonify(member.to_dict(include_stats=True))
@@ -145,6 +148,13 @@ def create_member():
     """Create a new member."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
+
+    # Validate required fields
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    if 'email' not in data or not data.get('email'):
+        return jsonify({'error': 'Email is required'}), 400
 
     service = MembershipService(tenant_id)
 
@@ -214,7 +224,6 @@ def create_tier():
         name=data['name'],
         monthly_price=data['monthly_price'],
         bonus_rate=data['bonus_rate'],
-        quick_flip_days=data.get('quick_flip_days', 7),
         benefits=data.get('benefits', {}),
         display_order=data.get('display_order', 0)
     )
@@ -256,8 +265,6 @@ def update_tier(tier_id):
         tier.monthly_price = data['monthly_price']
     if 'bonus_rate' in data:
         tier.bonus_rate = data['bonus_rate']
-    if 'quick_flip_days' in data:
-        tier.quick_flip_days = data['quick_flip_days']
     if 'benefits' in data:
         tier.benefits = data['benefits']
     if 'display_order' in data:

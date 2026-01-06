@@ -1,10 +1,15 @@
 # Cardflow Labs - Session Handoff
 
-*Updated: January 5, 2026 - 12:45 AM*
+*Updated: January 6, 2026*
 
 ---
 
 ## CURRENT STATUS: FULLY WORKING ✅
+
+### User Story Testing: 37/37 PASSING
+- Created comprehensive API test script: `scripts/test_user_stories.py`
+- All user stories from `docs/USER_STORIES_TESTING.md` verified and working
+- Run tests: `python scripts/test_user_stories.py`
 
 ### TradeUp Embedded App: v1.7 WORKING
 - App loads and displays correctly inside Shopify Admin iframe
@@ -24,22 +29,35 @@
 
 ## COMPLETED THIS SESSION
 
-### 1. Fixed Shopify Iframe API Issue
+### 1. User Story Testing & Bug Fixes (Latest)
+Fixed 7 bugs discovered during comprehensive user story testing:
+
+| Bug | Fix |
+|-----|-----|
+| `StoreCreditLedger.tenant_id` doesn't exist | Join through Member table in dashboard.py |
+| `total_value` field not found | Changed to `total_trade_value` |
+| `len(b.items)` on AppenderQuery fails | Use stored `b.total_items` count |
+| Missing validation returns 500 | Added proper 400 response in members.py |
+| Legacy QF prefix only | Updated to support both TU and QF |
+| Missing `/settings/auto-enrollment` endpoint | Added GET/PATCH endpoints |
+| Missing `/settings/notifications` endpoint | Added GET/PATCH endpoints |
+
+### 2. Fixed Shopify Iframe API Issue (Previous Session)
 - **Problem**: `fetch()` calls hang inside Shopify embedded iframes (never resolve)
 - **Solution**: Converted all API calls to use `XMLHttpRequest` instead
 - **Result**: All API calls now complete successfully
 
-### 2. TradeUp Dashboard Features Working
-- Dashboard stats (members, credit, trade-ins, bonuses)
+### 3. TradeUp Dashboard Features Working
+- Dashboard stats (members, credit, trade-ins, cashback)
 - Recent members list with real Shopify customer data
-- Quick action buttons (Add Member, New Trade-In, Bonuses, Settings)
-- Bottom navigation (Home, Members, Trade-Ins, Bonuses, Settings)
+- Quick action buttons (Add Member, New Trade-In, Cashback, Settings)
+- Bottom navigation (Home, Members, Trade-Ins, Cashback, Settings)
 - Light/dark mode toggle
 - Mobile-optimized responsive design
 
-### 3. Test Data
+### 4. Test Data
 - Member: Michael Alarcon (michael.alarconii@gmail.com)
-- Member ID: QF1001
+- Member ID: TU1001
 - Tier: Silver
 - Store Credit: $0
 
@@ -78,7 +96,7 @@ TTL: Automatic
 ### 2. Build Out Remaining Features
 - Add Member form functionality
 - New Trade-In workflow
-- Bonuses management
+- Cashback management
 - Settings page with tier configuration
 
 ### 3. Shopify Billing Integration
@@ -113,7 +131,7 @@ TTL: Automatic
 
 ## REPO LOCATION
 ```
-C:\Users\malar\OneDrive\Documents\Coding Projects\quick-flip
+C:\Users\malar\OneDrive\Documents\Coding Projects\tradeup
 ```
 
 ---

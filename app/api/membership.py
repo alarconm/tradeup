@@ -11,7 +11,7 @@ from decimal import Decimal
 from flask import Blueprint, request, jsonify, g
 from .auth import get_current_member
 from ..extensions import db
-from ..models import Member, MembershipTier, BonusTransaction
+from ..models import Member, MembershipTier, StoreCreditLedger
 from ..services.shopify_client import ShopifyClient
 from ..services.tier_service import TierService
 from ..services.store_credit_service import store_credit_service
@@ -72,7 +72,7 @@ def get_membership_status():
         'tier_expires_at': member.tier_expires_at.isoformat() if member.tier_expires_at else None,
         'member_number': member.member_number,
         'stats': {
-            'total_bonus_earned': float(member.total_bonus_earned),
+            'total_credit_earned': float(member.total_credit_earned) if hasattr(member, 'total_credit_earned') else 0.0,
             'total_trade_ins': member.total_trade_ins,
             'total_trade_value': float(member.total_trade_value)
         }
@@ -113,17 +113,17 @@ def get_store_credit():
         return jsonify({'error': f'Could not fetch balance: {str(e)}'}), 500
 
 
-@membership_bp.route('/bonus-history', methods=['GET'])
-def get_bonus_history():
+@membership_bp.route('/credit-history', methods=['GET'])
+def get_credit_history_self():
     """
-    Get member's bonus transaction history.
+    Get current member's store credit transaction history.
 
     Query params:
         limit: int (optional, default 20)
         offset: int (optional, default 0)
 
     Returns:
-        List of bonus transactions
+        List of store credit transactions
     """
     member = get_current_member()
     if not member:
@@ -133,15 +133,15 @@ def get_bonus_history():
     offset = request.args.get('offset', 0, type=int)
 
     transactions = (
-        BonusTransaction.query
+        StoreCreditLedger.query
         .filter_by(member_id=member.id)
-        .order_by(BonusTransaction.created_at.desc())
+        .order_by(StoreCreditLedger.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
 
-    total = BonusTransaction.query.filter_by(member_id=member.id).count()
+    total = StoreCreditLedger.query.filter_by(member_id=member.id).count()
 
     return jsonify({
         'transactions': [t.to_dict() for t in transactions],
@@ -183,9 +183,9 @@ def link_shopify_customer():
 
         # Add membership tag
         if member.tier:
-            tier_tag = f'qf-{member.tier.name.lower()}'
+            tier_tag = f'tu-{member.tier.name.lower()}'
             client.add_customer_tag(customer['id'], tier_tag)
-            client.add_customer_tag(customer['id'], f'QF{member.member_number[2:]}')
+            client.add_customer_tag(customer['id'], f'TU{member.member_number[2:]}')
 
         # Get their store credit balance
         balance = client.get_store_credit_balance(customer['id'])
@@ -274,10 +274,10 @@ def admin_assign_tier():
         try:
             # Remove old tier tag
             if old_tier_name != 'None':
-                client.remove_customer_tag(member.shopify_customer_id, f'qf-{old_tier_name.lower()}')
+                client.remove_customer_tag(member.shopify_customer_id, f'tu-{old_tier_name.lower()}')
             # Add new tier tag
             if new_tier:
-                client.add_customer_tag(member.shopify_customer_id, f'qf-{new_tier.name.lower()}')
+                client.add_customer_tag(member.shopify_customer_id, f'tu-{new_tier.name.lower()}')
         except Exception as e:
             print(f"[Membership] Failed to sync tier tag to Shopify: {e}")
 
@@ -386,7 +386,7 @@ def admin_expire_tiers():
         client = get_shopify_client()
         if client and member.shopify_customer_id:
             try:
-                client.remove_customer_tag(member.shopify_customer_id, f'qf-{old_tier_name.lower()}')
+                client.remove_customer_tag(member.shopify_customer_id, f'tu-{old_tier_name.lower()}')
             except Exception:
                 pass
 

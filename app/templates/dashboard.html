@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick Flip Dashboard</title>
+    <title>TradeUp Dashboard</title>
     <style>
         :root {
             --primary: #e85d27;
@@ -257,7 +257,7 @@
 </head>
 <body>
     <header class="header">
-        <h1><span>Quick Flip</span> Employee Dashboard</h1>
+        <h1><span>TradeUp</span> Employee Dashboard</h1>
         <div>
             <span id="tenantName">ORB Sports Cards</span>
         </div>
@@ -269,7 +269,7 @@
             <div class="action-card" onclick="showNewMemberModal()">
                 <div class="action-card__icon">👤</div>
                 <div class="action-card__title">New Member</div>
-                <div class="action-card__desc">Register a new Quick Flip member</div>
+                <div class="action-card__desc">Register a new TradeUp member</div>
             </div>
             <div class="action-card" onclick="showNewTradeInModal()">
                 <div class="action-card__icon">📦</div>
@@ -300,9 +300,9 @@
                 <div class="stat-card__change stat-card__change--up">↑ 12% vs last month</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Quick Flip Success Rate</div>
+                <div class="stat-card__label">Trade-In Completion Rate</div>
                 <div class="stat-card__value" id="successRate">--%</div>
-                <div class="stat-card__change">Items sold within 7 days</div>
+                <div class="stat-card__change">Completed trade-ins</div>
             </div>
         </div>
 
@@ -427,7 +427,7 @@
                 document.getElementById('activeMembers').textContent = data.members?.active || 0;
                 document.getElementById('tradeInsMonth').textContent = data.trade_ins_this_month || 0;
                 document.getElementById('bonusesIssued').textContent = '$' + (data.bonuses_this_month?.total || 0).toFixed(2);
-                document.getElementById('successRate').textContent = (data.quick_flip_success_rate || 0) + '%';
+                document.getElementById('successRate').textContent = (data.completion_rate || 0) + '%';
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }

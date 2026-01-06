@@ -2,21 +2,20 @@
 
 ## Executive Summary
 
-**Two-product strategy** maximizing both App Store revenue and ORB competitive advantage.
+**Single-product strategy** maximizing Shopify App Store revenue with ORB Sports Cards as the flagship customer.
 
-| Product | Target | Distribution | Complexity |
-|---------|--------|--------------|------------|
-| **TradeUp** | Any Shopify store | App Store | Simple |
-| **Quick Flip** | ORB Sports Cards | Private | Advanced |
+| Product | Target | Distribution | Focus |
+|---------|--------|--------------|-------|
+| **TradeUp** | Shopify stores with trade-in programs | App Store | Loyalty & retention |
 
 ---
 
-## Product 1: TradeUp (Shopify App Store)
+## Product: TradeUp (Shopify App Store)
 
 ### Value Proposition
 > "GameStop PowerUp Rewards for every Shopify store"
 
-Turn one-time sellers into repeat members with tiered trade-in bonuses.
+Turn one-time sellers into repeat members with tiered trade-in rates and cashback rewards.
 
 ### Core Features (MVP)
 
@@ -37,16 +36,22 @@ Turn one-time sellers into repeat members with tiered trade-in bonuses.
    - Trade-in history
    - Analytics & reporting
 
+4. **Cashback Rewards**
+   - Award cashback on purchases based on tier
+   - Automatic store credit issuance
+   - Transaction history tracking
+
 ### Pricing (Shopify Billing API)
 
-| Tier | Price | Features |
-|------|-------|----------|
-| Starter | $9.99/mo | Up to 100 members, 3 tiers |
-| Growth | $19.99/mo | Up to 500 members, 5 tiers, analytics |
-| Pro | $29.99/mo | Unlimited members, custom tiers, API access |
+| Tier | Price | Members | Tiers | Features |
+|------|-------|---------|-------|----------|
+| Free | $0/mo | 50 | 2 | Basic features |
+| Starter | $19/mo | 200 | 3 | Remove branding |
+| Growth | $49/mo | 1,000 | 5 | Analytics, automation |
+| Pro | $99/mo | Unlimited | Unlimited | API access, priority support |
 
 ### Tech Stack
-- **Backend**: Python/Flask (existing) or Node.js (Shopify-native)
+- **Backend**: Python/Flask
 - **Database**: PostgreSQL (Railway)
 - **Billing**: Shopify Billing API (required for App Store)
 - **Auth**: Shopify OAuth
@@ -59,51 +64,35 @@ Turn one-time sellers into repeat members with tiered trade-in bonuses.
 
 ---
 
-## Product 2: Quick Flip (ORB Exclusive)
+## ORB Sports Cards Integration
 
 ### Value Proposition
 > "The ultimate membership for serious collectors"
 
-Premium membership with exclusive perks unavailable anywhere else.
+Premium membership with exclusive perks as a flagship TradeUp customer.
 
-### Core Features
+### Additional Features for ORB
 
-1. **Everything in TradeUp PLUS:**
-
-2. **Quick Flip Bonus**
-   - Trade-in item sells within 7 days = bonus store credit
-   - Bonus rate scales with tier (10%/20%/30% of profit)
-   - Requires advanced inventory tracking
-
-3. **Consignment Perks**
+1. **Consignment Perks**
    - Bronze: Standard 15% fee
    - Silver: 13% fee (-2%)
    - Gold: 11% fee (-4%)
    - Platinum: 9% fee (-6%)
 
-4. **Grading Perks**
+2. **Grading Perks**
    - Discounted PSA/SGC/BGS submission fees
    - Priority queue placement
    - Bulk submission discounts
 
-5. **Event Perks**
+3. **Event Perks**
    - Early access to store events
    - Reserved seating at tournaments
    - Member-only buying events
 
-6. **Store Perks**
+4. **Store Perks**
    - % discount on purchases (5%/10%/15%)
    - Free shipping thresholds
    - Early access to new products
-
-### Pricing (Direct via Stripe or Shopify)
-
-| Tier | Price | Trade-In Rate | Consignment Fee | Quick Flip Bonus |
-|------|-------|---------------|-----------------|------------------|
-| Bronze | $9.99/mo | 65% | 15% | 10% |
-| Silver | $19.99/mo | 70% | 13% | 20% |
-| Gold | $29.99/mo | 75% | 11% | 30% |
-| Platinum | $49.99/mo | 80% | 9% | 40% |
 
 ---
 
@@ -115,7 +104,7 @@ Premium membership with exclusive perks unavailable anywhere else.
 |---------|---------|----------|---------|
 | Trade-in pricing | Manual lookup | Auto-price via TCGPlayer | 10x faster |
 | Member onboarding | Manual setup | Self-service + AI assist | 24/7 availability |
-| Bonus calculation | Webhook + code | Agent monitors & calculates | Zero errors |
+| Cashback calculation | Webhook + code | Agent monitors & calculates | Zero errors |
 | Customer support | Human | AI agent first-line | Scale infinitely |
 | Consignment intake | Form submission | AI processes photos/lists | Instant quotes |
 
@@ -131,9 +120,9 @@ Premium membership with exclusive perks unavailable anywhere else.
    - Output: Answers, tier recommendations
    - Integration: Chat widget
 
-3. **Inventory Agent**
+3. **Cashback Agent**
    - Input: Shopify webhooks
-   - Output: Quick Flip bonus triggers
+   - Output: Cashback credit triggers
    - Integration: Store credit API
 
 4. **Analytics Agent**
@@ -146,15 +135,15 @@ Premium membership with exclusive perks unavailable anywhere else.
 ## Implementation Roadmap
 
 ### Phase 1: TradeUp MVP (Week 1-2)
-- [ ] Replace Stripe with Shopify Billing
-- [ ] Simplify to tier-only model (no Quick Flip tracking)
-- [ ] Build Shopify embedded app UI
+- [ ] Finalize Shopify Billing integration
+- [ ] Complete tier-based membership model
+- [ ] Polish Shopify embedded app UI
 - [ ] Submit to App Store review
 
-### Phase 2: Quick Flip for ORB (Week 3-4)
-- [ ] Add Quick Flip Bonus tracking
-- [ ] Integrate consignment fee tiers
+### Phase 2: ORB Integration (Week 3-4)
+- [ ] Add consignment fee tiers
 - [ ] Build member perks system
+- [ ] Integrate with WordPress account page
 - [ ] Launch to existing ORB customers
 
 ### Phase 3: AI Agents (Week 5-6)
@@ -173,10 +162,8 @@ Premium membership with exclusive perks unavailable anywhere else.
 
 | Domain | Purpose | Status |
 |--------|---------|--------|
-| getquickflip.com | ORB Quick Flip landing | Available - $11.28/yr |
-| gettradeup.com | TradeUp App landing | Available - $11.28/yr |
-
-**Recommendation**: Register both. Use gettradeup.com for App Store product.
+| cardflowlabs.com | Brand landing page | Active |
+| app.cardflowlabs.com | TradeUp app subdomain | Active |
 
 ---
 
@@ -187,7 +174,7 @@ Premium membership with exclusive perks unavailable anywhere else.
 - Paying customers: 20% conversion
 - MRR target: $500 by month 3
 
-### Quick Flip (ORB)
+### ORB (Flagship Customer)
 - Member signups: 50 in first month
 - Retention: 80% month-over-month
 - Trade-in volume increase: 30%
@@ -199,7 +186,7 @@ Premium membership with exclusive perks unavailable anywhere else.
 1. **First mover**: No trade-in membership apps on Shopify
 2. **Niche expertise**: Built by card shop owners, for card shops
 3. **AI-native**: Agents for pricing, support, automation
-4. **Dual revenue**: App Store SaaS + ORB membership fees
+4. **Proven model**: Tested at ORB Sports Cards
 
 ---
 

@@ -1,3 +1,3 @@
 """
-API routes for Quick Flip platform.
+API routes for TradeUp platform.
 """

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
- * Signup page for Quick Flip membership.
+ * Signup page for TradeUp membership.
  *
  * Note: Membership tiers are now assigned by staff or earned through activity.
  * There is no payment step during signup - customers just create an account.
@@ -53,10 +53,10 @@ export default function Signup() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="text-2xl font-bold text-orange-500">
-            Quick Flip
+            TradeUp
           </Link>
           <h1 className="text-3xl font-bold mt-4">Create Your Account</h1>
-          <p className="text-gray-600">Join Quick Flip and start earning more from your trade-ins</p>
+          <p className="text-gray-600">Join TradeUp and start earning more from your trade-ins</p>
         </div>
 
         {error && (

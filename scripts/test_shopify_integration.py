@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test Shopify Customer Integration for Quick Flip.
+Test Shopify Customer Integration for TradeUp.
 
 Tests the full flow:
 1. Shopify customer lookup by email
@@ -188,23 +188,23 @@ def test_verify_shopify_tags(shopify_data):
     tags = customer.get('tags', [])
     print_info(f"Current Shopify tags: {tags}")
 
-    # Check for Quick Flip tags
-    qf_tags = [t for t in tags if t.startswith('qf-')]
+    # Check for TradeUp tags
+    tu_tags = [t for t in tags if t.startswith('tu-')]
 
-    if qf_tags:
-        print_success(f"Quick Flip tags found: {qf_tags}")
+    if tu_tags:
+        print_success(f"TradeUp tags found: {tu_tags}")
 
         # Parse tags
-        for tag in qf_tags:
-            if tag.startswith('qf-tier-'):
-                tier_name = tag.replace('qf-tier-', '')
+        for tag in tu_tags:
+            if tag.startswith('tu-tier-'):
+                tier_name = tag.replace('tu-tier-', '')
                 print(f"      - Tier: {tier_name}")
-            elif tag.startswith('qf-member-'):
-                member_num = tag.replace('qf-member-', '')
-                print(f"      - Member #: QF{member_num}")
+            elif tag.startswith('tu-member-'):
+                member_num = tag.replace('tu-member-', '')
+                print(f"      - Member #: TU{member_num}")
         return True
     else:
-        print_error("No Quick Flip tags found")
+        print_error("No TradeUp tags found")
         return False
 
 
@@ -291,7 +291,7 @@ def test_store_credit_events():
 
 
 def main():
-    print("\n" + "QUICK FLIP SHOPIFY INTEGRATION TEST".center(60, "="))
+    print("\n" + "TRADEUP SHOPIFY INTEGRATION TEST".center(60, "="))
     print(f"Test Account: {TEST_EMAIL}")
     print("=" * 60)
 

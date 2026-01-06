@@ -90,7 +90,7 @@ Based on research showing 3 tiers is optimal and $19.14 is average Shopify app p
 | **Free** | $0 | 50 | 2 | Get started | Tiny shops, testing |
 | **Starter** | $19/mo | 200 | 3 | Remove branding | Small shops |
 | **Growth** | $49/mo | 1,000 | 5 | POS + Analytics | Medium shops |
-| **Pro** | $99/mo | Unlimited | ∞ | Quick Flip + API | Large shops |
+| **Pro** | $99/mo | Unlimited | ∞ | API + Advanced | Large shops |
 
 ### Why This Beats Competition
 
@@ -104,7 +104,7 @@ Based on research showing 3 tiers is optimal and $19.14 is average Shopify app p
 
 For high-volume shops:
 - **Extra members:** $0.10/member over tier limit
-- **Quick Flip Bonus:** +$29/mo add-on
+- **Store Credit Events:** Included in Growth+
 - **API access:** Included in Pro only
 
 ### Annual Discount
@@ -283,7 +283,7 @@ Reviews are CRITICAL for App Store ranking:
 - [ ] Analytics dashboard
 
 **Later (Month 4+):**
-- [ ] Quick Flip Bonus tracking
+- [ ] Store Credit Events
 - [ ] API access
 - [ ] Multi-location support
 - [ ] White-label options

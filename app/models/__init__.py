@@ -5,7 +5,6 @@ Store credit, rewards, and membership management for Shopify.
 from .tenant import Tenant, APIKey
 from .member import MembershipTier, Member
 from .trade_in import TradeInBatch, TradeInItem
-from .bonus import BonusTransaction
 from .points import PointsTransaction, StoreCreditTransaction
 from .partner_integration import PartnerIntegration, PartnerSyncLog
 from .tier_history import (
@@ -34,7 +33,6 @@ __all__ = [
     'Member',
     'TradeInBatch',
     'TradeInItem',
-    'BonusTransaction',
     'PointsTransaction',
     'StoreCreditTransaction',
     'PartnerIntegration',

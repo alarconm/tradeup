@@ -110,7 +110,6 @@ class Member(db.Model):
 
     # Relationships
     trade_in_batches = db.relationship('TradeInBatch', backref='member', lazy='dynamic')
-    bonus_transactions = db.relationship('BonusTransaction', backref='member', lazy='dynamic')
     referred_by = db.relationship('Member', remote_side='Member.id', backref='referrals', foreign_keys=[referred_by_id])
 
     # Unique constraint per tenant

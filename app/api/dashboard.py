@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from ..extensions import db
-from ..models import Member, TradeInBatch, TradeInItem, BonusTransaction
+from ..models import Member, TradeInBatch, TradeInItem, StoreCreditLedger
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -36,29 +36,15 @@ def get_dashboard_stats():
         .count()
     )
 
-    # Bonuses issued this month
-    bonuses_this_month = db.session.query(
-        func.count(BonusTransaction.id).label('count'),
-        func.sum(BonusTransaction.bonus_amount).label('total')
+    # Store credit issued this month (join through Member for tenant filtering)
+    credit_this_month = db.session.query(
+        func.count(StoreCreditLedger.id).label('count'),
+        func.sum(StoreCreditLedger.amount).label('total')
     ).join(Member).filter(
         Member.tenant_id == tenant_id,
-        BonusTransaction.created_at >= start_of_month,
-        BonusTransaction.transaction_type == 'credit'
+        StoreCreditLedger.created_at >= start_of_month,
+        StoreCreditLedger.amount > 0  # Only credits, not debits
     ).first()
-
-    # Quick flip success rate (items sold within window / total sold)
-    sold_items = (
-        TradeInItem.query
-        .join(TradeInItem.batch)
-        .join(Member)
-        .filter(
-            Member.tenant_id == tenant_id,
-            TradeInItem.sold_date.isnot(None)
-        )
-    )
-    total_sold = sold_items.count()
-    quick_flips = sold_items.filter(TradeInItem.eligible_for_bonus == True).count()
-    success_rate = (quick_flips / total_sold * 100) if total_sold > 0 else 0
 
     return jsonify({
         'members': {
@@ -66,77 +52,61 @@ def get_dashboard_stats():
             'total': total_members
         },
         'trade_ins_this_month': trade_ins_this_month,
-        'bonuses_this_month': {
-            'count': bonuses_this_month.count or 0,
-            'total': float(bonuses_this_month.total or 0)
-        },
-        'quick_flip_success_rate': round(success_rate, 1)
+        'credit_this_month': {
+            'count': credit_this_month.count or 0,
+            'total': float(credit_this_month.total or 0)
+        }
     })
 
 
-@dashboard_bp.route('/quick-flip-report', methods=['GET'])
-def get_quick_flip_report():
-    """Get Quick Flip performance report."""
+@dashboard_bp.route('/trade-in-report', methods=['GET'])
+def get_trade_in_report():
+    """Get trade-in performance report."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     days = request.args.get('days', 30, type=int)
 
     start_date = datetime.utcnow() - timedelta(days=days)
 
-    # Get items sold in period with bonus eligibility
-    sold_items = (
-        TradeInItem.query
-        .join(TradeInItem.batch)
+    # Get trade-ins in period
+    trade_ins = (
+        TradeInBatch.query
         .join(Member)
         .filter(
             Member.tenant_id == tenant_id,
-            TradeInItem.sold_date >= start_date,
-            TradeInItem.sold_date.isnot(None)
+            TradeInBatch.created_at >= start_date
         )
         .all()
     )
 
-    # Aggregate stats
-    total_items = len(sold_items)
-    eligible_items = [i for i in sold_items if i.eligible_for_bonus]
-    total_eligible = len(eligible_items)
+    total_batches = len(trade_ins)
+    total_items = sum(b.total_items or 0 for b in trade_ins)  # Use stored count, not items relationship
+    total_value = sum(float(b.total_trade_value or 0) for b in trade_ins)
 
-    total_bonuses = sum(
-        float(i.bonus_amount or 0) for i in sold_items if i.bonus_amount
-    )
-
-    avg_days_to_sell = (
-        sum(i.days_to_sell or 0 for i in sold_items if i.days_to_sell) / total_items
-        if total_items > 0 else 0
-    )
-
-    # Group by days to sell
-    days_distribution = {}
-    for item in sold_items:
-        if item.days_to_sell is not None:
-            bucket = min(item.days_to_sell, 30)  # Cap at 30 for display
-            days_distribution[bucket] = days_distribution.get(bucket, 0) + 1
+    # Status breakdown
+    status_counts = {}
+    for batch in trade_ins:
+        status = batch.status
+        status_counts[status] = status_counts.get(status, 0) + 1
 
     return jsonify({
         'period_days': days,
-        'total_items_sold': total_items,
-        'quick_flip_eligible': total_eligible,
-        'success_rate': round((total_eligible / total_items * 100) if total_items > 0 else 0, 1),
-        'total_bonuses_issued': total_bonuses,
-        'avg_days_to_sell': round(avg_days_to_sell, 1),
-        'days_distribution': days_distribution
+        'total_batches': total_batches,
+        'total_items': total_items,
+        'total_value': round(total_value, 2),
+        'status_breakdown': status_counts
     })
 
 
 @dashboard_bp.route('/top-members', methods=['GET'])
 def get_top_members():
-    """Get top members by bonus earned."""
+    """Get top members by trade-in value."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     limit = request.args.get('limit', 10, type=int)
 
     top_members = (
         Member.query
         .filter_by(tenant_id=tenant_id, status='active')
-        .order_by(Member.total_bonus_earned.desc())
+        .order_by(Member.total_trade_value.desc())
         .limit(limit)
         .all()
     )
@@ -148,7 +118,7 @@ def get_top_members():
 
 @dashboard_bp.route('/recent-activity', methods=['GET'])
 def get_recent_activity():
-    """Get recent trade-ins and bonuses."""
+    """Get recent trade-ins and credit transactions."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     limit = request.args.get('limit', 20, type=int)
 
@@ -162,17 +132,17 @@ def get_recent_activity():
         .all()
     )
 
-    # Recent bonuses
-    recent_bonuses = (
-        BonusTransaction.query
+    # Recent credit transactions (join through Member for tenant filtering)
+    recent_credits = (
+        StoreCreditLedger.query
         .join(Member)
         .filter(Member.tenant_id == tenant_id)
-        .order_by(BonusTransaction.created_at.desc())
+        .order_by(StoreCreditLedger.created_at.desc())
         .limit(limit)
         .all()
     )
 
     return jsonify({
         'recent_trade_ins': [b.to_dict() for b in recent_batches],
-        'recent_bonuses': [b.to_dict() for b in recent_bonuses]
+        'recent_credits': [c.to_dict() for c in recent_credits]
     })

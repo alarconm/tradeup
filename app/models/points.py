@@ -67,7 +67,7 @@ class StoreCreditTransaction(db.Model):
 
     Used for:
     - Trade-in credits
-    - Quick Flip bonuses
+    - Tier cashback bonuses
     - Manual credits
     - Redemptions at checkout
     """
@@ -83,7 +83,7 @@ class StoreCreditTransaction(db.Model):
     transaction_type = db.Column(db.String(50), nullable=False)  # credit, debit, adjustment
 
     # Source tracking
-    source = db.Column(db.String(50))  # trade_in, quick_flip_bonus, admin, checkout
+    source = db.Column(db.String(50))  # trade_in, cashback, admin, checkout
     reference_id = db.Column(db.String(100))
     reference_type = db.Column(db.String(50))
     description = db.Column(db.String(500))

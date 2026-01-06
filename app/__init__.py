@@ -1,5 +1,5 @@
 """
-Quick Flip Membership Platform
+TradeUp Membership Platform
 Flask application factory
 """
 import os
@@ -60,7 +60,20 @@ def create_app(config_name: str = None) -> Flask:
     # Health check endpoint
     @app.route('/health')
     def health_check():
-        return {'status': 'healthy', 'service': 'quick-flip'}
+        return {'status': 'healthy', 'service': 'tradeup'}
+
+    # Static pages (privacy policy, support, terms)
+    @app.route('/privacy-policy.html')
+    @app.route('/privacy-policy')
+    def privacy_policy():
+        from flask import send_from_directory
+        return send_from_directory('static', 'privacy-policy.html')
+
+    @app.route('/support.html')
+    @app.route('/support')
+    def support_page():
+        from flask import send_from_directory
+        return send_from_directory('static', 'support.html')
 
     # Root route - redirect to app
     @app.route('/')
@@ -78,14 +91,16 @@ def create_app(config_name: str = None) -> Flask:
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
-        # Get app URL from environment or construct from Railway domain
-        app_url = os.getenv('APP_URL')
-        if not app_url:
-            railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
-            if railway_domain:
-                app_url = f'https://{railway_domain}'
-            else:
-                app_url = request.url_root.rstrip('/')
+        # Get app URL - use request.url_root for local dev, APP_URL for production
+        # This ensures local dev always uses the correct port from the actual request
+        railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+        if railway_domain:
+            app_url = f'https://{railway_domain}'
+        elif os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG'):
+            # Local dev: always use request URL to get correct port
+            app_url = request.url_root.rstrip('/')
+        else:
+            app_url = os.getenv('APP_URL', request.url_root.rstrip('/'))
 
         # Create response with cache-control headers to prevent Shopify iframe caching
         response = make_response(get_spa_html(shop, host, api_key, app_url))
@@ -914,7 +929,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                            placeholder="Search by name, email, phone, or ORB#..."
                            oninput="debounceCustomerSearch(this.value)">
                     <small class="text-muted" style="display:block;margin-top:4px;">
-                        Search your Shopify customers to enroll them in Quick Flip
+                        Search your Shopify customers to enroll them in TradeUp
                     </small>
                 </div>
 
@@ -1054,15 +1069,6 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                             <input type="number" class="form-input" id="tier-bonus-rate" required
                                    min="0" max="100" step="1" placeholder="10">
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Quick Flip Window (Days)</label>
-                        <input type="number" class="form-input" id="tier-qf-days"
-                               min="1" max="30" value="7">
-                        <small class="text-muted" style="display:block;margin-top:4px;">
-                            How many days members have to flip items for bonus
-                        </small>
                     </div>
 
                     <div class="form-group">
@@ -1537,7 +1543,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                         <div class="item-header">
                             <div>
                                 <div class="item-title">${{b.member?.name || 'Member'}}</div>
-                                <div class="item-meta">${{b.description || 'Quick Flip Bonus'}}</div>
+                                <div class="item-meta">${{b.description || 'Store Credit'}}</div>
                             </div>
                             <div class="item-amount amount-pending">${{formatCurrency(b.bonus_amount)}}</div>
                         </div>
@@ -1599,8 +1605,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                             <div class="tier-card-price">${{formatCurrency(t.monthly_price)}}/mo</div>
                         </div>
                         <div class="tier-card-details">
-                            <span class="tier-stat"><strong>${{(t.bonus_rate * 100).toFixed(0)}}%</strong> bonus</span>
-                            <span class="tier-stat"><strong>${{t.quick_flip_days}}</strong> day window</span>
+                            <span class="tier-stat"><strong>${{(t.bonus_rate * 100).toFixed(0)}}%</strong> cashback</span>
                         </div>
                         ${{t.benefits && Object.keys(t.benefits).length > 0 ? `
                             <div class="tier-card-benefits">
@@ -1651,7 +1656,6 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                     document.getElementById('tier-name').value = tier.name;
                     document.getElementById('tier-monthly-price').value = tier.monthly_price;
                     document.getElementById('tier-bonus-rate').value = (tier.bonus_rate * 100).toFixed(0);
-                    document.getElementById('tier-qf-days').value = tier.quick_flip_days;
                     // Set benefit checkboxes
                     const benefits = tier.benefits || {{}};
                     document.getElementById('benefit-discount').checked = !!benefits.discount;
@@ -1667,7 +1671,6 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 title.textContent = 'Create New Tier';
                 form.reset();
                 document.getElementById('tier-bonus-rate').value = '10';
-                document.getElementById('tier-qf-days').value = '7';
             }}
 
             modal.classList.add('active');
@@ -1696,7 +1699,6 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 name: document.getElementById('tier-name').value,
                 monthly_price: parseFloat(document.getElementById('tier-monthly-price').value),
                 bonus_rate: parseFloat(document.getElementById('tier-bonus-rate').value) / 100,
-                quick_flip_days: parseInt(document.getElementById('tier-qf-days').value),
                 benefits: benefits
             }};
 
@@ -1843,7 +1845,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                     <div class="form-group">
                         <label class="form-label">App Name</label>
                         <input type="text" class="form-input" id="branding-app-name"
-                               value="${{brandingData.app_name || 'Quick Flip'}}"
+                               value="${{brandingData.app_name || 'TradeUp'}}"
                                placeholder="Your app name" onchange="updateBranding('app_name', this.value)">
                     </div>
                     <div class="form-group">
@@ -2174,7 +2176,6 @@ def register_blueprints(app: Flask) -> None:
     # Core API
     from .api.members import members_bp
     from .api.trade_ins import trade_ins_bp
-    from .api.bonuses import bonuses_bp
     from .api.dashboard import dashboard_bp
 
     # Auth and Membership
@@ -2222,7 +2223,6 @@ def register_blueprints(app: Flask) -> None:
     # Core API routes
     app.register_blueprint(members_bp, url_prefix='/api/members')
     app.register_blueprint(trade_ins_bp, url_prefix='/api/trade-ins')
-    app.register_blueprint(bonuses_bp, url_prefix='/api/bonuses')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 
     # Auth and Membership routes

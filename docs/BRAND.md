@@ -40,8 +40,7 @@ We're not a tech company that Googled "card shop problems." We're card shop owne
 
 | Product | Description | Status |
 |---------|-------------|--------|
-| **TradeUp** | Tiered trade-in membership system | Ready |
-| **Quick Flip** | Profit-sharing bonus when trade-ins sell fast | Ready |
+| **TradeUp** | Tiered trade-in membership with cashback rewards | Ready |
 
 ### Future Products (Roadmap)
 - CardSync - Inventory sync across platforms
@@ -49,7 +48,6 @@ We're not a tech company that Googled "card shop problems." We're card shop owne
 - BreakTracker - Break/stream analytics
 
 ### Product Naming Convention
-- Products can have standalone names (TradeUp, Quick Flip)
 - Full reference: "TradeUp by Cardflow Labs"
 - App Store listing: "TradeUp by Cardflow Labs"
 
@@ -161,7 +159,6 @@ Cardflow Labs is a division of ORB Sports Cards LLC.
 
 ### Trademark Usage
 - TradeUp™
-- Quick Flip™
 - Cardflow Labs™
 
 ---

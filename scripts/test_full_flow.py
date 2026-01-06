@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Test the complete Quick Flip flow locally.
+Test the complete TradeUp flow locally.
 
 This simulates:
 1. Creating a member
 2. Recording a trade-in
 3. Marking item as listed in Shopify
 4. Simulating an order/paid webhook from Shopify
-5. Processing the bonus
+5. Issuing store credit
 """
 import requests
 import json
@@ -26,7 +26,7 @@ def print_response(label, data):
     print(json.dumps(data, indent=2, default=str))
 
 def main():
-    print("\n" + "🚀 QUICK FLIP FULL FLOW TEST ".center(60, "="))
+    print("\n" + "🚀 TRADEUP FULL FLOW TEST ".center(60, "="))
 
     # Step 1: Create a test member
     print_step(1, "Create Test Member (Gold Tier)")

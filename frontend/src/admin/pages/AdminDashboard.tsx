@@ -349,7 +349,7 @@ export default function AdminDashboard() {
               <Icons.UserPlus />
             </div>
             <h3 className="font-semibold mb-1">Register Member</h3>
-            <p className="text-sm text-white/40">Sign up a new Quick Flip member</p>
+            <p className="text-sm text-white/40">Sign up a new TradeUp member</p>
           </Link>
 
           <Link
@@ -408,12 +408,8 @@ export default function AdminDashboard() {
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-white/60">
-                      <span>Bonus Rate</span>
+                      <span>Cashback Rate</span>
                       <span className="font-semibold text-white">{Math.round(tier.bonus_rate * 100)}%</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Quick Flip Days</span>
-                      <span className="font-semibold text-white">{tier.quick_flip_days}</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Members</span>

@@ -7,7 +7,7 @@ from ..extensions import db
 
 class Tenant(db.Model):
     """
-    Card shop tenant using the Quick Flip platform.
+    Card shop tenant using the TradeUp platform.
     Global table - shared across all tenants.
     """
     __tablename__ = 'tenants'

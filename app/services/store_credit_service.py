@@ -1,5 +1,5 @@
 """
-Store Credit Service for Quick Flip.
+Store Credit Service for TradeUp.
 
 Handles all store credit operations:
 - Credit issuance (trade-ins, cashback, promotions)

@@ -1,7 +1,7 @@
 """
 Store Credit Events service.
 Port from CardShop for running promotional store credit events like Trade Night.
-Enhanced for Quick Flip Admin Dashboard with filter-based event builder.
+Enhanced for TradeUp Admin Dashboard with filter-based event builder.
 """
 import os
 import uuid
@@ -516,7 +516,7 @@ class StoreCreditEventsService:
 
 class StoreCreditEventService:
     """
-    New-style event service for Quick Flip Admin Dashboard.
+    New-style event service for TradeUp Admin Dashboard.
     Supports filter-based event creation with flat credit amounts.
     """
 
@@ -639,7 +639,7 @@ class StoreCreditEventService:
                 result = self.shopify_client.add_store_credit(
                     customer_id=customer['id'],
                     amount=credit_amount,
-                    note=f"Quick Flip Event: {name}"
+                    note=f"TradeUp Event: {name}"
                 )
                 if result.get('success'):
                     successful += 1
@@ -687,10 +687,10 @@ class StoreCreditEventService:
         # Build query from filters
         query_parts = []
 
-        # Tier filter - match Quick Flip member tags
+        # Tier filter - match TradeUp member tags
         tiers = filters.get('tiers', [])
         if tiers:
-            tier_queries = [f"tag:qf-tier-{tier.lower()}" for tier in tiers]
+            tier_queries = [f"tag:tu-tier-{tier.lower()}" for tier in tiers]
             query_parts.append(f"({' OR '.join(tier_queries)})")
 
         # Customer tags filter
@@ -801,7 +801,7 @@ class StoreCreditEventService:
         """Extract tier from customer tags."""
         tags = customer.get('tags', [])
         for tag in tags:
-            if tag.startswith('qf-tier-'):
-                tier = tag.replace('qf-tier-', '')
+            if tag.startswith('tu-tier-'):
+                tier = tag.replace('tu-tier-', '')
                 return tier.capitalize()
         return 'None'

@@ -30,7 +30,7 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-orange-500">Quick Flip</h1>
+          <h1 className="text-2xl font-bold text-orange-500">TradeUp</h1>
           <div className="space-x-4">
             <Link to="/login" className="btn btn-secondary">
               Login
@@ -48,8 +48,8 @@ export default function Landing() {
           Earn <span className="text-orange-500">More</span> From Your Trade-Ins
         </h2>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-          Quick Flip members earn bonus store credit when their trade-ins sell fast.
-          The faster it sells, the more you earn!
+          TradeUp members earn bonus store credit on trade-ins and purchases.
+          Join our loyalty program and start earning more!
         </p>
         <Link to="/signup" className="btn btn-primary text-lg px-8 py-3">
           Start Your Membership
@@ -59,7 +59,7 @@ export default function Landing() {
       {/* How It Works */}
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
-          <h3 className="text-3xl font-bold text-center mb-12">How Quick Flip Works</h3>
+          <h3 className="text-3xl font-bold text-center mb-12">How TradeUp Works</h3>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -114,11 +114,7 @@ export default function Landing() {
                   <ul className="space-y-3 mb-6">
                     <li className="flex items-center gap-2">
                       <span className="text-green-500">✓</span>
-                      <span>{Math.round(tier.bonus_rate * 100)}% Quick Flip Bonus</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>{tier.quick_flip_days}-day bonus window</span>
+                      <span>{Math.round(tier.bonus_rate * 100)}% Cashback on Purchases</span>
                     </li>
                     {tier.benefits?.discount_percent != null && (
                       <li className="flex items-center gap-2">
