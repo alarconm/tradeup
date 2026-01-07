@@ -17,7 +17,7 @@ class ShopifyClient:
     - Collections and tags
     """
 
-    def __init__(self, tenant_id_or_domain, access_token: str = None, api_version: str = '2024-10'):
+    def __init__(self, tenant_id_or_domain, access_token: str = None, api_version: str = '2026-01'):
         """
         Initialize Shopify client.
 
