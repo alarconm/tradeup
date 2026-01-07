@@ -200,13 +200,25 @@ def update_member(member_id):
 
 @members_bp.route('/tiers', methods=['GET'])
 def list_tiers():
-    """List membership tiers for tenant."""
+    """List membership tiers for tenant.
+
+    Auto-seeds default tiers if none exist.
+    """
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     tiers = MembershipTier.query.filter_by(
         tenant_id=tenant_id,
         is_active=True
     ).order_by(MembershipTier.display_order).all()
+
+    # Auto-seed default tiers if none exist
+    if not tiers:
+        service = MembershipService(tenant_id)
+        service.setup_default_tiers()
+        tiers = MembershipTier.query.filter_by(
+            tenant_id=tenant_id,
+            is_active=True
+        ).order_by(MembershipTier.display_order).all()
 
     return jsonify({
         'tiers': [t.to_dict() for t in tiers]
