@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   CreditCardIcon,
   ListBulletedIcon,
+  DiscountIcon,
 } from '@shopify/polaris-icons';
 import { useState, useCallback } from 'react';
 
@@ -21,6 +22,7 @@ import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
 import { EmbeddedTiers } from './pages/EmbeddedTiers';
 import { EmbeddedMembers } from './pages/EmbeddedMembers';
 import { EmbeddedTradeIns } from './pages/EmbeddedTradeIns';
+import { EmbeddedPromotions } from './pages/EmbeddedPromotions';
 import { EmbeddedSettings } from './pages/EmbeddedSettings';
 import { EmbeddedBilling } from './pages/EmbeddedBilling';
 
@@ -77,6 +79,12 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
             icon: ReceiptIcon,
             selected: window.location.pathname.startsWith('/app/trade-ins'),
           },
+          {
+            url: '/app/promotions',
+            label: 'Promotions',
+            icon: DiscountIcon,
+            selected: window.location.pathname.startsWith('/app/promotions'),
+          },
         ]}
       />
       <Navigation.Section
@@ -113,6 +121,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
         <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
         <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
+        <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
         <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
         <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
       </Routes>

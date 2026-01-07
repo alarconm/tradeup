@@ -1,35 +1,46 @@
 # Cardflow Labs - Session Handoff
 
-*Updated: January 6, 2026*
+*Updated: January 6, 2026 (afternoon)*
 
 ---
 
-## CURRENT STATUS: FULLY WORKING ✅
+## CURRENT STATUS: DNS & SSL WORKING ✅ / DEBUGGING SHOPIFY API
 
-### User Story Testing: 37/37 PASSING
-- Created comprehensive API test script: `scripts/test_user_stories.py`
-- All user stories from `docs/USER_STORIES_TESTING.md` verified and working
-- Run tests: `python scripts/test_user_stories.py`
-
-### TradeUp Embedded App: v1.7 WORKING
-- App loads and displays correctly inside Shopify Admin iframe
-- All API calls working (uses XMLHttpRequest, not fetch)
-- Dashboard shows real data from Shopify
-- Test member: Michael Alarcon (michael.alarconii@gmail.com)
+### Custom Domain: LIVE ✅
+- **app.cardflowlabs.com** - DNS configured and SSL working
+- Direct embedded app URL: `https://app.cardflowlabs.com/app?shop=uy288y-nx.myshopify.com`
 
 ### Railway Deployment: WORKING
 - Health endpoint: `https://web-production-41bb1.up.railway.app/health`
-- App URL: `https://web-production-41bb1.up.railway.app/app?shop=uy288y-nx.myshopify.com`
+- Custom domain: `https://app.cardflowlabs.com`
 
 ### Access in Shopify Admin
 - Navigate to: Apps → TradeUp
 - Direct URL: `https://admin.shopify.com/store/uy288y-nx/apps/tradeup-2`
 
+### Known Issues Being Fixed
+1. **Customer Search 500 Error** - Added debug logging to identify root cause
+2. **Membership Tiers** - Added auto-seeding of default tiers (Silver, Gold, Platinum)
+
 ---
 
-## COMPLETED THIS SESSION
+## COMPLETED THIS SESSION (Jan 6, 2026 PM)
 
-### 1. User Story Testing & Bug Fixes (Latest)
+### 1. DNS & SSL Configuration
+- Configured CNAME record in Namecheap: `app` → `web-production-41bb1.up.railway.app`
+- Railway SSL provisioned automatically
+- **app.cardflowlabs.com** now working with HTTPS
+
+### 2. Auto-Seed Membership Tiers
+- Added automatic tier seeding when `/api/members/tiers` returns empty
+- Default tiers: Silver (5%), Gold (10%), Platinum (15%)
+
+### 3. Debug Logging for 500 Error
+- Added detailed error response to `/api/members/search-shopify`
+- Shows environment variable status and error details
+- Helps identify if it's credential vs API issue
+
+### 4. User Story Testing & Bug Fixes (Earlier)
 Fixed 7 bugs discovered during comprehensive user story testing:
 
 | Bug | Fix |
@@ -85,19 +96,16 @@ This is documented in `app/__init__.py` around line 921.
 
 ## NEXT STEPS
 
-### 1. Configure DNS in Namecheap (Manual)
-```
-Type: CNAME
-Name: app
-Value: 20du0xvq.up.railway.app
-TTL: Automatic
-```
+### 1. Fix Customer Search 500 Error
+- Test the search after Railway deployment completes (~1 min)
+- Error response now includes debug info to identify cause
+- Likely issues: wrong SHOPIFY_DOMAIN format or SHOPIFY_ACCESS_TOKEN permissions
 
 ### 2. Build Out Remaining Features
-- Add Member form functionality
-- New Trade-In workflow
+- Non-member trade-ins (requires DB migration)
+- Settings page improvements
+- Bonuses feature
 - Cashback management
-- Settings page with tier configuration
 
 ### 3. Shopify Billing Integration
 - Already have billing columns in database

@@ -10,7 +10,6 @@ import {
   type TradeInBatch,
   type TradeInCategory,
 } from '../api/adminApi';
-import { debounce } from '../utils/debounce';
 
 // Icons
 const Icons = {

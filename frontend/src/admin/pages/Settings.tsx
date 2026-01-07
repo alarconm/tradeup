@@ -4,7 +4,6 @@
  */
 import { useState, useEffect } from 'react';
 import {
-  Settings as SettingsIcon,
   UserPlus,
   Bell,
   Palette,

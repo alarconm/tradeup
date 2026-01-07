@@ -3,7 +3,7 @@
  * Shows batch details, items, bonus preview, and complete action.
  */
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   getTradeInBatch,
   previewBatchBonus,
@@ -114,7 +114,6 @@ function formatDate(dateString: string): string {
 
 export default function TradeInDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [batch, setBatch] = useState<TradeInBatch | null>(null);
   const [bonusPreview, setBonusPreview] = useState<BonusPreview | null>(null);
   const [loading, setLoading] = useState(true);
