@@ -8,6 +8,8 @@ This migration:
 1. Removes Stripe-specific columns from members and membership_tiers
 2. Adds Shopify subscription tracking columns to members
 3. Adds Shopify selling plan ID to membership_tiers
+
+NOTE: Made idempotent - checks if columns exist before adding/dropping.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -20,29 +22,65 @@ branch_labels = None
 depends_on = None
 
 
+def column_exists(conn, table_name, column_name):
+    """Check if a column exists in a table."""
+    result = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.columns
+            WHERE table_name = :table_name AND column_name = :column_name
+        )
+    """), {'table_name': table_name, 'column_name': column_name})
+    return result.scalar()
+
+
 def upgrade():
-    # Add new Shopify subscription columns to members
-    with op.batch_alter_table('members', schema=None) as batch_op:
-        # Add new Shopify columns
-        batch_op.add_column(sa.Column('shopify_subscription_contract_id', sa.String(length=100), nullable=True))
-        batch_op.add_column(sa.Column('subscription_status', sa.String(length=20), server_default='none', nullable=True))
-        batch_op.add_column(sa.Column('tier_assigned_by', sa.String(length=100), nullable=True))
-        batch_op.add_column(sa.Column('tier_assigned_at', sa.DateTime(), nullable=True))
-        batch_op.add_column(sa.Column('tier_expires_at', sa.DateTime(), nullable=True))
+    conn = op.get_bind()
 
-        # Remove Stripe columns (keep password_hash, email_verified, email_verification_token for auth)
-        batch_op.drop_column('stripe_customer_id')
-        batch_op.drop_column('stripe_subscription_id')
-        batch_op.drop_column('payment_status')
-        batch_op.drop_column('current_period_start')
-        batch_op.drop_column('current_period_end')
-        batch_op.drop_column('cancel_at_period_end')
+    # Add new Shopify subscription columns to members (if they don't exist)
+    if not column_exists(conn, 'members', 'shopify_subscription_contract_id'):
+        op.add_column('members', sa.Column('shopify_subscription_contract_id', sa.String(length=100), nullable=True))
 
-    # Update membership_tiers: remove Stripe, add Shopify
-    with op.batch_alter_table('membership_tiers', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('shopify_selling_plan_id', sa.String(length=100), nullable=True))
-        batch_op.drop_column('stripe_product_id')
-        batch_op.drop_column('stripe_price_id')
+    if not column_exists(conn, 'members', 'subscription_status'):
+        op.add_column('members', sa.Column('subscription_status', sa.String(length=20), server_default='none', nullable=True))
+
+    if not column_exists(conn, 'members', 'tier_assigned_by'):
+        op.add_column('members', sa.Column('tier_assigned_by', sa.String(length=100), nullable=True))
+
+    if not column_exists(conn, 'members', 'tier_assigned_at'):
+        op.add_column('members', sa.Column('tier_assigned_at', sa.DateTime(), nullable=True))
+
+    if not column_exists(conn, 'members', 'tier_expires_at'):
+        op.add_column('members', sa.Column('tier_expires_at', sa.DateTime(), nullable=True))
+
+    # Remove Stripe columns from members (if they exist)
+    if column_exists(conn, 'members', 'stripe_customer_id'):
+        op.drop_column('members', 'stripe_customer_id')
+
+    if column_exists(conn, 'members', 'stripe_subscription_id'):
+        op.drop_column('members', 'stripe_subscription_id')
+
+    if column_exists(conn, 'members', 'payment_status'):
+        op.drop_column('members', 'payment_status')
+
+    if column_exists(conn, 'members', 'current_period_start'):
+        op.drop_column('members', 'current_period_start')
+
+    if column_exists(conn, 'members', 'current_period_end'):
+        op.drop_column('members', 'current_period_end')
+
+    if column_exists(conn, 'members', 'cancel_at_period_end'):
+        op.drop_column('members', 'cancel_at_period_end')
+
+    # Update membership_tiers: add Shopify column (if doesn't exist)
+    if not column_exists(conn, 'membership_tiers', 'shopify_selling_plan_id'):
+        op.add_column('membership_tiers', sa.Column('shopify_selling_plan_id', sa.String(length=100), nullable=True))
+
+    # Remove Stripe columns from membership_tiers (if they exist)
+    if column_exists(conn, 'membership_tiers', 'stripe_product_id'):
+        op.drop_column('membership_tiers', 'stripe_product_id')
+
+    if column_exists(conn, 'membership_tiers', 'stripe_price_id'):
+        op.drop_column('membership_tiers', 'stripe_price_id')
 
 
 def downgrade():
