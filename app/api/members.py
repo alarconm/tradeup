@@ -26,11 +26,27 @@ def search_shopify_customers():
 
     Returns customers with enrollment status (is_member, member_number, member_tier).
     """
+    import os
+    import traceback
+
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     query = request.args.get('q', '').strip()
 
     if not query or len(query) < 2:
         return jsonify({'error': 'Search query must be at least 2 characters'}), 400
+
+    # Debug: Check environment configuration
+    shopify_domain = os.getenv('SHOPIFY_DOMAIN')
+    shopify_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+
+    if not shopify_domain or not shopify_token:
+        return jsonify({
+            'error': 'Shopify not configured',
+            'details': {
+                'SHOPIFY_DOMAIN': 'set' if shopify_domain else 'NOT SET',
+                'SHOPIFY_ACCESS_TOKEN': 'set' if shopify_token else 'NOT SET'
+            }
+        }), 500
 
     service = MembershipService(tenant_id)
 
@@ -44,7 +60,14 @@ def search_shopify_customers():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        return jsonify({'error': f'Search failed: {str(e)}'}), 500
+        # Log full traceback for debugging
+        print(f"[TradeUp] Search error: {type(e).__name__}: {e}")
+        print(f"[TradeUp] Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'error': f'Search failed: {str(e)}',
+            'error_type': type(e).__name__,
+            'shopify_domain': shopify_domain[:10] + '...' if shopify_domain else None
+        }), 500
 
 
 @members_bp.route('/enroll', methods=['POST'])
