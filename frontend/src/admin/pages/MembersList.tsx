@@ -809,66 +809,67 @@ export default function MembersList() {
             </table>
           </div>
 
-        {/* Pagination */}
-        {pages > 1 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 16,
-              borderTop: `1px solid ${colors.border}`,
-            }}
-          >
-            <p style={{ fontSize: 14, color: colors.textSecondary, margin: 0 }}>
-              Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page <= 1}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: colors.bgSurface,
-                  border: `1px solid ${colors.border}`,
-                  color: page <= 1 ? colors.textSubdued : colors.text,
-                  cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                  opacity: page <= 1 ? 0.5 : 1,
-                }}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 80, textAlign: 'center' }}>
-                Page {page} of {pages}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= pages}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: colors.bgSurface,
-                  border: `1px solid ${colors.border}`,
-                  color: page >= pages ? colors.textSubdued : colors.text,
-                  cursor: page >= pages ? 'not-allowed' : 'pointer',
-                  opacity: page >= pages ? 0.5 : 1,
-                }}
-              >
-                <ChevronRight size={18} />
-              </button>
+          {/* Pagination */}
+          {pages > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 16,
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              <p style={{ fontSize: 14, color: colors.textSecondary, margin: 0 }}>
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page <= 1 ? colors.textSubdued : colors.text,
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 80, textAlign: 'center' }}>
+                  Page {page} of {pages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= pages}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page >= pages ? colors.textSubdued : colors.text,
+                    cursor: page >= pages ? 'not-allowed' : 'pointer',
+                    opacity: page >= pages ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

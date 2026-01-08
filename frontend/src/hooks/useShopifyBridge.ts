@@ -73,113 +73,133 @@ export function useShopifyBridge(): ShopifyBridgeState {
     initRef.current = true;
 
     const init = async () => {
-      // Check if embedded in Shopify admin
-      const isEmbedded = window.top !== window.self;
+      try {
+        // Check if embedded in Shopify admin
+        const isEmbedded = window.top !== window.self;
+        console.log('[TradeUp] Starting init, isEmbedded:', isEmbedded);
 
-      // Try to get shop from various sources (in priority order)
-      let shop: string | null = null;
+        // Try to get shop from various sources (in priority order)
+        let shop: string | null = null;
 
-      // 1. First check Flask-injected config (most reliable in production)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tradeupConfig = (window as any).__TRADEUP_CONFIG__;
-      if (tradeupConfig?.shop) {
-        shop = tradeupConfig.shop;
-        console.log('[TradeUp] Got shop from server config:', shop);
-      }
-
-      // 2. Then check URL params (works for direct navigation)
-      if (!shop) {
-        const urlParams = new URLSearchParams(window.location.search);
-        shop = urlParams.get('shop');
-        if (shop) {
-          console.log('[TradeUp] Got shop from URL params:', shop);
+        // 1. First check Flask-injected config (most reliable in production)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tradeupConfig = (window as any).__TRADEUP_CONFIG__;
+        if (tradeupConfig?.shop) {
+          shop = tradeupConfig.shop;
+          console.log('[TradeUp] Got shop from server config:', shop);
         }
-      }
 
-      // 2b. Try decoding shop from host param (Shopify always passes this)
-      if (!shop) {
-        // Check URL first, then server config
-        const urlParams = new URLSearchParams(window.location.search);
-        const host = urlParams.get('host') || tradeupConfig?.host;
-        if (host) {
-          try {
-            // host is base64 encoded and contains shop info
-            const decoded = atob(host);
-            console.log('[TradeUp] Decoded host:', decoded);
-            // Format is typically "admin.shopify.com/store/shop-name" or similar
-            const match = decoded.match(/([a-zA-Z0-9-]+)\.myshopify\.com/) ||
-                          decoded.match(/store\/([a-zA-Z0-9-]+)/);
-            if (match) {
-              shop = match[0].includes('.myshopify.com') ? match[0] : `${match[1]}.myshopify.com`;
-              console.log('[TradeUp] Got shop from host param:', shop);
-            }
-          } catch (e) {
-            console.warn('[TradeUp] Failed to decode host param:', e);
+        // 2. Then check URL params (works for direct navigation)
+        if (!shop) {
+          const urlParams = new URLSearchParams(window.location.search);
+          shop = urlParams.get('shop');
+          if (shop) {
+            console.log('[TradeUp] Got shop from URL params:', shop);
           }
         }
-      }
 
-      // 3. In embedded mode, get shop from session token (App Bridge 4.x)
-      if (!shop && isEmbedded) {
-        // Wait for App Bridge to initialize and get session token
-        for (let i = 0; i < 30; i++) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const shopify = (window as any).shopify;
-          if (shopify?.idToken) {
+        // 2b. Try decoding shop from host param (Shopify always passes this)
+        if (!shop) {
+          // Check URL first, then server config
+          const urlParams = new URLSearchParams(window.location.search);
+          const host = urlParams.get('host') || tradeupConfig?.host;
+          if (host) {
             try {
-              const token = await shopify.idToken();
-              if (token) {
-                // Decode JWT payload to get shop (tokens are base64url encoded)
-                const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-                if (payload.dest) {
-                  // dest is the shop URL like "https://myshop.myshopify.com"
-                  const shopUrl = new URL(payload.dest);
-                  shop = shopUrl.hostname;
-                  console.log('[TradeUp] Got shop from session token:', shop);
-                  break;
-                }
+              // host is base64 encoded and contains shop info
+              const decoded = atob(host);
+              console.log('[TradeUp] Decoded host:', decoded);
+              // Format is typically "admin.shopify.com/store/shop-name" or similar
+              const match = decoded.match(/([a-zA-Z0-9-]+)\.myshopify\.com/) ||
+                            decoded.match(/store\/([a-zA-Z0-9-]+)/);
+              if (match) {
+                shop = match[0].includes('.myshopify.com') ? match[0] : `${match[1]}.myshopify.com`;
+                console.log('[TradeUp] Got shop from host param:', shop);
               }
             } catch (e) {
-              console.warn('[TradeUp] Failed to decode session token:', e);
+              console.warn('[TradeUp] Failed to decode host param:', e);
             }
           }
-          await new Promise(resolve => setTimeout(resolve, 100));
         }
-      }
 
-      // 4. Try local storage for returning users
-      if (!shop) {
-        shop = localStorage.getItem('tradeup_shop');
+        // 3. In embedded mode, get shop from session token (App Bridge 4.x)
+        if (!shop && isEmbedded) {
+          console.log('[TradeUp] Trying session token...');
+          // Wait for App Bridge to initialize and get session token
+          for (let i = 0; i < 30; i++) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const shopify = (window as any).shopify;
+            if (shopify?.idToken) {
+              try {
+                const token = await shopify.idToken();
+                if (token) {
+                  // Decode JWT payload to get shop (tokens are base64url encoded)
+                  const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                  if (payload.dest) {
+                    // dest is the shop URL like "https://myshop.myshopify.com"
+                    const shopUrl = new URL(payload.dest);
+                    shop = shopUrl.hostname;
+                    console.log('[TradeUp] Got shop from session token:', shop);
+                    break;
+                  }
+                }
+              } catch (e) {
+                console.warn('[TradeUp] Failed to decode session token:', e);
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        // 4. Try local storage for returning users (wrapped in try-catch for iframe restrictions)
+        if (!shop) {
+          try {
+            shop = localStorage.getItem('tradeup_shop');
+            if (shop) {
+              console.log('[TradeUp] Got shop from localStorage:', shop);
+            }
+          } catch (e) {
+            console.warn('[TradeUp] localStorage read blocked:', e);
+          }
+        }
+
+        // Development fallback - use a test shop for local dev
+        if (!shop && import.meta.env.DEV) {
+          shop = import.meta.env.VITE_SHOPIFY_SHOP || 'dev-shop.myshopify.com';
+          console.log('[TradeUp] Dev mode: Using fallback shop:', shop);
+        }
+
+        // Save to localStorage (wrapped in try-catch for iframe restrictions)
         if (shop) {
-          console.log('[TradeUp] Got shop from localStorage:', shop);
+          try {
+            localStorage.setItem('tradeup_shop', shop);
+          } catch (e) {
+            console.warn('[TradeUp] localStorage write blocked:', e);
+          }
         }
+
+        // Get initial session token if embedded
+        let sessionToken: string | null = null;
+        if (isEmbedded && shop) {
+          sessionToken = await fetchSessionToken();
+        }
+
+        console.log('[TradeUp] Bridge initialized:', { shop, isEmbedded, hasToken: !!sessionToken });
+
+        setState({
+          shop,
+          isEmbedded,
+          isLoading: false,
+          sessionToken,
+          getSessionToken,
+        });
+      } catch (error) {
+        console.error('[TradeUp] Bridge init failed:', error);
+        // Still set loading to false so the app doesn't hang
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+        }));
       }
-
-      // Development fallback - use a test shop for local dev
-      if (!shop && import.meta.env.DEV) {
-        shop = import.meta.env.VITE_SHOPIFY_SHOP || 'dev-shop.myshopify.com';
-        console.log('[TradeUp] Dev mode: Using fallback shop:', shop);
-      }
-
-      if (shop) {
-        localStorage.setItem('tradeup_shop', shop);
-      }
-
-      // Get initial session token if embedded
-      let sessionToken: string | null = null;
-      if (isEmbedded && shop) {
-        sessionToken = await fetchSessionToken();
-      }
-
-      console.log('[TradeUp] Bridge initialized:', { shop, isEmbedded, hasToken: !!sessionToken });
-
-      setState({
-        shop,
-        isEmbedded,
-        isLoading: false,
-        sessionToken,
-        getSessionToken,
-      });
     };
 
     init();
