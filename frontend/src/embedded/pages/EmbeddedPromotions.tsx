@@ -31,7 +31,7 @@ import {
   Icon,
   LegacyStack,
 } from '@shopify/polaris';
-import { PlusIcon, DeleteIcon, EditIcon, SearchIcon } from '@shopify/polaris-icons';
+import { PlusIcon, DeleteIcon, EditIcon, SearchIcon, PlayIcon, RefreshIcon } from '@shopify/polaris-icons';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -106,6 +106,44 @@ interface PromotionsStats {
   promotions_ending_soon: number;
   total_cashback_30d: number;
   total_bulk_credits_30d: number;
+}
+
+// Store Credit Events types
+interface StoreCreditEventPreview {
+  event_config: {
+    start_datetime: string;
+    end_datetime: string;
+    sources: string[];
+    credit_percent: number;
+  };
+  summary: {
+    total_orders: number;
+    unique_customers: number;
+    total_order_value: number;
+    total_credit_to_issue: number;
+  };
+  top_customers: Array<{
+    customer_id: string;
+    email: string;
+    name: string;
+    order_count: number;
+    total_spent: number;
+    credit_amount: number;
+  }>;
+  orders_by_source: Record<string, number>;
+}
+
+interface StoreCreditEventResult {
+  job_id: string;
+  success_count: number;
+  failure_count: number;
+  total_credit_issued: number;
+  errors: string[];
+}
+
+interface OrderSource {
+  name: string;
+  count: number;
 }
 
 const PROMO_TYPE_OPTIONS = [
@@ -183,14 +221,106 @@ async function deletePromotion(shop: string | null, id: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete promotion');
 }
 
+// Store Credit Events API functions
+async function fetchEventSources(
+  shop: string | null,
+  startDatetime: string,
+  endDatetime: string
+): Promise<{ sources: OrderSource[]; total_orders: number }> {
+  const params = new URLSearchParams({
+    start_datetime: startDatetime,
+    end_datetime: endDatetime,
+  });
+  const response = await authFetch(
+    `${getApiUrl()}/store_credit_events/sources?${params}`,
+    shop
+  );
+  if (!response.ok) throw new Error('Failed to fetch order sources');
+  return response.json();
+}
+
+async function previewCreditEvent(
+  shop: string | null,
+  data: {
+    start_datetime: string;
+    end_datetime: string;
+    sources: string[];
+    credit_percent: number;
+    include_authorized?: boolean;
+  }
+): Promise<StoreCreditEventPreview> {
+  const response = await authFetch(
+    `${getApiUrl()}/store_credit_events/preview`,
+    shop,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.ok) throw new Error('Failed to preview event');
+  return response.json();
+}
+
+async function runCreditEvent(
+  shop: string | null,
+  data: {
+    start_datetime: string;
+    end_datetime: string;
+    sources: string[];
+    credit_percent: number;
+    include_authorized?: boolean;
+    expires_at?: string;
+  }
+): Promise<StoreCreditEventResult> {
+  const response = await authFetch(
+    `${getApiUrl()}/store_credit_events/run`,
+    shop,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.ok) throw new Error('Failed to run event');
+  return response.json();
+}
+
+async function fetchEventTemplates(shop: string | null): Promise<{
+  templates: Array<{
+    id: string;
+    name: string;
+    description: string;
+    default_sources: string[];
+    default_credit_percent: number;
+    duration_hours: number;
+  }>;
+}> {
+  const response = await authFetch(`${getApiUrl()}/store_credit_events/templates`, shop);
+  if (!response.ok) throw new Error('Failed to fetch templates');
+  return response.json();
+}
+
 export function EmbeddedPromotions({ shop }: PromotionsProps) {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
   const [promoToDelete, setPromoToDelete] = useState<Promotion | null>(null);
-  const [activeTab, setActiveTab] = useState<'promotions' | 'tiers'>('promotions');
+  const [activeTab, setActiveTab] = useState<'promotions' | 'tiers' | 'events'>('promotions');
   const isMobile = useIsMobile();
+
+  // Store Credit Events state
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [eventPreview, setEventPreview] = useState<StoreCreditEventPreview | null>(null);
+  const [eventResult, setEventResult] = useState<StoreCreditEventResult | null>(null);
+  const [eventForm, setEventForm] = useState({
+    start_datetime: '',
+    end_datetime: '',
+    sources: [] as string[],
+    credit_percent: 10,
+    include_authorized: true,
+    credit_expiration_days: '',
+  });
+  const [availableSources, setAvailableSources] = useState<OrderSource[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -328,6 +458,100 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       setPromoToDelete(null);
     },
   });
+
+  // Store Credit Events mutations
+  const previewEventMutation = useMutation({
+    mutationFn: () =>
+      previewCreditEvent(shop, {
+        start_datetime: eventForm.start_datetime,
+        end_datetime: eventForm.end_datetime,
+        sources: eventForm.sources,
+        credit_percent: eventForm.credit_percent,
+        include_authorized: eventForm.include_authorized,
+      }),
+    onSuccess: (data) => {
+      setEventPreview(data);
+      setEventResult(null);
+    },
+  });
+
+  const runEventMutation = useMutation({
+    mutationFn: () =>
+      runCreditEvent(shop, {
+        start_datetime: eventForm.start_datetime,
+        end_datetime: eventForm.end_datetime,
+        sources: eventForm.sources,
+        credit_percent: eventForm.credit_percent,
+        include_authorized: eventForm.include_authorized,
+        expires_at: eventForm.credit_expiration_days
+          ? new Date(Date.now() + parseInt(eventForm.credit_expiration_days) * 24 * 60 * 60 * 1000).toISOString()
+          : undefined,
+      }),
+    onSuccess: (data) => {
+      setEventResult(data);
+      setEventPreview(null);
+      queryClient.invalidateQueries({ queryKey: ['promotions-stats'] });
+    },
+  });
+
+  // Fetch available order sources when dates change
+  const fetchSourcesMutation = useMutation({
+    mutationFn: () =>
+      fetchEventSources(shop, eventForm.start_datetime, eventForm.end_datetime),
+    onSuccess: (data) => {
+      setAvailableSources(data.sources);
+    },
+  });
+
+  // Reset event form
+  const resetEventForm = useCallback(() => {
+    setEventForm({
+      start_datetime: '',
+      end_datetime: '',
+      sources: [],
+      credit_percent: 10,
+      include_authorized: true,
+      credit_expiration_days: '',
+    });
+    setEventPreview(null);
+    setEventResult(null);
+    setAvailableSources([]);
+  }, []);
+
+  // Open event modal with preset times (e.g., for Trade Night)
+  const openEventModal = useCallback((templateHours?: number) => {
+    const now = new Date();
+    const endTime = templateHours
+      ? new Date(now.getTime() + templateHours * 60 * 60 * 1000)
+      : new Date(now.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours
+
+    setEventForm({
+      start_datetime: now.toISOString().slice(0, 16),
+      end_datetime: endTime.toISOString().slice(0, 16),
+      sources: [],
+      credit_percent: 10,
+      include_authorized: true,
+      credit_expiration_days: '',
+    });
+    setEventPreview(null);
+    setEventResult(null);
+    setAvailableSources([]);
+    setEventModalOpen(true);
+  }, []);
+
+  // Handle date change - fetch available sources
+  const handleEventDateChange = useCallback(
+    (field: 'start_datetime' | 'end_datetime', value: string) => {
+      const newForm = { ...eventForm, [field]: value };
+      setEventForm(newForm);
+
+      // If both dates are set, fetch available sources
+      if (newForm.start_datetime && newForm.end_datetime) {
+        fetchSourcesMutation.mutate();
+      }
+    },
+    [eventForm, fetchSourcesMutation]
+  );
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -583,7 +807,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
 
         {/* Tab Navigation */}
         <Layout.Section>
-          <InlineStack gap="200">
+          <InlineStack gap="200" wrap>
             <Button
               pressed={activeTab === 'promotions'}
               onClick={() => setActiveTab('promotions')}
@@ -595,6 +819,12 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               onClick={() => setActiveTab('tiers')}
             >
               {`Tier Benefits (${tiers.length})`}
+            </Button>
+            <Button
+              pressed={activeTab === 'events'}
+              onClick={() => setActiveTab('events')}
+            >
+              Store Credit Events
             </Button>
           </InlineStack>
         </Layout.Section>
@@ -757,6 +987,124 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 </Card>
               ))}
             </InlineGrid>
+          </Layout.Section>
+        )}
+
+        {/* Store Credit Events */}
+        {activeTab === 'events' && (
+          <Layout.Section>
+            <BlockStack gap="400">
+              {/* Event Templates */}
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <BlockStack gap="100">
+                      <Text as="h3" variant="headingMd">Quick Start Templates</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Use a template or create a custom event
+                      </Text>
+                    </BlockStack>
+                    <Button
+                      icon={PlusIcon}
+                      variant="primary"
+                      onClick={() => openEventModal()}
+                    >
+                      Custom Event
+                    </Button>
+                  </InlineStack>
+
+                  <InlineGrid columns={isMobile ? 1 : 3} gap="300">
+                    <Card>
+                      <BlockStack gap="200">
+                        <Text as="h4" variant="headingSm">Trade Night</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          10% store credit on all purchases during Trade Night hours
+                        </Text>
+                        <Text as="p" variant="bodySm">Duration: 3 hours</Text>
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            openEventModal(3);
+                            setEventForm(prev => ({ ...prev, credit_percent: 10 }));
+                          }}
+                        >
+                          Use Template
+                        </Button>
+                      </BlockStack>
+                    </Card>
+                    <Card>
+                      <BlockStack gap="200">
+                        <Text as="h4" variant="headingSm">Grand Opening</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          15% store credit on opening day purchases
+                        </Text>
+                        <Text as="p" variant="bodySm">Duration: 24 hours</Text>
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            openEventModal(24);
+                            setEventForm(prev => ({ ...prev, credit_percent: 15 }));
+                          }}
+                        >
+                          Use Template
+                        </Button>
+                      </BlockStack>
+                    </Card>
+                    <Card>
+                      <BlockStack gap="200">
+                        <Text as="h4" variant="headingSm">Weekend Sale</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          5% store credit on weekend purchases
+                        </Text>
+                        <Text as="p" variant="bodySm">Duration: 48 hours</Text>
+                        <Button
+                          size="slim"
+                          onClick={() => {
+                            openEventModal(48);
+                            setEventForm(prev => ({ ...prev, credit_percent: 5 }));
+                          }}
+                        >
+                          Use Template
+                        </Button>
+                      </BlockStack>
+                    </Card>
+                  </InlineGrid>
+                </BlockStack>
+              </Card>
+
+              {/* How It Works */}
+              <Card>
+                <BlockStack gap="300">
+                  <Text as="h3" variant="headingMd">How Store Credit Events Work</Text>
+                  <BlockStack gap="200">
+                    <InlineStack gap="200" blockAlign="start">
+                      <Badge tone="info">1</Badge>
+                      <Text as="p" variant="bodySm">
+                        <strong>Set Date Range:</strong> Choose the start and end time for your event
+                      </Text>
+                    </InlineStack>
+                    <InlineStack gap="200" blockAlign="start">
+                      <Badge tone="info">2</Badge>
+                      <Text as="p" variant="bodySm">
+                        <strong>Select Sources:</strong> Choose which order sources (POS, Web, etc.) to include
+                      </Text>
+                    </InlineStack>
+                    <InlineStack gap="200" blockAlign="start">
+                      <Badge tone="info">3</Badge>
+                      <Text as="p" variant="bodySm">
+                        <strong>Preview (Dry Run):</strong> See exactly how much credit will be issued before applying
+                      </Text>
+                    </InlineStack>
+                    <InlineStack gap="200" blockAlign="start">
+                      <Badge tone="success">4</Badge>
+                      <Text as="p" variant="bodySm">
+                        <strong>Run Event:</strong> Apply store credit to all qualifying customers
+                      </Text>
+                    </InlineStack>
+                  </BlockStack>
+                </BlockStack>
+              </Card>
+            </BlockStack>
           </Layout.Section>
         )}
       </Layout>
@@ -1137,6 +1485,261 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
           <Text as="p">
             Are you sure you want to delete "{promoToDelete?.name}"? This action cannot be undone.
           </Text>
+        </Modal.Section>
+      </Modal>
+
+      {/* Store Credit Event Modal */}
+      <Modal
+        open={eventModalOpen}
+        onClose={() => {
+          setEventModalOpen(false);
+          resetEventForm();
+        }}
+        title="Create Store Credit Event"
+        size="large"
+        primaryAction={
+          eventPreview && !eventResult
+            ? {
+                content: 'Apply Credits',
+                icon: PlayIcon,
+                onAction: () => runEventMutation.mutate(),
+                loading: runEventMutation.isPending,
+              }
+            : eventResult
+            ? {
+                content: 'Done',
+                onAction: () => {
+                  setEventModalOpen(false);
+                  resetEventForm();
+                },
+              }
+            : {
+                content: 'Preview (Dry Run)',
+                icon: RefreshIcon,
+                onAction: () => previewEventMutation.mutate(),
+                loading: previewEventMutation.isPending,
+                disabled: !eventForm.start_datetime || !eventForm.end_datetime || eventForm.sources.length === 0,
+              }
+        }
+        secondaryActions={
+          eventResult
+            ? []
+            : [
+                {
+                  content: 'Cancel',
+                  onAction: () => {
+                    setEventModalOpen(false);
+                    resetEventForm();
+                  },
+                },
+              ]
+        }
+      >
+        <Modal.Section>
+          {eventResult ? (
+            /* Event Result */
+            <BlockStack gap="400">
+              <Banner
+                title={eventResult.success_count > 0 ? 'Event Completed Successfully!' : 'Event Completed'}
+                tone={eventResult.failure_count > 0 ? 'warning' : 'success'}
+              >
+                <p>
+                  Issued {formatCurrency(eventResult.total_credit_issued)} in store credit to {eventResult.success_count} customers.
+                  {eventResult.failure_count > 0 && ` ${eventResult.failure_count} failed.`}
+                </p>
+              </Banner>
+
+              {eventResult.errors && eventResult.errors.length > 0 && (
+                <Card>
+                  <BlockStack gap="200">
+                    <Text as="h4" variant="headingSm" tone="critical">Errors</Text>
+                    {eventResult.errors.map((error, i) => (
+                      <Text as="p" variant="bodySm" key={i}>{error}</Text>
+                    ))}
+                  </BlockStack>
+                </Card>
+              )}
+            </BlockStack>
+          ) : eventPreview ? (
+            /* Event Preview (Dry Run Results) */
+            <BlockStack gap="400">
+              <Banner title="Preview Results" tone="info">
+                <p>
+                  This is a dry run. No credits have been issued yet. Review the data below and click "Apply Credits" to proceed.
+                </p>
+              </Banner>
+
+              {/* Summary Stats */}
+              <InlineGrid columns={isMobile ? 2 : 4} gap="300">
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="bodySm" tone="subdued">Total Orders</Text>
+                    <Text as="p" variant="headingLg">{eventPreview.summary.total_orders}</Text>
+                  </BlockStack>
+                </Card>
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="bodySm" tone="subdued">Unique Customers</Text>
+                    <Text as="p" variant="headingLg">{eventPreview.summary.unique_customers}</Text>
+                  </BlockStack>
+                </Card>
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="bodySm" tone="subdued">Total Order Value</Text>
+                    <Text as="p" variant="headingLg">{formatCurrency(eventPreview.summary.total_order_value)}</Text>
+                  </BlockStack>
+                </Card>
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="bodySm" tone="subdued">Credit to Issue</Text>
+                    <Text as="p" variant="headingLg" tone="success">
+                      {formatCurrency(eventPreview.summary.total_credit_to_issue)}
+                    </Text>
+                  </BlockStack>
+                </Card>
+              </InlineGrid>
+
+              {/* Top Customers */}
+              {eventPreview.top_customers && eventPreview.top_customers.length > 0 && (
+                <Card>
+                  <BlockStack gap="300">
+                    <Text as="h4" variant="headingSm">Top Customers by Credit Amount</Text>
+                    <DataTable
+                      columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric']}
+                      headings={['Customer', 'Email', 'Orders', 'Spent', 'Credit']}
+                      rows={eventPreview.top_customers.slice(0, 10).map((customer) => [
+                        customer.name || 'Guest',
+                        customer.email || '-',
+                        customer.order_count,
+                        formatCurrency(customer.total_spent),
+                        <Badge key={customer.customer_id} tone="success">
+                          {formatCurrency(customer.credit_amount)}
+                        </Badge>,
+                      ])}
+                    />
+                  </BlockStack>
+                </Card>
+              )}
+
+              {/* Orders by Source */}
+              {eventPreview.orders_by_source && Object.keys(eventPreview.orders_by_source).length > 0 && (
+                <Card>
+                  <BlockStack gap="200">
+                    <Text as="h4" variant="headingSm">Orders by Source</Text>
+                    <InlineStack gap="200" wrap>
+                      {Object.entries(eventPreview.orders_by_source).map(([source, count]) => (
+                        <Badge key={source} tone="info">
+                          {`${source}: ${count}`}
+                        </Badge>
+                      ))}
+                    </InlineStack>
+                  </BlockStack>
+                </Card>
+              )}
+
+              <Button
+                onClick={() => setEventPreview(null)}
+                variant="plain"
+              >
+                ← Back to Edit
+              </Button>
+            </BlockStack>
+          ) : (
+            /* Event Configuration Form */
+            <FormLayout>
+              <Banner tone="info">
+                <p>
+                  Set up your store credit event. After configuring, click "Preview (Dry Run)" to see exactly how much credit will be issued before applying.
+                </p>
+              </Banner>
+
+              <FormLayout.Group>
+                <TextField
+                  label="Start Date & Time"
+                  type="datetime-local"
+                  value={eventForm.start_datetime}
+                  onChange={(value) => handleEventDateChange('start_datetime', value)}
+                  autoComplete="off"
+                  requiredIndicator
+                  helpText="When should orders start qualifying?"
+                />
+                <TextField
+                  label="End Date & Time"
+                  type="datetime-local"
+                  value={eventForm.end_datetime}
+                  onChange={(value) => handleEventDateChange('end_datetime', value)}
+                  autoComplete="off"
+                  requiredIndicator
+                  helpText="When should orders stop qualifying?"
+                />
+              </FormLayout.Group>
+
+              <TextField
+                label="Credit Percentage"
+                type="number"
+                value={eventForm.credit_percent.toString()}
+                onChange={(value) => setEventForm({ ...eventForm, credit_percent: parseFloat(value) || 0 })}
+                suffix="%"
+                autoComplete="off"
+                helpText="Percentage of order total to issue as store credit"
+              />
+
+              {/* Order Sources Selection */}
+              <BlockStack gap="200">
+                <Text as="span" variant="bodyMd">
+                  Order Sources <Text as="span" tone="critical">*</Text>
+                </Text>
+                {fetchSourcesMutation.isPending ? (
+                  <InlineStack gap="200" blockAlign="center">
+                    <Spinner size="small" />
+                    <Text as="span" variant="bodySm" tone="subdued">Loading available sources...</Text>
+                  </InlineStack>
+                ) : availableSources.length > 0 ? (
+                  <ChoiceList
+                    title=""
+                    choices={availableSources.map((source) => ({
+                      label: `${source.name} (${source.count} orders)`,
+                      value: source.name,
+                    }))}
+                    selected={eventForm.sources}
+                    onChange={(selected) => setEventForm({ ...eventForm, sources: selected })}
+                    allowMultiple
+                  />
+                ) : eventForm.start_datetime && eventForm.end_datetime ? (
+                  <Banner tone="warning">
+                    <p>No orders found in this date range. Try adjusting the dates.</p>
+                  </Banner>
+                ) : (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Select start and end dates to see available order sources.
+                  </Text>
+                )}
+              </BlockStack>
+
+              <Divider />
+
+              <Select
+                label="Credit Expiration"
+                options={CREDIT_EXPIRATION_OPTIONS}
+                value={eventForm.credit_expiration_days}
+                onChange={(value) => setEventForm({ ...eventForm, credit_expiration_days: value })}
+                helpText="How long before issued credits expire"
+              />
+
+              <Checkbox
+                label="Include authorized (unpaid) orders"
+                checked={eventForm.include_authorized}
+                onChange={(checked) => setEventForm({ ...eventForm, include_authorized: checked })}
+                helpText="Include orders that are authorized but not yet captured"
+              />
+
+              {previewEventMutation.isError && (
+                <Banner tone="critical">
+                  <p>Failed to preview event. Please check your configuration and try again.</p>
+                </Banner>
+              )}
+            </FormLayout>
+          )}
         </Modal.Section>
       </Modal>
     </Page>
