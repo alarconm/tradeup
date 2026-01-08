@@ -228,15 +228,27 @@ export function useShopifyBridge(): ShopifyBridgeState {
 
 /**
  * Get API base URL based on environment.
- * Prefers VITE_API_URL if set (for tunnel/production), falls back to localhost in dev.
+ *
+ * For Shopify embedded apps:
+ * - Production: Use relative /api path (same origin as frontend)
+ * - Development: Use VITE_API_URL for tunnels, or localhost
+ *
+ * This ensures production builds always use the correct API endpoint
+ * regardless of dev .env files being accidentally included.
  */
 export function getApiUrl(): string {
-  // Always prefer explicit API URL if set (supports tunnels in dev)
+  // Production builds should ALWAYS use relative path (same origin)
+  // This prevents stale dev tunnel URLs from breaking production
+  if (import.meta.env.PROD) {
+    return '/api';
+  }
+
+  // Development: Use tunnel URL if set, otherwise localhost
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // Fall back to localhost for local dev, or /api for production
-  return import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
+
+  return 'http://localhost:5000/api';
 }
 
 /**
