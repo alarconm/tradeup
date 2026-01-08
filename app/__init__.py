@@ -80,6 +80,17 @@ def create_app(config_name: str = None) -> Flask:
     def health_check():
         return {'status': 'healthy', 'service': 'tradeup'}
 
+    # Debug endpoint to see what params Shopify sends
+    @app.route('/debug/params')
+    def debug_params():
+        from flask import request
+        return {
+            'args': dict(request.args),
+            'headers': {k: v for k, v in request.headers if k.lower() in ['host', 'referer', 'origin', 'x-shop-domain']},
+            'url': request.url,
+            'base_url': request.base_url,
+        }
+
     # Static pages (privacy policy, support, terms)
     @app.route('/privacy-policy.html')
     @app.route('/privacy-policy')
@@ -109,6 +120,7 @@ def create_app(config_name: str = None) -> Flask:
         from flask import request, make_response
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
+        print(f'[TradeUp] /app request: shop={shop}, host={host}, path={path}, url={request.url}')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
         # Get app URL - use request.url_root for local dev, APP_URL for production
         # This ensures local dev always uses the correct port from the actual request
