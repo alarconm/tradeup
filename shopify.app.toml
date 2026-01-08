@@ -74,48 +74,11 @@ uri = "/webhook/shopify-billing/subscriptions"
 topics = ["app_purchases_one_time/update"]
 uri = "/webhook/shopify-billing/purchases"
 
-# GDPR Mandatory Webhooks (required for App Store)
-[[webhooks.subscriptions]]
-topics = ["customers/redact"]
-uri = "/webhook/customers/redact"
-
-[[webhooks.subscriptions]]
-topics = ["shop/redact"]
-uri = "/webhook/shop/redact"
-
-[[webhooks.subscriptions]]
-topics = ["customers/data_request"]
-uri = "/webhook/customers/data_request"
+# GDPR Mandatory Webhooks (configured automatically by Shopify)
+# customers/redact, shop/redact, customers/data_request are handled via Partner Dashboard
 
 [build]
 automatically_update_urls_on_dev = true
-
-# ==================== App Navigation Links ====================
-# These appear in the Shopify admin sidebar under the app
-
-[[app.navigation.links]]
-label = "Dashboard"
-destination = "/app/dashboard"
-
-[[app.navigation.links]]
-label = "Members"
-destination = "/app/members"
-
-[[app.navigation.links]]
-label = "Trade-Ins"
-destination = "/app/trade-ins"
-
-[[app.navigation.links]]
-label = "Promotions"
-destination = "/app/promotions"
-
-[[app.navigation.links]]
-label = "Membership Tiers"
-destination = "/app/tiers"
-
-[[app.navigation.links]]
-label = "Settings"
-destination = "/app/settings"
 
 # ==================== Shopify Flow Integration ====================
 # NOTE: Flow integration requires a separate flow extension, not inline config
