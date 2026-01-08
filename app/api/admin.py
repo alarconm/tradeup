@@ -384,6 +384,9 @@ def fix_schema():
         # Membership tiers
         ("membership_tiers", "shopify_selling_plan_id", "VARCHAR(100)"),
         ("membership_tiers", "yearly_price", "NUMERIC(10,2)"),
+        ("membership_tiers", "purchase_cashback_pct", "NUMERIC(5,2) DEFAULT 0"),
+        ("membership_tiers", "monthly_credit_amount", "NUMERIC(10,2) DEFAULT 0"),
+        ("membership_tiers", "credit_expiration_days", "INTEGER"),
         # Trade-in batches - missing columns from model
         ("trade_in_batches", "category", "VARCHAR(50) DEFAULT 'other'"),
         ("trade_in_batches", "completed_at", "TIMESTAMP"),
