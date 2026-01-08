@@ -264,12 +264,15 @@ export function getTenantParam(shop: string | null): string {
  * Use this for all API requests in the embedded app.
  */
 export async function createAuthHeaders(shop: string | null): Promise<HeadersInit> {
+  console.log('[TradeUp] createAuthHeaders called for shop:', shop);
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
 
   // Try to get session token for embedded auth
+  console.log('[TradeUp] Attempting to get session token...');
   const token = await fetchSessionToken();
+  console.log('[TradeUp] Session token result:', token ? 'obtained' : 'null');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -279,6 +282,7 @@ export async function createAuthHeaders(shop: string | null): Promise<HeadersIni
     headers['X-Shop-Domain'] = shop;
   }
 
+  console.log('[TradeUp] Headers ready (has auth:', !!token, ')');
   return headers;
 }
 
@@ -291,18 +295,23 @@ export async function authFetch(
   shop: string | null,
   options: RequestInit = {}
 ): Promise<Response> {
+  console.log('[TradeUp] authFetch called:', { url, shop });
   const headers = await createAuthHeaders(shop);
+  console.log('[TradeUp] authFetch headers created');
 
   // Add shop to URL if not already present
   const urlWithShop = url.includes('?')
     ? url.includes('shop=') ? url : `${url}&shop=${shop}`
     : `${url}?shop=${shop}`;
 
-  return fetch(urlWithShop, {
+  console.log('[TradeUp] authFetch fetching:', urlWithShop);
+  const response = await fetch(urlWithShop, {
     ...options,
     headers: {
       ...headers,
       ...options.headers,
     },
   });
+  console.log('[TradeUp] authFetch response received:', response.status);
+  return response;
 }
