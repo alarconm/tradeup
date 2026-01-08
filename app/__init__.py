@@ -161,16 +161,17 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
     # Inject Shopify context and App Bridge CDN script before </head>
     # This must load BEFORE the React bundle for window.shopify to be available
     # Only inject shop if present (otherwise let App Bridge provide it)
-    shop_line = f'shop: "{shop}",' if shop else 'shop: null,'
-    host_line = f'host: "{host}",' if host else 'host: null,'
+    shop_js = f'"{shop}"' if shop else 'null'
+    host_js = f'"{host}"' if host else 'null'
     context_script = f'''
     <script>
       window.__TRADEUP_CONFIG__ = {{
-        {shop_line}
-        {host_line}
+        shop: {shop_js},
+        host: {host_js},
         apiKey: "{api_key}",
         appUrl: "{app_url}"
       }};
+      console.log('[TradeUp] Server config:', window.__TRADEUP_CONFIG__);
     </script>
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>'''
 

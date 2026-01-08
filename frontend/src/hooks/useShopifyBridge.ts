@@ -96,6 +96,29 @@ export function useShopifyBridge(): ShopifyBridgeState {
         }
       }
 
+      // 2b. Try decoding shop from host param (Shopify always passes this)
+      if (!shop) {
+        // Check URL first, then server config
+        const urlParams = new URLSearchParams(window.location.search);
+        const host = urlParams.get('host') || tradeupConfig?.host;
+        if (host) {
+          try {
+            // host is base64 encoded and contains shop info
+            const decoded = atob(host);
+            console.log('[TradeUp] Decoded host:', decoded);
+            // Format is typically "admin.shopify.com/store/shop-name" or similar
+            const match = decoded.match(/([a-zA-Z0-9-]+)\.myshopify\.com/) ||
+                          decoded.match(/store\/([a-zA-Z0-9-]+)/);
+            if (match) {
+              shop = match[0].includes('.myshopify.com') ? match[0] : `${match[1]}.myshopify.com`;
+              console.log('[TradeUp] Got shop from host param:', shop);
+            }
+          } catch (e) {
+            console.warn('[TradeUp] Failed to decode host param:', e);
+          }
+        }
+      }
+
       // 3. In embedded mode, get shop from session token (App Bridge 4.x)
       if (!shop && isEmbedded) {
         // Wait for App Bridge to initialize and get session token
