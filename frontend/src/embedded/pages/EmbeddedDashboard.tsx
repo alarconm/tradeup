@@ -54,22 +54,12 @@ interface RecentActivity {
 }
 
 async function fetchDashboard(shop: string | null): Promise<DashboardStats> {
-  console.log('[TradeUp] fetchDashboard called with shop:', shop);
-  console.log('[TradeUp] API URL:', getApiUrl());
-  try {
-    const response = await authFetch(
-      `${getApiUrl()}/dashboard/stats`,
-      shop
-    );
-    console.log('[TradeUp] fetchDashboard response status:', response.status);
-    if (!response.ok) throw new Error('Failed to fetch dashboard');
-    const data = await response.json();
-    console.log('[TradeUp] fetchDashboard data:', data);
-    return data;
-  } catch (error) {
-    console.error('[TradeUp] fetchDashboard error:', error);
-    throw error;
-  }
+  const response = await authFetch(
+    `${getApiUrl()}/dashboard/stats`,
+    shop
+  );
+  if (!response.ok) throw new Error('Failed to fetch dashboard');
+  return response.json();
 }
 
 async function fetchRecentActivity(shop: string | null): Promise<RecentActivity[]> {

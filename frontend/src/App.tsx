@@ -6,8 +6,6 @@ import Onboarding from './admin/pages/Onboarding'
 function App() {
   const { shop, isLoading } = useShopifyBridge()
 
-  console.log('[TradeUp] App render:', { shop, isLoading })
-
   // Show loading while detecting shop
   if (isLoading) {
     return (

@@ -79,7 +79,6 @@ export function useShopifyBridge(): ShopifyBridgeState {
       try {
         // Check if embedded in Shopify admin
         const isEmbedded = window.top !== window.self;
-        console.log('[TradeUp] Starting init, isEmbedded:', isEmbedded);
 
         // Try to get shop from various sources (in priority order)
         let shop: string | null = null;
@@ -95,7 +94,6 @@ export function useShopifyBridge(): ShopifyBridgeState {
         const tradeupConfig = (window as any).__TRADEUP_CONFIG__;
         if (tradeupConfig?.shop) {
           shop = normalizeShop(tradeupConfig.shop);
-          console.log('[TradeUp] Got shop from server config:', shop);
         }
 
         // 2. Then check URL params (works for direct navigation)
@@ -104,7 +102,6 @@ export function useShopifyBridge(): ShopifyBridgeState {
           const shopParam = urlParams.get('shop');
           if (shopParam) {
             shop = normalizeShop(shopParam);
-            console.log('[TradeUp] Got shop from URL params:', shop);
           }
         }
 
@@ -117,23 +114,20 @@ export function useShopifyBridge(): ShopifyBridgeState {
             try {
               // host is base64 encoded and contains shop info
               const decoded = atob(host);
-              console.log('[TradeUp] Decoded host:', decoded);
               // Format is typically "admin.shopify.com/store/shop-name" or similar
               const match = decoded.match(/([a-zA-Z0-9-]+)\.myshopify\.com/) ||
                             decoded.match(/store\/([a-zA-Z0-9-]+)/);
               if (match) {
                 shop = match[0].includes('.myshopify.com') ? match[0] : `${match[1]}.myshopify.com`;
-                console.log('[TradeUp] Got shop from host param:', shop);
               }
-            } catch (e) {
-              console.warn('[TradeUp] Failed to decode host param:', e);
+            } catch {
+              // Host param decode failed - continue to other methods
             }
           }
         }
 
         // 3. In embedded mode, get shop from session token (App Bridge 4.x)
         if (!shop && isEmbedded) {
-          console.log('[TradeUp] Trying session token...');
           // Wait for App Bridge to initialize and get session token
           for (let i = 0; i < 30; i++) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,12 +142,11 @@ export function useShopifyBridge(): ShopifyBridgeState {
                     // dest is the shop URL like "https://myshop.myshopify.com"
                     const shopUrl = new URL(payload.dest);
                     shop = shopUrl.hostname;
-                    console.log('[TradeUp] Got shop from session token:', shop);
                     break;
                   }
                 }
-              } catch (e) {
-                console.warn('[TradeUp] Failed to decode session token:', e);
+              } catch {
+                // Session token decode failed - continue trying
               }
             }
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -166,25 +159,23 @@ export function useShopifyBridge(): ShopifyBridgeState {
             const storedShop = localStorage.getItem('tradeup_shop');
             if (storedShop) {
               shop = normalizeShop(storedShop);
-              console.log('[TradeUp] Got shop from localStorage:', shop);
             }
-          } catch (e) {
-            console.warn('[TradeUp] localStorage read blocked:', e);
+          } catch {
+            // localStorage blocked in iframe - continue without cached shop
           }
         }
 
         // Development fallback - use a test shop for local dev
         if (!shop && import.meta.env.DEV) {
           shop = import.meta.env.VITE_SHOPIFY_SHOP || 'dev-shop.myshopify.com';
-          console.log('[TradeUp] Dev mode: Using fallback shop:', shop);
         }
 
         // Save to localStorage (wrapped in try-catch for iframe restrictions)
         if (shop) {
           try {
             localStorage.setItem('tradeup_shop', shop);
-          } catch (e) {
-            console.warn('[TradeUp] localStorage write blocked:', e);
+          } catch {
+            // localStorage blocked in iframe - skip caching
           }
         }
 
@@ -196,12 +187,10 @@ export function useShopifyBridge(): ShopifyBridgeState {
             const tokenPromise = fetchSessionToken();
             const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
             sessionToken = await Promise.race([tokenPromise, timeoutPromise]);
-          } catch (e) {
-            console.warn('[TradeUp] Session token fetch failed:', e);
+          } catch {
+            // Session token fetch failed - continue without token
           }
         }
-
-        console.log('[TradeUp] Bridge initialized:', { shop, isEmbedded, hasToken: !!sessionToken });
 
         setState({
           shop,
@@ -210,9 +199,8 @@ export function useShopifyBridge(): ShopifyBridgeState {
           sessionToken,
           getSessionToken,
         });
-      } catch (error) {
-        console.error('[TradeUp] Bridge init failed:', error);
-        // Still set loading to false so the app doesn't hang
+      } catch {
+        // Bridge init failed - set loading to false so the app doesn't hang
         setState(prev => ({
           ...prev,
           isLoading: false,
@@ -264,15 +252,12 @@ export function getTenantParam(shop: string | null): string {
  * Use this for all API requests in the embedded app.
  */
 export async function createAuthHeaders(shop: string | null): Promise<HeadersInit> {
-  console.log('[TradeUp] createAuthHeaders called for shop:', shop);
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
 
   // Try to get session token for embedded auth
-  console.log('[TradeUp] Attempting to get session token...');
   const token = await fetchSessionToken();
-  console.log('[TradeUp] Session token result:', token ? 'obtained' : 'null');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -282,7 +267,6 @@ export async function createAuthHeaders(shop: string | null): Promise<HeadersIni
     headers['X-Shop-Domain'] = shop;
   }
 
-  console.log('[TradeUp] Headers ready (has auth:', !!token, ')');
   return headers;
 }
 
@@ -322,17 +306,14 @@ function xhrFetch(url: string, options: RequestInit = {}): Promise<Response> {
             }, {} as Record<string, string>)
         ),
       });
-      console.log('[TradeUp] XHR response received:', xhr.status);
       resolve(response);
     };
 
     xhr.onerror = () => {
-      console.error('[TradeUp] XHR network error');
       reject(new Error('Network error'));
     };
 
     xhr.ontimeout = () => {
-      console.error('[TradeUp] XHR timeout after 10s');
       reject(new Error('Request timeout'));
     };
 
@@ -355,9 +336,7 @@ export async function authFetch(
   shop: string | null,
   options: RequestInit = {}
 ): Promise<Response> {
-  console.log('[TradeUp] authFetch called:', { url, shop });
   const headers = await createAuthHeaders(shop);
-  console.log('[TradeUp] authFetch headers created');
 
   // Add shop to URL if not already present
   const urlWithShop = url.includes('?')
@@ -368,20 +347,11 @@ export async function authFetch(
   const baseUrl = window.location.origin;
   const absoluteUrl = urlWithShop.startsWith('/') ? `${baseUrl}${urlWithShop}` : urlWithShop;
 
-  console.log('[TradeUp] authFetch fetching via XHR:', absoluteUrl);
-  console.log('[TradeUp] Current origin:', baseUrl);
-
-  try {
-    const response = await xhrFetch(absoluteUrl, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers as Record<string, string>,
-      },
-    });
-    return response;
-  } catch (error) {
-    console.error('[TradeUp] authFetch FAILED:', error);
-    throw error;
-  }
+  return xhrFetch(absoluteUrl, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers as Record<string, string>,
+    },
+  });
 }
