@@ -287,7 +287,67 @@ export async function createAuthHeaders(shop: string | null): Promise<HeadersIni
 }
 
 /**
+ * XMLHttpRequest-based fetch to bypass Shopify App Bridge fetch interception.
+ * App Bridge 4.x intercepts the global fetch() and can cause hangs when calling
+ * custom backend APIs. XMLHttpRequest is not intercepted.
+ */
+function xhrFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const method = options.method || 'GET';
+
+    xhr.open(method, url, true);
+
+    // Set headers
+    const headers = options.headers as Record<string, string> || {};
+    Object.keys(headers).forEach((key) => {
+      xhr.setRequestHeader(key, headers[key]);
+    });
+
+    // Set timeout (10 seconds)
+    xhr.timeout = 10000;
+
+    xhr.onload = () => {
+      const response = new Response(xhr.responseText, {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        headers: new Headers(
+          xhr.getAllResponseHeaders()
+            .split('\r\n')
+            .filter(Boolean)
+            .reduce((acc, line) => {
+              const [key, ...vals] = line.split(': ');
+              acc[key] = vals.join(': ');
+              return acc;
+            }, {} as Record<string, string>)
+        ),
+      });
+      console.log('[TradeUp] XHR response received:', xhr.status);
+      resolve(response);
+    };
+
+    xhr.onerror = () => {
+      console.error('[TradeUp] XHR network error');
+      reject(new Error('Network error'));
+    };
+
+    xhr.ontimeout = () => {
+      console.error('[TradeUp] XHR timeout after 10s');
+      reject(new Error('Request timeout'));
+    };
+
+    // Send request
+    if (options.body) {
+      xhr.send(options.body as string);
+    } else {
+      xhr.send();
+    }
+  });
+}
+
+/**
  * Authenticated fetch wrapper for API requests.
+ * Uses XMLHttpRequest to bypass Shopify App Bridge fetch interception.
  * Automatically includes session token and shop context.
  */
 export async function authFetch(
@@ -308,38 +368,20 @@ export async function authFetch(
   const baseUrl = window.location.origin;
   const absoluteUrl = urlWithShop.startsWith('/') ? `${baseUrl}${urlWithShop}` : urlWithShop;
 
-  console.log('[TradeUp] authFetch fetching:', absoluteUrl);
+  console.log('[TradeUp] authFetch fetching via XHR:', absoluteUrl);
   console.log('[TradeUp] Current origin:', baseUrl);
 
-  // Create AbortController for timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    console.error('[TradeUp] Fetch timeout after 10s - aborting');
-    controller.abort();
-  }, 10000);
-
   try {
-    const response = await fetch(absoluteUrl, {
+    const response = await xhrFetch(absoluteUrl, {
       ...options,
-      // Explicit CORS settings for embedded iframe context
-      mode: 'cors',
-      credentials: 'omit', // Don't send cookies - avoids third-party cookie blocking
-      signal: controller.signal,
       headers: {
         ...headers,
-        ...options.headers,
+        ...options.headers as Record<string, string>,
       },
     });
-    clearTimeout(timeoutId);
-    console.log('[TradeUp] authFetch response received:', response.status);
     return response;
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('[TradeUp] authFetch TIMEOUT - request aborted');
-    } else {
-      console.error('[TradeUp] authFetch FAILED:', error);
-    }
+    console.error('[TradeUp] authFetch FAILED:', error);
     throw error;
   }
 }
