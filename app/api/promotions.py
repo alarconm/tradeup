@@ -110,35 +110,45 @@ def list_promotions():
         type: Filter by promo_type
         current: Only promotions active right now
     """
-    query = Promotion.query
+    try:
+        query = Promotion.query
 
-    if request.args.get('active_only', '').lower() == 'true':
-        query = query.filter(Promotion.active == True)
+        if request.args.get('active_only', '').lower() == 'true':
+            query = query.filter(Promotion.active == True)
 
-    promo_type = request.args.get('type')
-    if promo_type:
-        query = query.filter(Promotion.promo_type == promo_type)
+        promo_type = request.args.get('type')
+        if promo_type:
+            query = query.filter(Promotion.promo_type == promo_type)
 
-    if request.args.get('current', '').lower() == 'true':
-        now = datetime.utcnow()
-        query = query.filter(
-            and_(
-                Promotion.active == True,
-                Promotion.starts_at <= now,
-                Promotion.ends_at >= now,
+        if request.args.get('current', '').lower() == 'true':
+            now = datetime.utcnow()
+            query = query.filter(
+                and_(
+                    Promotion.active == True,
+                    Promotion.starts_at <= now,
+                    Promotion.ends_at >= now,
+                )
             )
-        )
 
-    promotions = query.order_by(Promotion.starts_at.desc()).all()
+        promotions = query.order_by(Promotion.starts_at.desc()).all()
 
-    # Filter by runtime conditions for current promotions
-    if request.args.get('current', '').lower() == 'true':
-        promotions = [p for p in promotions if p.is_active_now()]
+        # Filter by runtime conditions for current promotions
+        if request.args.get('current', '').lower() == 'true':
+            promotions = [p for p in promotions if p.is_active_now()]
 
-    return jsonify({
-        'promotions': [p.to_dict() for p in promotions],
-        'total': len(promotions),
-    }), 200
+        return jsonify({
+            'promotions': [p.to_dict() for p in promotions],
+            'total': len(promotions),
+        }), 200
+    except Exception as e:
+        # Table may not exist yet - return empty with hint
+        current_app.logger.warning(f"[Promotions] list_promotions error: {e}")
+        return jsonify({
+            'promotions': [],
+            'total': 0,
+            'error': 'Could not fetch promotions - database may need migration',
+            'hint': 'POST to /api/promotions/init-db to initialize tables'
+        }), 200
 
 
 @promotions_bp.route('/promotions', methods=['POST'])

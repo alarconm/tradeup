@@ -277,18 +277,27 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     queryKey: ['promotions', shop],
     queryFn: () => fetchPromotions(shop),
     enabled: !!shop,
+    staleTime: 30000, // Cache for 30s
+    gcTime: 60000, // Keep in cache for 60s
+    retry: 1, // Only retry once to fail faster
   });
 
   const { data: tiersData, isLoading: tiersLoading } = useQuery({
     queryKey: ['tiers', shop],
     queryFn: () => fetchTiers(shop),
     enabled: !!shop,
+    staleTime: 60000, // Tiers change less often - cache for 60s
+    gcTime: 120000,
+    retry: 1,
   });
 
   const { data: stats } = useQuery({
     queryKey: ['promotions-stats', shop],
     queryFn: () => fetchStats(shop),
     enabled: !!shop,
+    staleTime: 30000,
+    gcTime: 60000,
+    retry: 1,
   });
 
   const createMutation = useMutation({
@@ -469,12 +478,51 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
 
   if (promotionsLoading || tiersLoading) {
     return (
-      <Page title="Promotions">
-        <Box padding="1600">
-          <InlineStack align="center">
-            <Spinner size="large" />
-          </InlineStack>
-        </Box>
+      <Page
+        title="Promotions & Bonuses"
+        subtitle="Loading your promotions..."
+      >
+        <Layout>
+          {/* Stats skeleton */}
+          <Layout.Section>
+            <InlineGrid columns={isMobile ? 2 : 4} gap="400">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <BlockStack gap="200">
+                    <Box background="bg-surface-secondary" borderRadius="100" minHeight="16px" maxWidth="80px" />
+                    <Box background="bg-surface-secondary" borderRadius="100" minHeight="32px" maxWidth="60px" />
+                  </BlockStack>
+                </Card>
+              ))}
+            </InlineGrid>
+          </Layout.Section>
+
+          {/* Tab skeleton */}
+          <Layout.Section>
+            <InlineStack gap="200">
+              <Box background="bg-surface-secondary" borderRadius="200" minHeight="32px" minWidth="120px" />
+              <Box background="bg-surface-secondary" borderRadius="200" minHeight="32px" minWidth="120px" />
+            </InlineStack>
+          </Layout.Section>
+
+          {/* Table skeleton */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                {[1, 2, 3].map((i) => (
+                  <Box key={i} paddingBlock="300">
+                    <InlineStack gap="400" blockAlign="center">
+                      <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="150px" />
+                      <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="100px" />
+                      <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="80px" />
+                      <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="60px" />
+                    </InlineStack>
+                  </Box>
+                ))}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        </Layout>
       </Page>
     );
   }
