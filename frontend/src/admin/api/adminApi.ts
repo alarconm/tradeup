@@ -51,12 +51,22 @@ export interface Member {
   updated_at: string;
 }
 
+export interface TierBenefits {
+  discount_percent?: number;
+  free_shipping_threshold?: number;
+  monthly_credit?: number;
+  purchase_cashback_pct?: number;
+  features?: string[];
+}
+
 export interface Tier {
   id: number;
   name: string;
   monthly_price: number;
   bonus_rate: number;
-  benefits: Record<string, unknown>;
+  benefits: TierBenefits;
+  is_active?: boolean;
+  display_order?: number;
 }
 
 export interface ShopifyCustomer {
@@ -199,6 +209,39 @@ export async function updateMemberTier(
   });
 }
 
+/**
+ * Assign a tier to a member with audit trail.
+ * Uses the membership tier assignment endpoint.
+ */
+export async function assignTier(data: {
+  member_id: number;
+  tier_id: number | null;
+  reason?: string;
+}): Promise<{ success: boolean; member: Member; previous_tier: Tier | null; new_tier: Tier | null }> {
+  return adminFetch('/api/membership/tiers/assign', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Issue a one-off store credit to a member.
+ */
+export async function addStoreCredit(data: {
+  member_id: number;
+  amount: number;
+  description?: string;
+  event_type?: string;
+}): Promise<{ success: boolean; entry: StoreCreditEntry; new_balance: number }> {
+  return adminFetch('/api/membership/store-credit/add', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...data,
+      event_type: data.event_type || 'manual_credit',
+    }),
+  });
+}
+
 // ================== Store Credit Ledger ==================
 
 export interface StoreCreditEntry {
@@ -253,6 +296,61 @@ export async function getMemberCreditHistory(
 
 export async function getTiers(): Promise<{ tiers: Tier[] }> {
   return adminFetch('/api/membership/tiers');
+}
+
+/**
+ * Create a new membership tier.
+ */
+export async function createTier(data: {
+  name: string;
+  monthly_price: number;
+  bonus_rate: number;
+  benefits?: TierBenefits;
+  display_order?: number;
+}): Promise<Tier> {
+  return adminFetch('/api/members/tiers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Update a membership tier.
+ */
+export async function updateTier(
+  tierId: number,
+  data: {
+    name?: string;
+    monthly_price?: number;
+    bonus_rate?: number;
+    benefits?: TierBenefits;
+    display_order?: number;
+    is_active?: boolean;
+  }
+): Promise<Tier> {
+  return adminFetch(`/api/members/tiers/${tierId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Delete (deactivate) a membership tier.
+ */
+export async function deleteTier(tierId: number): Promise<{ success: boolean; message: string }> {
+  return adminFetch(`/api/members/tiers/${tierId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Reorder tiers by display order.
+ */
+export async function reorderTiers(tierIds: number[]): Promise<{ success: boolean; tiers: Tier[] }> {
+  return adminFetch('/api/members/tiers/reorder', {
+    method: 'POST',
+    body: JSON.stringify({ tier_ids: tierIds }),
+  });
 }
 
 // ================== Shopify APIs ==================

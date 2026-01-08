@@ -3,7 +3,7 @@
  *
  * View and manage program members.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Page,
   Layout,
@@ -25,10 +25,24 @@ import {
   Box,
   FormLayout,
   Select,
+  DropZone,
+  List,
+  Thumbnail,
+  Divider,
 } from '@shopify/polaris';
-import { ExportIcon, EmailIcon, PlusIcon, SearchIcon } from '@shopify/polaris-icons';
+import { ExportIcon, EmailIcon, PlusIcon, SearchIcon, ImportIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+
+// Credit expiration options
+const CREDIT_EXPIRATION_OPTIONS = [
+  { label: 'Never expires', value: '' },
+  { label: '30 days', value: '30' },
+  { label: '60 days', value: '60' },
+  { label: '90 days', value: '90' },
+  { label: '180 days', value: '180' },
+  { label: '1 year (365 days)', value: '365' },
+];
 
 interface MembersProps {
   shop: string | null;
@@ -78,6 +92,21 @@ async function fetchMembers(
   return response.json();
 }
 
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function EmbeddedMembers({ shop }: MembersProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -85,6 +114,8 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [detailMember, setDetailMember] = useState<Member | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['members', shop, page, search, selectedTier[0]],
@@ -118,11 +149,11 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     );
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -173,6 +204,11 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       }}
       secondaryActions={[
         {
+          content: 'Import CSV',
+          icon: ImportIcon,
+          onAction: () => setImportModalOpen(true),
+        },
+        {
           content: 'Email Members',
           icon: EmailIcon,
           onAction: () => setEmailModalOpen(true),
@@ -215,49 +251,102 @@ export function EmbeddedMembers({ shop }: MembersProps) {
               </Box>
             ) : data?.members && data.members.length > 0 ? (
               <>
-                <DataTable
-                  columnContentTypes={[
-                    'text',
-                    'text',
-                    'text',
-                    'numeric',
-                    'numeric',
-                    'text',
-                  ]}
-                  headings={[
-                    'Member',
-                    'Tier',
-                    'Status',
-                    'Trade-Ins',
-                    'Credits Issued',
-                    'Last Activity',
-                  ]}
-                  rows={data.members.map((member) => [
-                    <BlockStack gap="100" key={member.id}>
-                      <Button
-                        variant="plain"
-                        onClick={() => setDetailMember(member)}
+                {isMobile ? (
+                  /* Mobile: Card-based layout */
+                  <Box padding="300">
+                    <BlockStack gap="300">
+                      {data.members.map((member, index) => (
+                        <Box key={member.id}>
+                          {index > 0 && <Divider />}
+                          <Box paddingBlock="300">
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between" blockAlign="start">
+                                <BlockStack gap="050">
+                                  <Button
+                                    variant="plain"
+                                    onClick={() => setDetailMember(member)}
+                                  >
+                                    <Text as="span" fontWeight="semibold">
+                                      {member.first_name} {member.last_name}
+                                    </Text>
+                                  </Button>
+                                  <Text as="p" variant="bodySm" tone="subdued">
+                                    {member.email}
+                                  </Text>
+                                </BlockStack>
+                                <BlockStack gap="100" inlineAlign="end">
+                                  <Badge tone="info">{member.tier?.name || 'None'}</Badge>
+                                  <Badge tone={member.status === 'active' ? 'success' : undefined}>
+                                    {member.status}
+                                  </Badge>
+                                </BlockStack>
+                              </InlineStack>
+                              <InlineStack gap="400" wrap>
+                                <BlockStack gap="050">
+                                  <Text as="span" variant="bodySm" tone="subdued">Trade-Ins</Text>
+                                  <Text as="span" fontWeight="medium">{member.trade_in_count}</Text>
+                                </BlockStack>
+                                <BlockStack gap="050">
+                                  <Text as="span" variant="bodySm" tone="subdued">Credits</Text>
+                                  <Text as="span" fontWeight="medium">{formatCurrency(member.total_credits_issued)}</Text>
+                                </BlockStack>
+                                <BlockStack gap="050">
+                                  <Text as="span" variant="bodySm" tone="subdued">Last Active</Text>
+                                  <Text as="span" fontWeight="medium">{formatDate(member.last_trade_in_at)}</Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Box>
+                        </Box>
+                      ))}
+                    </BlockStack>
+                  </Box>
+                ) : (
+                  /* Desktop: DataTable layout */
+                  <DataTable
+                    columnContentTypes={[
+                      'text',
+                      'text',
+                      'text',
+                      'numeric',
+                      'numeric',
+                      'text',
+                    ]}
+                    headings={[
+                      'Member',
+                      'Tier',
+                      'Status',
+                      'Trade-Ins',
+                      'Credits Issued',
+                      'Last Activity',
+                    ]}
+                    rows={data.members.map((member) => [
+                      <BlockStack gap="100" key={member.id}>
+                        <Button
+                          variant="plain"
+                          onClick={() => setDetailMember(member)}
+                        >
+                          {member.first_name} {member.last_name}
+                        </Button>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {member.email}
+                        </Text>
+                      </BlockStack>,
+                      <Badge key={`tier-${member.id}`} tone="info">
+                        {member.tier?.name || 'None'}
+                      </Badge>,
+                      <Badge
+                        key={`status-${member.id}`}
+                        tone={member.status === 'active' ? 'success' : undefined}
                       >
-                        {member.first_name} {member.last_name}
-                      </Button>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {member.email}
-                      </Text>
-                    </BlockStack>,
-                    <Badge key={`tier-${member.id}`} tone="info">
-                      {member.tier?.name || 'None'}
-                    </Badge>,
-                    <Badge
-                      key={`status-${member.id}`}
-                      tone={member.status === 'active' ? 'success' : undefined}
-                    >
-                      {member.status}
-                    </Badge>,
-                    member.trade_in_count,
-                    formatCurrency(member.total_credits_issued),
-                    formatDate(member.last_trade_in_at),
-                  ])}
-                />
+                        {member.status}
+                      </Badge>,
+                      member.trade_in_count,
+                      formatCurrency(member.total_credits_issued),
+                      formatDate(member.last_trade_in_at),
+                    ])}
+                  />
+                )}
 
                 <Box padding="400">
                   <InlineStack align="center">
@@ -310,6 +399,13 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         onClose={() => setAddMemberModalOpen(false)}
         shop={shop}
       />
+
+      {/* Import CSV Modal */}
+      <ImportCSVModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        shop={shop}
+      />
     </Page>
   );
 }
@@ -341,6 +437,15 @@ interface TierHistoryItem {
   created_by: string | null;
 }
 
+interface CreditHistoryItem {
+  id: number;
+  amount: number;
+  event_type: string;
+  description: string | null;
+  created_at: string;
+  synced_to_shopify: boolean;
+}
+
 function MemberDetailModal({
   member,
   shop,
@@ -352,6 +457,12 @@ function MemberDetailModal({
   const [selectedTierId, setSelectedTierId] = useState<string>('');
   const [tierReason, setTierReason] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [issueCreditOpen, setIssueCreditOpen] = useState(false);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditDescription, setCreditDescription] = useState('');
+  const [creditExpiration, setCreditExpiration] = useState('');
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [showCreditHistory, setShowCreditHistory] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch available tiers
@@ -360,7 +471,8 @@ function MemberDetailModal({
     queryFn: async () => {
       const response = await authFetch(`${getApiUrl()}/membership/tiers`, shop);
       if (!response.ok) throw new Error('Failed to fetch tiers');
-      return response.json();
+      const data = await response.json();
+      return data.tiers || [];
     },
     enabled: !!shop && !!member,
   });
@@ -405,6 +517,70 @@ function MemberDetailModal({
     },
   });
 
+  // Fetch credit history
+  const { data: creditHistory, isLoading: creditHistoryLoading } = useQuery<{ bonuses: CreditHistoryItem[] }>({
+    queryKey: ['credit-history', shop, member?.id],
+    queryFn: async () => {
+      const response = await authFetch(
+        `${getApiUrl()}/bonuses?member_id=${member?.id}&per_page=10`,
+        shop
+      );
+      if (!response.ok) throw new Error('Failed to fetch credit history');
+      return response.json();
+    },
+    enabled: !!shop && !!member && showCreditHistory,
+  });
+
+  // Issue credit mutation
+  const issueCreditMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/membership/store-credit/add`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          member_id: member?.id,
+          amount: parseFloat(creditAmount),
+          description: creditDescription || 'Manual credit adjustment',
+          expiration_days: creditExpiration ? parseInt(creditExpiration) : null,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to issue credit');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-history', shop, member?.id] });
+      setIssueCreditOpen(false);
+      setCreditAmount('');
+      setCreditDescription('');
+      setCreditExpiration('');
+    },
+  });
+
+  // Cancel membership mutation
+  const cancelMembershipMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/${member?.id}`, shop, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: 'cancelled',
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to cancel membership');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setCancelConfirmOpen(false);
+      onClose();
+    },
+  });
+
   if (!member) return null;
 
   const tierOptions = [
@@ -419,11 +595,20 @@ function MemberDetailModal({
         onClose={onClose}
         title={`${member.first_name} ${member.last_name}`}
         primaryAction={{
-          content: 'Change Tier',
-          onAction: () => setChangeTierOpen(true),
+          content: 'Issue Credit',
+          onAction: () => setIssueCreditOpen(true),
         }}
         secondaryActions={[
-          { content: 'Close', onAction: onClose },
+          {
+            content: 'Change Tier',
+            onAction: () => setChangeTierOpen(true),
+          },
+          {
+            content: 'Cancel Membership',
+            onAction: () => setCancelConfirmOpen(true),
+            destructive: true,
+            disabled: member.status === 'cancelled',
+          },
         ]}
       >
         <Modal.Section>
@@ -535,6 +720,60 @@ function MemberDetailModal({
             )}
           </BlockStack>
         </Modal.Section>
+
+        <Modal.Section>
+          <BlockStack gap="300">
+            <InlineStack align="space-between">
+              <Text as="h3" variant="headingSm">Credit History</Text>
+              <Button
+                variant="plain"
+                onClick={() => setShowCreditHistory(!showCreditHistory)}
+              >
+                {showCreditHistory ? 'Hide' : 'Show'} History
+              </Button>
+            </InlineStack>
+
+            {showCreditHistory && (
+              creditHistoryLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                </InlineStack>
+              ) : creditHistory?.bonuses && creditHistory.bonuses.length > 0 ? (
+                <BlockStack gap="200">
+                  {creditHistory.bonuses.map((item) => (
+                    <Box
+                      key={item.id}
+                      padding="200"
+                      background="bg-surface-secondary"
+                      borderRadius="100"
+                    >
+                      <InlineStack align="space-between">
+                        <BlockStack gap="050">
+                          <InlineStack gap="200">
+                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                              {item.amount > 0 ? '+' : ''}{formatCurrency(item.amount)}
+                            </Text>
+                            {item.synced_to_shopify && (
+                              <Badge tone="success" size="small">Synced</Badge>
+                            )}
+                          </InlineStack>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            {item.description || item.event_type}
+                          </Text>
+                        </BlockStack>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {formatDate(item.created_at)}
+                        </Text>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              ) : (
+                <Text as="p" tone="subdued">No credit transactions recorded</Text>
+              )
+            )}
+          </BlockStack>
+        </Modal.Section>
       </Modal>
 
       {/* Change Tier Modal */}
@@ -574,6 +813,104 @@ function MemberDetailModal({
               autoComplete="off"
             />
           </FormLayout>
+        </Modal.Section>
+      </Modal>
+
+      {/* Issue Credit Modal */}
+      <Modal
+        open={issueCreditOpen}
+        onClose={() => setIssueCreditOpen(false)}
+        title="Issue Store Credit"
+        primaryAction={{
+          content: 'Issue Credit',
+          onAction: () => issueCreditMutation.mutate(),
+          loading: issueCreditMutation.isPending,
+          disabled: !creditAmount || parseFloat(creditAmount) <= 0,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: () => setIssueCreditOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          {issueCreditMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{issueCreditMutation.error?.message || 'Failed to issue credit'}</p>
+              </Banner>
+            </Box>
+          )}
+          {issueCreditMutation.isSuccess && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="success">
+                <p>Credit issued successfully!</p>
+              </Banner>
+            </Box>
+          )}
+          <FormLayout>
+            <TextField
+              label="Credit Amount"
+              type="number"
+              value={creditAmount}
+              onChange={setCreditAmount}
+              prefix="$"
+              min={0.01}
+              step={0.01}
+              autoComplete="off"
+              helpText="Amount to add to member's store credit balance"
+            />
+            <TextField
+              label="Description (optional)"
+              value={creditDescription}
+              onChange={setCreditDescription}
+              placeholder="e.g., Loyalty bonus, Price adjustment"
+              autoComplete="off"
+              helpText="Reason for the credit (visible in history)"
+            />
+            <Select
+              label="Credit Expiration"
+              options={CREDIT_EXPIRATION_OPTIONS}
+              value={creditExpiration}
+              onChange={setCreditExpiration}
+              helpText="When this credit should expire"
+            />
+          </FormLayout>
+        </Modal.Section>
+      </Modal>
+
+      {/* Cancel Membership Confirmation Modal */}
+      <Modal
+        open={cancelConfirmOpen}
+        onClose={() => setCancelConfirmOpen(false)}
+        title="Cancel Membership"
+        primaryAction={{
+          content: 'Cancel Membership',
+          onAction: () => cancelMembershipMutation.mutate(),
+          loading: cancelMembershipMutation.isPending,
+          destructive: true,
+        }}
+        secondaryActions={[
+          { content: 'Keep Active', onAction: () => setCancelConfirmOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          {cancelMembershipMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{cancelMembershipMutation.error?.message || 'Failed to cancel membership'}</p>
+              </Banner>
+            </Box>
+          )}
+          <Banner tone="warning">
+            <BlockStack gap="200">
+              <Text as="p" fontWeight="semibold">
+                Are you sure you want to cancel this membership?
+              </Text>
+              <Text as="p">
+                {member.first_name} {member.last_name} will no longer receive member benefits.
+                Their existing store credit will remain available.
+              </Text>
+            </BlockStack>
+          </Banner>
         </Modal.Section>
       </Modal>
     </>
@@ -831,7 +1168,8 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     queryFn: async () => {
       const response = await authFetch(`${getApiUrl()}/membership/tiers`, shop);
       if (!response.ok) throw new Error('Failed to fetch tiers');
-      return response.json();
+      const data = await response.json();
+      return data.tiers || [];
     },
     enabled: !!shop && open,
   });
@@ -1047,6 +1385,331 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                 Search for a Shopify customer to enroll as a member.
               </Text>
             )}
+          </BlockStack>
+        </Modal.Section>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Import CSV Modal - Bulk import members from CSV file
+ */
+interface ImportCSVModalProps {
+  open: boolean;
+  onClose: () => void;
+  shop: string | null;
+}
+
+interface ImportPreview {
+  total_rows: number;
+  valid_count: number;
+  invalid_count: number;
+  duplicate_count: number;
+  valid_rows: Array<{
+    row: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    tier_name: string;
+  }>;
+  invalid_rows: Array<{
+    row: number;
+    email: string;
+    errors: string[];
+  }>;
+  duplicate_rows: Array<{
+    row: number;
+    email: string;
+    reason: string;
+  }>;
+  available_tiers: string[];
+}
+
+function ImportCSVModal({ open, onClose, shop }: ImportCSVModalProps) {
+  const queryClient = useQueryClient();
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const handleDropZoneDrop = useCallback(
+    (_dropFiles: File[], acceptedFiles: File[], _rejectedFiles: File[]) => {
+      if (acceptedFiles.length > 0) {
+        setFile(acceptedFiles[0]);
+        setPreview(null);
+        setError('');
+        setSuccess(null);
+      }
+    },
+    []
+  );
+
+  const handlePreview = useCallback(async () => {
+    if (!file || !shop) return;
+
+    setPreviewLoading(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${getApiUrl()}/members/import/preview`, {
+        method: 'POST',
+        headers: {
+          'X-Shop-Domain': shop,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to preview CSV');
+      }
+
+      const data = await response.json();
+      setPreview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to preview CSV');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [file, shop]);
+
+  const handleImport = useCallback(async () => {
+    if (!file || !shop) return;
+
+    setImporting(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('skip_duplicates', 'true');
+
+      const response = await fetch(`${getApiUrl()}/members/import/import`, {
+        method: 'POST',
+        headers: {
+          'X-Shop-Domain': shop,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to import members');
+      }
+
+      const data = await response.json();
+      setSuccess({ imported: data.imported, skipped: data.skipped });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import members');
+    } finally {
+      setImporting(false);
+    }
+  }, [file, shop, queryClient]);
+
+  const handleClose = useCallback(() => {
+    setFile(null);
+    setPreview(null);
+    setError('');
+    setSuccess(null);
+    onClose();
+  }, [onClose]);
+
+  const validImageTypes = ['text/csv', 'application/vnd.ms-excel'];
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Import Members from CSV"
+      primaryAction={
+        success
+          ? { content: 'Done', onAction: handleClose }
+          : preview
+          ? {
+              content: `Import ${preview.valid_count} Members`,
+              onAction: handleImport,
+              loading: importing,
+              disabled: preview.valid_count === 0,
+            }
+          : file
+          ? {
+              content: 'Preview Import',
+              onAction: handlePreview,
+              loading: previewLoading,
+            }
+          : undefined
+      }
+      secondaryActions={
+        success
+          ? []
+          : preview
+          ? [
+              {
+                content: 'Back',
+                onAction: () => {
+                  setPreview(null);
+                  setFile(null);
+                },
+              },
+            ]
+          : [{ content: 'Cancel', onAction: handleClose }]
+      }
+      size="large"
+    >
+      {success ? (
+        <Modal.Section>
+          <Banner tone="success">
+            <BlockStack gap="200">
+              <Text as="p" variant="headingMd">Import Complete!</Text>
+              <Text as="p">
+                Successfully imported {success.imported} members
+                {success.skipped > 0 && ` (${success.skipped} duplicates skipped)`}.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      ) : preview ? (
+        <>
+          <Modal.Section>
+            {error && (
+              <Box paddingBlockEnd="400">
+                <Banner tone="critical" onDismiss={() => setError('')}>
+                  <p>{error}</p>
+                </Banner>
+              </Box>
+            )}
+
+            <BlockStack gap="400">
+              <InlineStack gap="400">
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="headingLg" tone="success">
+                      {preview.valid_count}
+                    </Text>
+                    <Text as="span" variant="bodySm">Ready to import</Text>
+                  </BlockStack>
+                </Card>
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="headingLg" tone="critical">
+                      {preview.invalid_count}
+                    </Text>
+                    <Text as="span" variant="bodySm">Invalid rows</Text>
+                  </BlockStack>
+                </Card>
+                <Card>
+                  <BlockStack gap="100">
+                    <Text as="span" variant="headingLg" tone="caution">
+                      {preview.duplicate_count}
+                    </Text>
+                    <Text as="span" variant="bodySm">Duplicates (skipped)</Text>
+                  </BlockStack>
+                </Card>
+              </InlineStack>
+
+              {preview.valid_rows.length > 0 && (
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingSm">Preview (first 10 rows)</Text>
+                  <DataTable
+                    columnContentTypes={['numeric', 'text', 'text', 'text', 'text']}
+                    headings={['Row', 'Email', 'First Name', 'Last Name', 'Tier']}
+                    rows={preview.valid_rows.map((row) => [
+                      row.row,
+                      row.email,
+                      row.first_name,
+                      row.last_name,
+                      row.tier_name || '-',
+                    ])}
+                  />
+                </BlockStack>
+              )}
+
+              {preview.invalid_rows.length > 0 && (
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingSm" tone="critical">
+                    Invalid Rows
+                  </Text>
+                  {preview.invalid_rows.map((row) => (
+                    <Box
+                      key={row.row}
+                      padding="200"
+                      background="bg-surface-critical"
+                      borderRadius="100"
+                    >
+                      <InlineStack align="space-between">
+                        <Text as="span" variant="bodySm">
+                          Row {row.row}: {row.email || '(no email)'}
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="critical">
+                          {row.errors.join(', ')}
+                        </Text>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              )}
+            </BlockStack>
+          </Modal.Section>
+        </>
+      ) : (
+        <Modal.Section>
+          <BlockStack gap="400">
+            {error && (
+              <Banner tone="critical" onDismiss={() => setError('')}>
+                <p>{error}</p>
+              </Banner>
+            )}
+
+            <DropZone
+              accept=".csv"
+              type="file"
+              onDrop={handleDropZoneDrop}
+              variableHeight
+            >
+              {file ? (
+                <Box padding="400">
+                  <InlineStack gap="300" blockAlign="center">
+                    <Thumbnail
+                      source="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      alt="CSV file"
+                      size="small"
+                    />
+                    <BlockStack gap="050">
+                      <Text as="span" variant="bodyMd" fontWeight="semibold">
+                        {file.name}
+                      </Text>
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </Box>
+              ) : (
+                <DropZone.FileUpload actionHint="or drop a CSV file to upload" />
+              )}
+            </DropZone>
+
+            <Card background="bg-surface-secondary">
+              <BlockStack gap="300">
+                <Text as="h3" variant="headingSm">CSV Format Requirements</Text>
+                <List type="bullet">
+                  <List.Item>First row must be column headers</List.Item>
+                  <List.Item>Required columns: email, first_name</List.Item>
+                  <List.Item>Optional: last_name, phone, tier_name</List.Item>
+                  <List.Item>Tier names must match existing tiers exactly</List.Item>
+                </List>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Example: email,first_name,last_name,tier_name
+                </Text>
+              </BlockStack>
+            </Card>
           </BlockStack>
         </Modal.Section>
       )}

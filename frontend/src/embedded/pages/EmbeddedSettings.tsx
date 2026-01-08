@@ -22,8 +22,13 @@ import {
   Divider,
   Badge,
   List,
+  Modal,
+  FormLayout,
+  ResourceList,
+  ResourceItem,
+  Icon,
 } from '@shopify/polaris';
-import { RefreshIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EditIcon, DeleteIcon, EmailIcon, ViewIcon, ClockIcon, CalendarIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -218,6 +223,201 @@ async function syncMembershipProducts(shop: string | null): Promise<SyncProducts
   return response.json();
 }
 
+// Membership Tiers
+interface MembershipTier {
+  id: number;
+  name: string;
+  monthly_price: number;
+  yearly_price?: number;
+  bonus_rate: number;
+  purchase_cashback_pct: number;
+  monthly_credit_amount: number;
+  credit_expiration_days?: number | null;
+  benefits: {
+    discount_percent?: number;
+    free_shipping_threshold?: number;
+    priority_support?: boolean;
+    exclusive_access?: boolean;
+  };
+  is_active: boolean;
+  shopify_selling_plan_id?: string;
+}
+
+// Credit expiration options
+const CREDIT_EXPIRATION_OPTIONS = [
+  { label: 'Never expires', value: '' },
+  { label: '30 days', value: '30' },
+  { label: '60 days', value: '60' },
+  { label: '90 days', value: '90' },
+  { label: '180 days', value: '180' },
+  { label: '1 year (365 days)', value: '365' },
+];
+
+interface TiersResponse {
+  tiers: MembershipTier[];
+}
+
+// Email Templates
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+  is_custom: boolean;
+}
+
+interface EmailTemplatesResponse {
+  templates: EmailTemplate[];
+  by_category: Record<string, EmailTemplate[]>;
+  categories: string[];
+}
+
+interface EmailPreviewResponse {
+  template_id: string;
+  template_name: string;
+  subject: string;
+  body: string;
+  html_body: string;
+}
+
+async function fetchEmailTemplates(shop: string | null): Promise<EmailTemplatesResponse> {
+  const response = await authFetch(`${getApiUrl()}/email/templates`, shop);
+  if (!response.ok) throw new Error('Failed to fetch templates');
+  return response.json();
+}
+
+async function previewEmailTemplate(
+  shop: string | null,
+  templateId: string
+): Promise<EmailPreviewResponse> {
+  const response = await authFetch(`${getApiUrl()}/email/preview`, shop, {
+    method: 'POST',
+    body: JSON.stringify({ template_id: templateId }),
+  });
+  if (!response.ok) throw new Error('Failed to preview template');
+  return response.json();
+}
+
+async function sendTestEmail(
+  shop: string | null,
+  templateId: string,
+  toEmail: string,
+  toName: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const response = await authFetch(`${getApiUrl()}/email/send-test`, shop, {
+    method: 'POST',
+    body: JSON.stringify({ template_id: templateId, to_email: toEmail, to_name: toName }),
+  });
+  if (!response.ok) throw new Error('Failed to send test email');
+  return response.json();
+}
+
+async function fetchTiers(shop: string | null): Promise<TiersResponse> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers`, shop);
+  if (!response.ok) throw new Error('Failed to fetch tiers');
+  return response.json();
+}
+
+async function createTier(shop: string | null, data: Partial<MembershipTier>): Promise<MembershipTier> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers`, shop, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create tier');
+  return response.json();
+}
+
+async function updateTier(shop: string | null, tierId: number, data: Partial<MembershipTier>): Promise<MembershipTier> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers/${tierId}`, shop, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update tier');
+  return response.json();
+}
+
+async function deleteTier(shop: string | null, tierId: number): Promise<void> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers/${tierId}`, shop, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete tier');
+  }
+}
+
+// Scheduled Tasks - Monthly Credits
+interface MonthlyCreditPreview {
+  processed: number;
+  credited: number;
+  skipped: number;
+  total_amount: number;
+  errors: Array<{ member_id: number; error: string }>;
+  details: Array<{
+    member_id: number;
+    member_number: string;
+    tier: string;
+    amount: number;
+    status: string;
+    expires_at?: string | null;
+  }>;
+  dry_run: boolean;
+  run_date: string;
+}
+
+interface ExpirationPreview {
+  days_ahead: number;
+  members_with_expiring_credits: number;
+  total_amount_expiring: number;
+  members: Array<{
+    member_id: number;
+    member_number: string;
+    email: string | null;
+    total_expiring: number;
+    credits: Array<{
+      id: number;
+      amount: number;
+      expires_at: string;
+      description: string;
+    }>;
+  }>;
+}
+
+interface RunTaskResponse {
+  success: boolean;
+  message: string;
+  result: MonthlyCreditPreview;
+}
+
+async function fetchMonthlyCreditsPreview(shop: string | null): Promise<MonthlyCreditPreview> {
+  const response = await authFetch(`${getApiUrl()}/scheduled-tasks/monthly-credits/preview`, shop);
+  if (!response.ok) throw new Error('Failed to fetch preview');
+  return response.json();
+}
+
+async function runMonthlyCredits(shop: string | null): Promise<RunTaskResponse> {
+  const response = await authFetch(`${getApiUrl()}/scheduled-tasks/monthly-credits/run`, shop, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to run monthly credits');
+  return response.json();
+}
+
+async function fetchExpiringCredits(shop: string | null, days: number = 7): Promise<ExpirationPreview> {
+  const response = await authFetch(`${getApiUrl()}/scheduled-tasks/expiration/upcoming?days=${days}`, shop);
+  if (!response.ok) throw new Error('Failed to fetch expiring credits');
+  return response.json();
+}
+
+async function runExpiration(shop: string | null): Promise<RunTaskResponse> {
+  const response = await authFetch(`${getApiUrl()}/scheduled-tasks/expiration/run`, shop, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to run expiration');
+  return response.json();
+}
+
 export function EmbeddedSettings({ shop }: SettingsProps) {
   const queryClient = useQueryClient();
   const [hasChanges, setHasChanges] = useState(false);
@@ -265,6 +465,229 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
       queryClient.invalidateQueries({ queryKey: ['membership-products'] });
     },
   });
+
+  // Membership Tiers
+  const {
+    data: tiersData,
+    isLoading: tiersLoading,
+  } = useQuery({
+    queryKey: ['tiers', shop],
+    queryFn: () => fetchTiers(shop),
+    enabled: !!shop,
+  });
+
+  const [tierModalOpen, setTierModalOpen] = useState(false);
+  const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
+  const [tierForm, setTierForm] = useState({
+    name: '',
+    monthly_price: '9.99',
+    yearly_price: '',
+    bonus_rate: '0.05',
+    discount_percent: '0',
+    purchase_cashback_pct: '0',
+    monthly_credit: '0',
+    credit_expiration_days: '',
+  });
+  const [tierError, setTierError] = useState('');
+
+  const openTierModal = useCallback((tier?: MembershipTier) => {
+    if (tier) {
+      setEditingTier(tier);
+      setTierForm({
+        name: tier.name,
+        monthly_price: String(tier.monthly_price),
+        yearly_price: tier.yearly_price ? String(tier.yearly_price) : '',
+        bonus_rate: String(tier.bonus_rate),
+        discount_percent: String(tier.benefits?.discount_percent || 0),
+        purchase_cashback_pct: String(tier.purchase_cashback_pct || 0),
+        monthly_credit: String(tier.monthly_credit_amount || 0),
+        credit_expiration_days: tier.credit_expiration_days ? String(tier.credit_expiration_days) : '',
+      });
+    } else {
+      setEditingTier(null);
+      setTierForm({
+        name: '',
+        monthly_price: '9.99',
+        yearly_price: '',
+        bonus_rate: '0.05',
+        discount_percent: '0',
+        purchase_cashback_pct: '0',
+        monthly_credit: '0',
+        credit_expiration_days: '',
+      });
+    }
+    setTierError('');
+    setTierModalOpen(true);
+  }, []);
+
+  const closeTierModal = useCallback(() => {
+    setTierModalOpen(false);
+    setEditingTier(null);
+    setTierError('');
+  }, []);
+
+  const createTierMutation = useMutation({
+    mutationFn: (data: Partial<MembershipTier>) => createTier(shop, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tiers'] });
+      closeTierModal();
+    },
+    onError: (err: Error) => setTierError(err.message),
+  });
+
+  const updateTierMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<MembershipTier> }) => updateTier(shop, id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tiers'] });
+      closeTierModal();
+    },
+    onError: (err: Error) => setTierError(err.message),
+  });
+
+  const deleteTierMutation = useMutation({
+    mutationFn: (id: number) => deleteTier(shop, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tiers'] });
+    },
+    onError: (err: Error) => setTierError(err.message),
+  });
+
+  // Scheduled Tasks - Monthly Credits
+  const [scheduledTaskSuccess, setScheduledTaskSuccess] = useState('');
+  const [scheduledTaskError, setScheduledTaskError] = useState('');
+
+  const {
+    data: monthlyCreditsPreview,
+    isLoading: monthlyCreditsLoading,
+    refetch: refetchMonthlyPreview,
+  } = useQuery({
+    queryKey: ['monthly-credits-preview', shop],
+    queryFn: () => fetchMonthlyCreditsPreview(shop),
+    enabled: !!shop,
+  });
+
+  const {
+    data: expiringCredits,
+    isLoading: expiringCreditsLoading,
+    refetch: refetchExpiringCredits,
+  } = useQuery({
+    queryKey: ['expiring-credits', shop],
+    queryFn: () => fetchExpiringCredits(shop, 7),
+    enabled: !!shop,
+  });
+
+  const runMonthlyCreditsMutation = useMutation({
+    mutationFn: () => runMonthlyCredits(shop),
+    onSuccess: (data) => {
+      setScheduledTaskSuccess(data.message);
+      setScheduledTaskError('');
+      queryClient.invalidateQueries({ queryKey: ['monthly-credits-preview'] });
+      setTimeout(() => setScheduledTaskSuccess(''), 5000);
+    },
+    onError: (err: Error) => {
+      setScheduledTaskError(err.message);
+      setScheduledTaskSuccess('');
+    },
+  });
+
+  const runExpirationMutation = useMutation({
+    mutationFn: () => runExpiration(shop),
+    onSuccess: (data) => {
+      setScheduledTaskSuccess(data.message);
+      setScheduledTaskError('');
+      queryClient.invalidateQueries({ queryKey: ['expiring-credits'] });
+      setTimeout(() => setScheduledTaskSuccess(''), 5000);
+    },
+    onError: (err: Error) => {
+      setScheduledTaskError(err.message);
+      setScheduledTaskSuccess('');
+    },
+  });
+
+  // Email Templates
+  const {
+    data: emailTemplatesData,
+    isLoading: emailTemplatesLoading,
+  } = useQuery({
+    queryKey: ['email-templates', shop],
+    queryFn: () => fetchEmailTemplates(shop),
+    enabled: !!shop,
+  });
+
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [emailTestOpen, setEmailTestOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewSubject, setPreviewSubject] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [testName, setTestName] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  const previewMutation = useMutation({
+    mutationFn: (templateId: string) => previewEmailTemplate(shop, templateId),
+    onSuccess: (data) => {
+      setPreviewHtml(data.html_body);
+      setPreviewSubject(data.subject);
+      setEmailPreviewOpen(true);
+    },
+  });
+
+  const sendTestMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedTemplate) throw new Error('No template selected');
+      return sendTestEmail(shop, selectedTemplate.id, testEmail, testName);
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setEmailSuccess(`Test email sent to ${testEmail}`);
+        setEmailTestOpen(false);
+        setTestEmail('');
+        setTestName('');
+        setTimeout(() => setEmailSuccess(''), 5000);
+      } else {
+        setEmailError(data.error || 'Failed to send test email');
+      }
+    },
+    onError: (err: Error) => setEmailError(err.message),
+  });
+
+  const openEmailPreview = useCallback((template: EmailTemplate) => {
+    setSelectedTemplate(template);
+    previewMutation.mutate(template.id);
+  }, [previewMutation]);
+
+  const openEmailTest = useCallback((template: EmailTemplate) => {
+    setSelectedTemplate(template);
+    setEmailError('');
+    setEmailTestOpen(true);
+  }, []);
+
+  const handleTierSubmit = useCallback(() => {
+    if (!tierForm.name.trim()) {
+      setTierError('Tier name is required');
+      return;
+    }
+
+    const tierData: Partial<MembershipTier> = {
+      name: tierForm.name.trim(),
+      monthly_price: parseFloat(tierForm.monthly_price) || 0,
+      yearly_price: tierForm.yearly_price ? parseFloat(tierForm.yearly_price) : undefined,
+      bonus_rate: parseFloat(tierForm.bonus_rate) || 0,
+      purchase_cashback_pct: parseFloat(tierForm.purchase_cashback_pct) || 0,
+      monthly_credit_amount: parseFloat(tierForm.monthly_credit) || 0,
+      credit_expiration_days: tierForm.credit_expiration_days ? parseInt(tierForm.credit_expiration_days) : null,
+      benefits: {
+        discount_percent: parseFloat(tierForm.discount_percent) || 0,
+      },
+    };
+
+    if (editingTier) {
+      updateTierMutation.mutate({ id: editingTier.id, data: tierData });
+    } else {
+      createTierMutation.mutate(tierData);
+    }
+  }, [tierForm, editingTier, createTierMutation, updateTierMutation]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -666,6 +1089,130 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </Card>
         </Layout.AnnotatedSection>
 
+        {/* Membership Tiers Configuration */}
+        <Layout.AnnotatedSection
+          id="tiers"
+          title="Membership Tiers"
+          description="Configure tier benefits and pricing"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="h3" variant="headingSm">
+                  Your Tiers
+                </Text>
+                <Button onClick={() => openTierModal()} icon={PlusIcon}>
+                  Add Tier
+                </Button>
+              </InlineStack>
+
+              {tierError && !tierModalOpen && (
+                <Banner tone="critical" onDismiss={() => setTierError('')}>
+                  <p>{tierError}</p>
+                </Banner>
+              )}
+
+              {tiersLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm" tone="subdued">Loading tiers...</Text>
+                </InlineStack>
+              ) : tiersData?.tiers && tiersData.tiers.length > 0 ? (
+                <ResourceList
+                  resourceName={{ singular: 'tier', plural: 'tiers' }}
+                  items={tiersData.tiers}
+                  renderItem={(tier) => (
+                    <ResourceItem
+                      id={String(tier.id)}
+                      onClick={() => openTierModal(tier)}
+                      shortcutActions={[
+                        {
+                          content: 'Edit',
+                          icon: EditIcon,
+                          onAction: () => openTierModal(tier),
+                        },
+                        {
+                          content: 'Delete',
+                          icon: DeleteIcon,
+                          destructive: true,
+                          onAction: () => {
+                            if (confirm(`Delete the "${tier.name}" tier?`)) {
+                              deleteTierMutation.mutate(tier.id);
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      <InlineStack align="space-between" blockAlign="center">
+                        <BlockStack gap="100">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                              {tier.name}
+                            </Text>
+                            {tier.is_active ? (
+                              <Badge tone="success">Active</Badge>
+                            ) : (
+                              <Badge>Inactive</Badge>
+                            )}
+                          </InlineStack>
+                          <InlineStack gap="300">
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              ${tier.monthly_price}/mo
+                              {tier.yearly_price ? ` · $${tier.yearly_price}/yr` : ''}
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              +{(tier.bonus_rate * 100).toFixed(0)}% trade-in
+                            </Text>
+                            {tier.purchase_cashback_pct ? (
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                {tier.purchase_cashback_pct}% cashback
+                              </Text>
+                            ) : null}
+                            {tier.monthly_credit_amount ? (
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                ${tier.monthly_credit_amount}/mo credit
+                              </Text>
+                            ) : null}
+                          </InlineStack>
+                        </BlockStack>
+                      </InlineStack>
+                    </ResourceItem>
+                  )}
+                />
+              ) : (
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200" inlineAlign="center">
+                    <Text as="p" tone="subdued">No tiers configured yet.</Text>
+                    <Button onClick={() => openTierModal()} icon={PlusIcon}>
+                      Create Your First Tier
+                    </Button>
+                  </BlockStack>
+                </Box>
+              )}
+
+              <Divider />
+
+              <Text as="h3" variant="headingSm">
+                Tier Benefits Explained
+              </Text>
+              <List type="bullet">
+                <List.Item>
+                  <strong>Trade-In Bonus:</strong> Extra percentage added to trade-in value (e.g., +5% on $100 = $5 bonus)
+                </List.Item>
+                <List.Item>
+                  <strong>Purchase Cashback:</strong> Percentage of order total credited back after purchase
+                </List.Item>
+                <List.Item>
+                  <strong>Monthly Credit:</strong> Fixed store credit awarded on the 1st of each month
+                </List.Item>
+                <List.Item>
+                  <strong>Credit Expiration:</strong> How long before issued credits expire (optional)
+                </List.Item>
+              </List>
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
         {/* Notifications */}
         <Layout.AnnotatedSection
           id="notifications"
@@ -674,6 +1221,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
+              {emailSuccess && (
+                <Banner tone="success" onDismiss={() => setEmailSuccess('')}>
+                  <p>{emailSuccess}</p>
+                </Banner>
+              )}
+
               <Checkbox
                 label="Enable email notifications"
                 checked={getValue('notifications', 'enabled', true)}
@@ -730,6 +1283,100 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 helpText="Sender email (must be verified with SendGrid)"
                 autoComplete="email"
               />
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Email Templates */}
+        <Layout.AnnotatedSection
+          id="email-templates"
+          title="Email Templates"
+          description="Preview and test your email notifications"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <Text as="p" variant="bodySm" tone="subdued">
+                TradeUp sends automatic emails for key events. Preview each template below
+                and send test emails to verify your setup.
+              </Text>
+
+              {emailTemplatesLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm" tone="subdued">Loading templates...</Text>
+                </InlineStack>
+              ) : emailTemplatesData?.by_category ? (
+                <BlockStack gap="500">
+                  {Object.entries(emailTemplatesData.by_category).map(([category, templates]) => (
+                    <BlockStack key={category} gap="200">
+                      <Text as="h4" variant="headingSm" textTransform="capitalize">
+                        {category.replace('_', ' ')} Emails
+                      </Text>
+                      <BlockStack gap="100">
+                        {templates.map((template) => (
+                          <Box
+                            key={template.id}
+                            padding="300"
+                            background="bg-surface-secondary"
+                            borderRadius="200"
+                          >
+                            <InlineStack align="space-between" blockAlign="center">
+                              <BlockStack gap="050">
+                                <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                  {template.name}
+                                </Text>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Subject: {template.subject.substring(0, 50)}...
+                                </Text>
+                              </BlockStack>
+                              <InlineStack gap="200">
+                                <Button
+                                  icon={ViewIcon}
+                                  variant="plain"
+                                  onClick={() => openEmailPreview(template)}
+                                  loading={previewMutation.isPending && selectedTemplate?.id === template.id}
+                                >
+                                  Preview
+                                </Button>
+                                <Button
+                                  icon={EmailIcon}
+                                  variant="plain"
+                                  onClick={() => openEmailTest(template)}
+                                >
+                                  Send Test
+                                </Button>
+                              </InlineStack>
+                            </InlineStack>
+                          </Box>
+                        ))}
+                      </BlockStack>
+                    </BlockStack>
+                  ))}
+                </BlockStack>
+              ) : (
+                <Text as="p" variant="bodySm" tone="subdued">
+                  No email templates available.
+                </Text>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  Email Setup Requirements
+                </Text>
+                <List type="bullet">
+                  <List.Item>
+                    <strong>SendGrid API Key:</strong> Configure in your environment variables
+                  </List.Item>
+                  <List.Item>
+                    <strong>Sender Verification:</strong> Verify your sending domain with SendGrid
+                  </List.Item>
+                  <List.Item>
+                    <strong>From Email:</strong> Set above to match your verified domain
+                  </List.Item>
+                </List>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -1015,6 +1662,331 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </Card>
         </Layout.AnnotatedSection>
 
+        {/* Partner Integrations */}
+        <Layout.AnnotatedSection
+          id="integrations"
+          title="Partner Integrations"
+          description="Connect external systems and POS for data sync"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Connect TradeUp with external systems to sync member data, trade-ins,
+                and store credit across platforms.
+              </Text>
+
+              <BlockStack gap="300">
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300">
+                      <Box padding="200" background="bg-surface" borderRadius="100">
+                        <Text as="span" variant="headingMd">POS</Text>
+                      </Box>
+                      <BlockStack gap="050">
+                        <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                          Point of Sale Integration
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Sync members and credit with Shopify POS
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Badge tone="success">Connected</Badge>
+                  </InlineStack>
+                </Box>
+
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300">
+                      <Box padding="200" background="bg-surface" borderRadius="100">
+                        <Text as="span" variant="headingMd">API</Text>
+                      </Box>
+                      <BlockStack gap="050">
+                        <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                          API Access
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Use the TradeUp API for custom integrations
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Button variant="secondary">Get API Key</Button>
+                  </InlineStack>
+                </Box>
+
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300">
+                      <Box padding="200" background="bg-surface" borderRadius="100">
+                        <Text as="span" variant="headingMd">ERP</Text>
+                      </Box>
+                      <BlockStack gap="050">
+                        <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                          ERP/Accounting System
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Export transaction data for accounting
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Badge>Coming Soon</Badge>
+                  </InlineStack>
+                </Box>
+
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300">
+                      <Box padding="200" background="bg-surface" borderRadius="100">
+                        <Text as="span" variant="headingMd">CRM</Text>
+                      </Box>
+                      <BlockStack gap="050">
+                        <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                          CRM Integration
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Sync member data with your CRM
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Badge>Coming Soon</Badge>
+                  </InlineStack>
+                </Box>
+              </BlockStack>
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">Webhook Endpoints</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Receive real-time notifications when events occur in TradeUp.
+                </Text>
+                <List type="bullet">
+                  <List.Item>member.created - New member enrolled</List.Item>
+                  <List.Item>member.tier_changed - Member tier upgraded/downgraded</List.Item>
+                  <List.Item>trade_in.submitted - New trade-in received</List.Item>
+                  <List.Item>trade_in.approved - Trade-in approved, credit issued</List.Item>
+                  <List.Item>credit.issued - Store credit added to member</List.Item>
+                </List>
+                <Button variant="plain" url="https://docs.tradeup.io/webhooks" external>
+                  View Webhook Documentation →
+                </Button>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Scheduled Tasks - Monthly Credits */}
+        <Layout.AnnotatedSection
+          id="scheduled-tasks"
+          title="Monthly Credits & Automation"
+          description="Manage automated credit distribution and expiration"
+        >
+          <BlockStack gap="400">
+            {scheduledTaskSuccess && (
+              <Banner tone="success" onDismiss={() => setScheduledTaskSuccess('')}>
+                <p>{scheduledTaskSuccess}</p>
+              </Banner>
+            )}
+            {scheduledTaskError && (
+              <Banner tone="critical" onDismiss={() => setScheduledTaskError('')}>
+                <p>{scheduledTaskError}</p>
+              </Banner>
+            )}
+
+            {/* Monthly Credit Distribution */}
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <BlockStack gap="100">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={CalendarIcon} tone="base" />
+                      <Text as="h3" variant="headingMd">
+                        Monthly Credit Distribution
+                      </Text>
+                    </InlineStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Automatically issues store credit to members based on their tier benefits on the 1st of each month.
+                    </Text>
+                  </BlockStack>
+                  <InlineStack gap="200">
+                    <Button
+                      onClick={() => refetchMonthlyPreview()}
+                      loading={monthlyCreditsLoading}
+                      icon={RefreshIcon}
+                    >
+                      Refresh
+                    </Button>
+                  </InlineStack>
+                </InlineStack>
+
+                <Divider />
+
+                {monthlyCreditsLoading ? (
+                  <InlineStack align="center">
+                    <Spinner size="small" />
+                    <Text as="span" variant="bodySm">Loading preview...</Text>
+                  </InlineStack>
+                ) : monthlyCreditsPreview ? (
+                  <BlockStack gap="300">
+                    <InlineStack gap="400" wrap>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Eligible Members</Text>
+                        <Text as="p" variant="headingLg">{monthlyCreditsPreview.credited}</Text>
+                      </BlockStack>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Total Amount</Text>
+                        <Text as="p" variant="headingLg">${monthlyCreditsPreview.total_amount.toFixed(2)}</Text>
+                      </BlockStack>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Already Received</Text>
+                        <Text as="p" variant="headingLg">{monthlyCreditsPreview.skipped}</Text>
+                      </BlockStack>
+                    </InlineStack>
+
+                    {monthlyCreditsPreview.credited > 0 && (
+                      <Box paddingBlockStart="200">
+                        <BlockStack gap="200">
+                          <Text as="h4" variant="headingSm">Preview (first 5 members):</Text>
+                          {monthlyCreditsPreview.details.slice(0, 5).map((detail, idx) => (
+                            <InlineStack key={idx} gap="200" align="space-between">
+                              <Text as="span" variant="bodySm">
+                                {detail.member_number} ({detail.tier})
+                              </Text>
+                              <Badge tone="success">${detail.amount.toFixed(2)}</Badge>
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      </Box>
+                    )}
+
+                    <Box paddingBlockStart="200">
+                      <InlineStack gap="200">
+                        <Button
+                          variant="primary"
+                          onClick={() => runMonthlyCreditsMutation.mutate()}
+                          loading={runMonthlyCreditsMutation.isPending}
+                          disabled={monthlyCreditsPreview.credited === 0}
+                        >
+                          Distribute Credits Now
+                        </Button>
+                        {monthlyCreditsPreview.credited === 0 && (
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            All eligible members have already received credits this month
+                          </Text>
+                        )}
+                      </InlineStack>
+                    </Box>
+                  </BlockStack>
+                ) : (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    No members with tier monthly credits configured
+                  </Text>
+                )}
+              </BlockStack>
+            </Card>
+
+            {/* Credit Expiration */}
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <BlockStack gap="100">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={ClockIcon} tone="base" />
+                      <Text as="h3" variant="headingMd">
+                        Credit Expiration
+                      </Text>
+                    </InlineStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Credits with expiration dates are automatically expired. View upcoming expirations and process expired credits.
+                    </Text>
+                  </BlockStack>
+                  <InlineStack gap="200">
+                    <Button
+                      onClick={() => refetchExpiringCredits()}
+                      loading={expiringCreditsLoading}
+                      icon={RefreshIcon}
+                    >
+                      Refresh
+                    </Button>
+                  </InlineStack>
+                </InlineStack>
+
+                <Divider />
+
+                {expiringCreditsLoading ? (
+                  <InlineStack align="center">
+                    <Spinner size="small" />
+                    <Text as="span" variant="bodySm">Loading...</Text>
+                  </InlineStack>
+                ) : expiringCredits ? (
+                  <BlockStack gap="300">
+                    <InlineStack gap="400" wrap>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Expiring in {expiringCredits.days_ahead} days</Text>
+                        <Text as="p" variant="headingLg">{expiringCredits.members_with_expiring_credits} members</Text>
+                      </BlockStack>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Total Amount Expiring</Text>
+                        <Text as="p" variant="headingLg">${expiringCredits.total_amount_expiring.toFixed(2)}</Text>
+                      </BlockStack>
+                    </InlineStack>
+
+                    {expiringCredits.members.length > 0 && (
+                      <Box paddingBlockStart="200">
+                        <BlockStack gap="200">
+                          <Text as="h4" variant="headingSm">Members with expiring credits:</Text>
+                          {expiringCredits.members.slice(0, 5).map((member, idx) => (
+                            <InlineStack key={idx} gap="200" align="space-between">
+                              <Text as="span" variant="bodySm">
+                                {member.member_number} ({member.email || 'No email'})
+                              </Text>
+                              <Badge tone="warning">${member.total_expiring.toFixed(2)}</Badge>
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      </Box>
+                    )}
+
+                    <Box paddingBlockStart="200">
+                      <Button
+                        onClick={() => runExpirationMutation.mutate()}
+                        loading={runExpirationMutation.isPending}
+                      >
+                        Process Expired Credits
+                      </Button>
+                    </Box>
+                  </BlockStack>
+                ) : (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    No credits with expiration dates
+                  </Text>
+                )}
+              </BlockStack>
+            </Card>
+
+            {/* Cron Job Info */}
+            <Card>
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">Automation Schedule</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  These tasks run automatically on a schedule:
+                </Text>
+                <List>
+                  <List.Item>
+                    <Text as="span" fontWeight="semibold">Monthly credits:</Text> 1st of each month at 6:00 AM UTC
+                  </List.Item>
+                  <List.Item>
+                    <Text as="span" fontWeight="semibold">Credit expiration:</Text> Daily at midnight UTC
+                  </List.Item>
+                  <List.Item>
+                    <Text as="span" fontWeight="semibold">Expiration warnings:</Text> Daily at 9:00 AM UTC (7-day warning)
+                  </List.Item>
+                </List>
+              </BlockStack>
+            </Card>
+          </BlockStack>
+        </Layout.AnnotatedSection>
+
         {/* Danger Zone */}
         <Layout.AnnotatedSection
           id="danger"
@@ -1040,6 +2012,215 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </Card>
         </Layout.AnnotatedSection>
       </Layout>
+
+      {/* Tier Edit Modal */}
+      <Modal
+        open={tierModalOpen}
+        onClose={closeTierModal}
+        title={editingTier ? `Edit ${editingTier.name} Tier` : 'Create New Tier'}
+        primaryAction={{
+          content: editingTier ? 'Save Changes' : 'Create Tier',
+          onAction: handleTierSubmit,
+          loading: createTierMutation.isPending || updateTierMutation.isPending,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: closeTierModal },
+        ]}
+      >
+        <Modal.Section>
+          {tierError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical" onDismiss={() => setTierError('')}>
+                <p>{tierError}</p>
+              </Banner>
+            </Box>
+          )}
+          <FormLayout>
+            <TextField
+              label="Tier Name"
+              value={tierForm.name}
+              onChange={(value) => setTierForm({ ...tierForm, name: value })}
+              placeholder="Gold, Platinum, VIP, etc."
+              autoComplete="off"
+              requiredIndicator
+            />
+
+            <InlineStack gap="400" wrap={false}>
+              <Box minWidth="45%">
+                <TextField
+                  label="Monthly Price"
+                  type="number"
+                  value={tierForm.monthly_price}
+                  onChange={(value) => setTierForm({ ...tierForm, monthly_price: value })}
+                  prefix="$"
+                  suffix="/mo"
+                  autoComplete="off"
+                  helpText="Set to 0 for free tier"
+                />
+              </Box>
+              <Box minWidth="45%">
+                <TextField
+                  label="Yearly Price"
+                  type="number"
+                  value={tierForm.yearly_price}
+                  onChange={(value) => setTierForm({ ...tierForm, yearly_price: value })}
+                  prefix="$"
+                  suffix="/yr"
+                  autoComplete="off"
+                  helpText="Optional discount for annual"
+                />
+              </Box>
+            </InlineStack>
+
+            <Divider />
+
+            <Text as="h3" variant="headingSm">
+              Tier Benefits
+            </Text>
+
+            <TextField
+              label="Trade-In Bonus"
+              type="number"
+              value={tierForm.bonus_rate}
+              onChange={(value) => setTierForm({ ...tierForm, bonus_rate: value })}
+              suffix="(decimal)"
+              autoComplete="off"
+              helpText="E.g., 0.05 = 5% bonus, 0.10 = 10% bonus on trade-in values"
+            />
+
+            <TextField
+              label="Purchase Cashback"
+              type="number"
+              value={tierForm.purchase_cashback_pct}
+              onChange={(value) => setTierForm({ ...tierForm, purchase_cashback_pct: value })}
+              suffix="%"
+              autoComplete="off"
+              helpText="Percentage of purchase total credited back"
+            />
+
+            <TextField
+              label="Monthly Credit"
+              type="number"
+              value={tierForm.monthly_credit}
+              onChange={(value) => setTierForm({ ...tierForm, monthly_credit: value })}
+              prefix="$"
+              suffix="/month"
+              autoComplete="off"
+              helpText="Fixed store credit awarded on 1st of each month"
+            />
+
+            <Select
+              label="Credit Expiration"
+              options={CREDIT_EXPIRATION_OPTIONS}
+              value={tierForm.credit_expiration_days}
+              onChange={(value) => setTierForm({ ...tierForm, credit_expiration_days: value })}
+              helpText="How long before awarded credits expire"
+            />
+
+            <TextField
+              label="Store Discount"
+              type="number"
+              value={tierForm.discount_percent}
+              onChange={(value) => setTierForm({ ...tierForm, discount_percent: value })}
+              suffix="%"
+              autoComplete="off"
+              helpText="Discount applied to all purchases (optional)"
+            />
+          </FormLayout>
+        </Modal.Section>
+      </Modal>
+
+      {/* Email Preview Modal */}
+      <Modal
+        open={emailPreviewOpen}
+        onClose={() => setEmailPreviewOpen(false)}
+        title={`Preview: ${selectedTemplate?.name || 'Email Template'}`}
+        size="large"
+        secondaryActions={[
+          { content: 'Close', onAction: () => setEmailPreviewOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+              <InlineStack gap="200">
+                <Text as="span" variant="bodySm" fontWeight="semibold">Subject:</Text>
+                <Text as="span" variant="bodySm">{previewSubject}</Text>
+              </InlineStack>
+            </Box>
+            <Box
+              padding="400"
+              background="bg-surface"
+              borderRadius="200"
+              borderWidth="025"
+              borderColor="border"
+            >
+              <div
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}
+              />
+            </Box>
+            <Text as="p" variant="bodySm" tone="subdued">
+              This is a preview with sample data. Actual emails will include real member information.
+            </Text>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+      {/* Send Test Email Modal */}
+      <Modal
+        open={emailTestOpen}
+        onClose={() => {
+          setEmailTestOpen(false);
+          setEmailError('');
+        }}
+        title={`Send Test: ${selectedTemplate?.name || 'Email'}`}
+        primaryAction={{
+          content: 'Send Test Email',
+          onAction: () => sendTestMutation.mutate(),
+          loading: sendTestMutation.isPending,
+          disabled: !testEmail,
+        }}
+        secondaryActions={[
+          {
+            content: 'Cancel',
+            onAction: () => {
+              setEmailTestOpen(false);
+              setEmailError('');
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {emailError && (
+              <Banner tone="critical" onDismiss={() => setEmailError('')}>
+                <p>{emailError}</p>
+              </Banner>
+            )}
+            <Text as="p" variant="bodySm" tone="subdued">
+              Send a test email to verify your email configuration is working correctly.
+            </Text>
+            <TextField
+              label="Recipient Email"
+              type="email"
+              value={testEmail}
+              onChange={setTestEmail}
+              placeholder="you@example.com"
+              autoComplete="email"
+              requiredIndicator
+            />
+            <TextField
+              label="Recipient Name"
+              value={testName}
+              onChange={setTestName}
+              placeholder="John Doe"
+              autoComplete="name"
+              helpText="Name used in the email greeting"
+            />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }

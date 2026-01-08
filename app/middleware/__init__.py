@@ -2,6 +2,7 @@
 Middleware package for TradeUp.
 """
 from .shopify_auth import require_shopify_auth, get_shop_from_request
+from .shop_auth import require_shop_auth, require_subscription
 
 # Rate limiting is optional - only import if flask_limiter is installed
 try:

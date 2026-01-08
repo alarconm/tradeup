@@ -33,36 +33,46 @@ interface TradeInsProps {
 
 interface TradeInItem {
   id: number;
-  name: string;
-  quantity: number;
-  market_value: number;
-  offered_value: number;
+  product_title: string;
+  product_sku: string | null;
+  trade_value: number;
+  market_value: number | null;
+  listing_price: number | null;
+  listed_date: string | null;
+  sold_date: string | null;
+  sold_price: number | null;
 }
 
-interface TradeIn {
+interface TradeInBatch {
   id: number;
-  member: {
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-  items: TradeInItem[];
-  total_market_value: number;
-  total_offered_value: number;
-  trade_in_rate: number;
+  member_id: number | null;
+  is_member: boolean;
+  member_number: string | null;
+  member_name: string | null;
+  member_tier: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  batch_reference: string;
+  trade_in_date: string;
+  total_items: number;
+  total_trade_value: number;
+  bonus_amount: number;
   status: string;
+  category: string;
   notes: string | null;
+  created_by: string | null;
   created_at: string;
   completed_at: string | null;
+  completed_by: string | null;
+  items?: TradeInItem[];
 }
 
 interface TradeInsResponse {
-  trade_ins: TradeIn[];
+  batches: TradeInBatch[];
   total: number;
   page: number;
   per_page: number;
-  pages: number;
 }
 
 async function fetchTradeIns(
@@ -97,10 +107,10 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState(0);
-  const [detailTradeIn, setDetailTradeIn] = useState<TradeIn | null>(null);
+  const [detailBatch, setDetailBatch] = useState<TradeInBatch | null>(null);
   const [actionError, setActionError] = useState('');
 
-  const statusMap = ['all', 'pending', 'approved', 'completed', 'rejected'];
+  const statusMap = ['all', 'pending', 'listed', 'completed', 'cancelled'];
   const currentStatus = statusMap[selectedTab];
 
   const { data, isLoading, error } = useQuery({
@@ -111,12 +121,12 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
 
   // Status update mutation
   const statusMutation = useMutation({
-    mutationFn: ({ tradeInId, newStatus }: { tradeInId: number; newStatus: string }) =>
-      updateTradeInStatus(shop, tradeInId, newStatus),
+    mutationFn: ({ batchId, newStatus }: { batchId: number; newStatus: string }) =>
+      updateTradeInStatus(shop, batchId, newStatus),
     onSuccess: (_, variables) => {
       // Update local state
-      if (detailTradeIn) {
-        setDetailTradeIn({ ...detailTradeIn, status: variables.newStatus });
+      if (detailBatch) {
+        setDetailBatch({ ...detailBatch, status: variables.newStatus });
       }
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['trade-ins'] });
@@ -129,11 +139,11 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
 
   const handleStatusChange = useCallback(
     (newStatus: string) => {
-      if (detailTradeIn) {
-        statusMutation.mutate({ tradeInId: detailTradeIn.id, newStatus });
+      if (detailBatch) {
+        statusMutation.mutate({ batchId: detailBatch.id, newStatus });
       }
     },
-    [detailTradeIn, statusMutation]
+    [detailBatch, statusMutation]
   );
 
   const handleTabChange = useCallback((index: number) => {
@@ -165,9 +175,9 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   const getStatusBadge = (status: string) => {
     const tones: Record<string, 'success' | 'warning' | 'critical' | 'info' | undefined> = {
       pending: 'warning',
-      approved: 'info',
+      listed: 'info',
       completed: 'success',
-      rejected: 'critical',
+      cancelled: 'critical',
     };
     return <Badge tone={tones[status]}>{status}</Badge>;
   };
@@ -175,9 +185,9 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   const tabs = [
     { id: 'all', content: 'All', accessibilityLabel: 'All trade-ins' },
     { id: 'pending', content: 'Pending', accessibilityLabel: 'Pending trade-ins' },
-    { id: 'approved', content: 'Approved', accessibilityLabel: 'Approved trade-ins' },
+    { id: 'listed', content: 'Listed', accessibilityLabel: 'Listed trade-ins' },
     { id: 'completed', content: 'Completed', accessibilityLabel: 'Completed trade-ins' },
-    { id: 'rejected', content: 'Rejected', accessibilityLabel: 'Rejected trade-ins' },
+    { id: 'cancelled', content: 'Cancelled', accessibilityLabel: 'Cancelled trade-ins' },
   ];
 
   return (
@@ -214,43 +224,45 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                     <Spinner size="large" />
                   </InlineStack>
                 </Box>
-              ) : data?.trade_ins && data.trade_ins.length > 0 ? (
+              ) : data?.batches && data.batches.length > 0 ? (
                 <>
                   <DataTable
                     columnContentTypes={[
                       'text',
                       'text',
                       'numeric',
-                      'numeric',
+                      'text',
                       'text',
                       'text',
                     ]}
                     headings={[
-                      'Member',
-                      'Items',
-                      'Market Value',
-                      'Offered',
+                      'Customer',
+                      'Reference',
+                      'Trade Value',
+                      'Category',
                       'Status',
                       '',
                     ]}
-                    rows={data.trade_ins.map((tradeIn) => [
-                      <BlockStack gap="100" key={tradeIn.id}>
+                    rows={data.batches.map((batch) => [
+                      <BlockStack gap="100" key={batch.id}>
                         <Text as="span" fontWeight="bold">
-                          {tradeIn.member.first_name} {tradeIn.member.last_name}
+                          {batch.member_name || batch.guest_name || 'Unknown'}
                         </Text>
                         <Text as="p" variant="bodySm" tone="subdued">
-                          {formatDate(tradeIn.created_at)}
+                          {batch.is_member ? batch.member_tier || 'Member' : 'Guest'} • {formatDate(batch.created_at)}
                         </Text>
                       </BlockStack>,
-                      `${tradeIn.items.length} items`,
-                      formatCurrency(tradeIn.total_market_value),
-                      formatCurrency(tradeIn.total_offered_value),
-                      getStatusBadge(tradeIn.status),
+                      <Text as="span" variant="bodySm" tone="subdued" key={`ref-${batch.id}`}>
+                        {batch.batch_reference}
+                      </Text>,
+                      formatCurrency(batch.total_trade_value),
+                      <Badge key={`cat-${batch.id}`}>{batch.category}</Badge>,
+                      getStatusBadge(batch.status),
                       <Button
-                        key={`view-${tradeIn.id}`}
+                        key={`view-${batch.id}`}
                         icon={ViewIcon}
                         variant="plain"
-                        onClick={() => setDetailTradeIn(tradeIn)}
+                        onClick={() => setDetailBatch(batch)}
                       >
                         View
                       </Button>,
@@ -287,15 +299,15 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
 
       {/* Trade-In Detail Modal */}
       <Modal
-        open={detailTradeIn !== null}
-        onClose={() => setDetailTradeIn(null)}
-        title={`Trade-In #${detailTradeIn?.id || ''}`}
+        open={detailBatch !== null}
+        onClose={() => setDetailBatch(null)}
+        title={`Trade-In ${detailBatch?.batch_reference || ''}`}
         secondaryActions={[
-          { content: 'Close', onAction: () => setDetailTradeIn(null) },
+          { content: 'Close', onAction: () => setDetailBatch(null) },
         ]}
         size="large"
       >
-        {detailTradeIn && (
+        {detailBatch && (
           <Modal.Section>
             <BlockStack gap="400">
               {actionError && (
@@ -307,56 +319,66 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
               <InlineStack gap="800">
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">
-                    Member
+                    Customer
                   </Text>
                   <Text as="span">
-                    {detailTradeIn.member.first_name}{' '}
-                    {detailTradeIn.member.last_name}
+                    {detailBatch.member_name || detailBatch.guest_name || 'Unknown'}
+                  </Text>
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    {detailBatch.is_member ? detailBatch.member_tier || 'Member' : 'Guest'}
                   </Text>
                 </BlockStack>
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">
                     Status
                   </Text>
-                  {getStatusBadge(detailTradeIn.status)}
+                  {getStatusBadge(detailBatch.status)}
                 </BlockStack>
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">
-                    Rate
+                    Category
                   </Text>
-                  <Text as="span">{detailTradeIn.trade_in_rate}%</Text>
+                  <Badge>{detailBatch.category}</Badge>
+                </BlockStack>
+                <BlockStack gap="100">
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    Trade Value
+                  </Text>
+                  <Text as="span" fontWeight="bold">
+                    {formatCurrency(detailBatch.total_trade_value)}
+                  </Text>
                 </BlockStack>
               </InlineStack>
 
               {/* Status Action Buttons */}
-              {detailTradeIn.status !== 'completed' && detailTradeIn.status !== 'rejected' && (
+              {detailBatch.status !== 'completed' && detailBatch.status !== 'rejected' && detailBatch.status !== 'cancelled' && (
                 <Card>
                   <BlockStack gap="300">
                     <Text as="h3" variant="headingSm">
                       Actions
                     </Text>
                     <InlineStack gap="300">
-                      {detailTradeIn.status === 'pending' && (
+                      {detailBatch.status === 'pending' && (
                         <>
                           <Button
                             variant="primary"
                             icon={CheckIcon}
-                            onClick={() => handleStatusChange('approved')}
+                            onClick={() => handleStatusChange('listed')}
                             loading={statusMutation.isPending}
                           >
-                            Approve
+                            Mark Listed
                           </Button>
                           <Button
                             tone="critical"
                             icon={XIcon}
-                            onClick={() => handleStatusChange('rejected')}
+                            onClick={() => handleStatusChange('cancelled')}
                             loading={statusMutation.isPending}
                           >
-                            Reject
+                            Cancel
                           </Button>
                         </>
                       )}
-                      {detailTradeIn.status === 'approved' && (
+                      {detailBatch.status === 'listed' && (
                         <>
                           <Button
                             variant="primary"
@@ -365,15 +387,15 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                             onClick={() => handleStatusChange('completed')}
                             loading={statusMutation.isPending}
                           >
-                            Complete & Issue Credit
+                            Complete & Issue Bonus
                           </Button>
                           <Button
                             tone="critical"
                             icon={XIcon}
-                            onClick={() => handleStatusChange('rejected')}
+                            onClick={() => handleStatusChange('cancelled')}
                             loading={statusMutation.isPending}
                           >
-                            Reject
+                            Cancel
                           </Button>
                         </>
                       )}
@@ -382,36 +404,57 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                 </Card>
               )}
 
-              <Card>
-                <Text as="h3" variant="headingSm">
-                  Items
-                </Text>
-                <DataTable
-                  columnContentTypes={['text', 'numeric', 'numeric', 'numeric']}
-                  headings={['Item', 'Qty', 'Market Value', 'Offered']}
-                  rows={detailTradeIn.items.map((item) => [
-                    item.name,
-                    item.quantity,
-                    formatCurrency(item.market_value),
-                    formatCurrency(item.offered_value),
-                  ])}
-                  totals={[
-                    'Total',
-                    '',
-                    formatCurrency(detailTradeIn.total_market_value),
-                    formatCurrency(detailTradeIn.total_offered_value),
-                  ]}
-                />
-              </Card>
+              {detailBatch.items && detailBatch.items.length > 0 && (
+                <Card>
+                  <Text as="h3" variant="headingSm">
+                    Items ({detailBatch.items.length})
+                  </Text>
+                  <DataTable
+                    columnContentTypes={['text', 'numeric', 'numeric']}
+                    headings={['Item', 'Trade Value', 'Market Value']}
+                    rows={detailBatch.items.map((item) => [
+                      item.product_title || item.product_sku || 'Untitled item',
+                      formatCurrency(item.trade_value),
+                      item.market_value ? formatCurrency(item.market_value) : '—',
+                    ])}
+                    totals={[
+                      'Total',
+                      formatCurrency(detailBatch.total_trade_value),
+                      '',
+                    ]}
+                  />
+                </Card>
+              )}
 
-              {detailTradeIn.notes && (
+              {detailBatch.bonus_amount > 0 && (
+                <Card>
+                  <InlineStack gap="400" align="space-between">
+                    <Text as="h3" variant="headingSm">
+                      Tier Bonus Issued
+                    </Text>
+                    <Text as="span" fontWeight="bold" tone="success">
+                      {formatCurrency(detailBatch.bonus_amount)}
+                    </Text>
+                  </InlineStack>
+                </Card>
+              )}
+
+              {detailBatch.notes && (
                 <Card>
                   <Text as="h3" variant="headingSm">
                     Notes
                   </Text>
-                  <Text as="p">{detailTradeIn.notes}</Text>
+                  <Text as="p">{detailBatch.notes}</Text>
                 </Card>
               )}
+
+              <Box paddingBlockStart="200">
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Created {formatDate(detailBatch.created_at)}
+                  {detailBatch.created_by && ` by ${detailBatch.created_by}`}
+                  {detailBatch.completed_at && ` • Completed ${formatDate(detailBatch.completed_at)}`}
+                </Text>
+              </Box>
             </BlockStack>
           </Modal.Section>
         )}

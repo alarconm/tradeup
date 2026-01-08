@@ -17,6 +17,11 @@ import {
   Droplets,
   Layout,
   ExternalLink,
+  Crown,
+  Plus,
+  Edit2,
+  Trash2,
+  GripVertical,
 } from 'lucide-react'
 import {
   getSettings,
@@ -24,8 +29,12 @@ import {
   updateNotifications,
   updateSettings,
   getTiers,
+  createTier,
+  updateTier,
+  deleteTier,
   type TenantSettings,
   type Tier,
+  type TierBenefits,
 } from '../api/adminApi'
 import { useTheme } from '../../contexts/ThemeContext'
 import { radius, typography, spacing, useResponsive } from '../styles/tokens'
@@ -160,7 +169,20 @@ export default function Settings() {
   const [success, setSuccess] = useState<string | null>(null)
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const [tiers, setTiers] = useState<Tier[]>([])
-  const [activeTab, setActiveTab] = useState<'enrollment' | 'notifications' | 'branding'>('enrollment')
+  const [activeTab, setActiveTab] = useState<'enrollment' | 'notifications' | 'branding' | 'tiers'>('enrollment')
+  const [editingTier, setEditingTier] = useState<Tier | null>(null)
+  const [showTierModal, setShowTierModal] = useState(false)
+  const [tierForm, setTierForm] = useState<{
+    name: string
+    monthly_price: number
+    bonus_rate: number
+    benefits: TierBenefits
+  }>({
+    name: '',
+    monthly_price: 0,
+    bonus_rate: 0.05,
+    benefits: { discount_percent: 0, free_shipping_threshold: 0, monthly_credit: 0 },
+  })
 
   useEffect(() => {
     loadData()
@@ -224,6 +246,69 @@ export default function Settings() {
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Tier handlers
+  function openTierModal(tier?: Tier) {
+    if (tier) {
+      setEditingTier(tier)
+      setTierForm({
+        name: tier.name,
+        monthly_price: tier.monthly_price,
+        bonus_rate: tier.bonus_rate,
+        benefits: tier.benefits || {},
+      })
+    } else {
+      setEditingTier(null)
+      setTierForm({
+        name: '',
+        monthly_price: 0,
+        bonus_rate: 0.05,
+        benefits: { discount_percent: 0, free_shipping_threshold: 0, monthly_credit: 0 },
+      })
+    }
+    setShowTierModal(true)
+  }
+
+  async function handleTierSave() {
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      if (editingTier) {
+        await updateTier(editingTier.id, tierForm)
+        setSuccess(`Tier "${tierForm.name}" updated`)
+      } else {
+        await createTier(tierForm)
+        setSuccess(`Tier "${tierForm.name}" created`)
+      }
+      // Reload tiers
+      const tiersResult = await getTiers()
+      setTiers(tiersResult.tiers || [])
+      setShowTierModal(false)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save tier')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleTierDelete(tier: Tier) {
+    if (!confirm(`Are you sure you want to delete the "${tier.name}" tier?`)) return
+    setSaving(true)
+    setError(null)
+    try {
+      await deleteTier(tier.id)
+      setSuccess(`Tier "${tier.name}" deleted`)
+      const tiersResult = await getTiers()
+      setTiers(tiersResult.tiers || [])
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete tier')
     } finally {
       setSaving(false)
     }
@@ -447,6 +532,23 @@ export default function Settings() {
         >
           <Palette size={18} />
           Branding
+        </button>
+        <button
+          onClick={() => setActiveTab('tiers')}
+          style={getTabStyle(activeTab === 'tiers')}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'tiers') {
+              e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'tiers') {
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }
+          }}
+        >
+          <Crown size={18} />
+          Tiers
         </button>
       </div>
 
@@ -1104,6 +1206,429 @@ export default function Settings() {
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save Changes
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tiers Configuration */}
+      {activeTab === 'tiers' && (
+        <div style={cardStyle}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: spacing[6],
+            }}
+          >
+            <div>
+              <h2 style={{ fontSize: typography.md, fontWeight: typography.semibold, color: colors.text, margin: 0 }}>
+                Membership Tiers
+              </h2>
+              <p style={{ fontSize: typography.base, color: colors.textSecondary, margin: '4px 0 0 0' }}>
+                Configure tier benefits, pricing, and trade-in bonuses
+              </p>
+            </div>
+            <button
+              onClick={() => openTierModal()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing[2],
+                padding: '10px 16px',
+                backgroundColor: colors.primary,
+                color: colors.textOnPrimary,
+                border: 'none',
+                borderRadius: radius.md,
+                fontSize: typography.sm,
+                fontWeight: typography.medium,
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={16} />
+              Add Tier
+            </button>
+          </div>
+
+          {/* Tier List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[3] }}>
+            {tiers.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: spacing[8],
+                  backgroundColor: colors.bgSubdued,
+                  borderRadius: radius.md,
+                }}
+              >
+                <Crown size={32} style={{ color: colors.textSubdued, marginBottom: spacing[2] }} />
+                <p style={{ margin: 0, fontSize: typography.base, color: colors.textSecondary }}>
+                  No tiers configured yet. Add your first tier to get started.
+                </p>
+              </div>
+            ) : (
+              tiers.map((tier) => (
+                <div
+                  key={tier.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: spacing[4],
+                    backgroundColor: colors.bgSubdued,
+                    borderRadius: radius.md,
+                    border: `1px solid ${colors.borderSubdued}`,
+                    gap: spacing[4],
+                  }}
+                >
+                  <div style={{ color: colors.textSubdued, cursor: 'grab' }}>
+                    <GripVertical size={18} />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
+                      <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.base }}>
+                        {tier.name}
+                      </span>
+                      {tier.is_active === false && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            padding: '2px 6px',
+                            backgroundColor: colors.warningLight,
+                            color: colors.warning,
+                            borderRadius: 4,
+                            textTransform: 'uppercase',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: spacing[4], marginTop: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                        <strong>${tier.monthly_price.toFixed(2)}</strong>/mo
+                      </span>
+                      <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                        Trade-in Bonus: <strong>{(tier.bonus_rate * 100).toFixed(0)}%</strong>
+                      </span>
+                      {tier.benefits?.discount_percent ? (
+                        <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                          Store Discount: <strong>{tier.benefits.discount_percent}%</strong>
+                        </span>
+                      ) : null}
+                      {tier.benefits?.monthly_credit ? (
+                        <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                          Monthly Credit: <strong>${tier.benefits.monthly_credit}</strong>
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: spacing[2] }}>
+                    <button
+                      onClick={() => openTierModal(tier)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 36,
+                        height: 36,
+                        backgroundColor: colors.bgSurface,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.md,
+                        color: colors.textSecondary,
+                        cursor: 'pointer',
+                      }}
+                      title="Edit Tier"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleTierDelete(tier)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 36,
+                        height: 36,
+                        backgroundColor: colors.bgSurface,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.md,
+                        color: colors.critical,
+                        cursor: 'pointer',
+                      }}
+                      title="Delete Tier"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tier Edit Modal */}
+      {showTierModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={() => setShowTierModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: colors.bgSurface,
+              borderRadius: radius.lg,
+              width: '100%',
+              maxWidth: 520,
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                borderBottom: `1px solid ${colors.border}`,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: typography.md, fontWeight: typography.semibold, color: colors.text }}>
+                {editingTier ? 'Edit Tier' : 'Add New Tier'}
+              </h3>
+              <button
+                onClick={() => setShowTierModal(false)}
+                style={{
+                  padding: 6,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'transparent',
+                  color: colors.textSubdued,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: spacing[5] }}>
+              {/* Name */}
+              <div>
+                <label style={labelStyle}>Tier Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Gold, Platinum, VIP"
+                  value={tierForm.name}
+                  onChange={(e) => setTierForm({ ...tierForm, name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Monthly Price */}
+              <div>
+                <label style={labelStyle}>Monthly Price</label>
+                <div style={{ position: 'relative', maxWidth: 200 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: colors.textSubdued,
+                    }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tierForm.monthly_price}
+                    onChange={(e) => setTierForm({ ...tierForm, monthly_price: parseFloat(e.target.value) || 0 })}
+                    style={{ ...inputStyle, paddingLeft: 28 }}
+                  />
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Set to 0 for free tiers
+                </p>
+              </div>
+
+              {/* Trade-in Bonus Rate */}
+              <div>
+                <label style={labelStyle}>Trade-in Bonus Rate</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3] }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.30"
+                    step="0.01"
+                    value={tierForm.bonus_rate}
+                    onChange={(e) => setTierForm({ ...tierForm, bonus_rate: parseFloat(e.target.value) })}
+                    style={{ flex: 1 }}
+                  />
+                  <span
+                    style={{
+                      minWidth: 50,
+                      padding: '6px 10px',
+                      backgroundColor: colors.primaryLight,
+                      color: colors.primary,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sm,
+                      fontWeight: typography.semibold,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {(tierForm.bonus_rate * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Extra credit given on top of trade-in value
+                </p>
+              </div>
+
+              {/* Store Discount */}
+              <div>
+                <label style={labelStyle}>Store Discount (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="e.g., 10"
+                  value={tierForm.benefits.discount_percent || ''}
+                  onChange={(e) =>
+                    setTierForm({
+                      ...tierForm,
+                      benefits: { ...tierForm.benefits, discount_percent: parseFloat(e.target.value) || 0 },
+                    })
+                  }
+                  style={{ ...inputStyle, maxWidth: 150 }}
+                />
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Discount on all purchases
+                </p>
+              </div>
+
+              {/* Monthly Credit */}
+              <div>
+                <label style={labelStyle}>Monthly Store Credit</label>
+                <div style={{ position: 'relative', maxWidth: 200 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: colors.textSubdued,
+                    }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tierForm.benefits.monthly_credit || ''}
+                    onChange={(e) =>
+                      setTierForm({
+                        ...tierForm,
+                        benefits: { ...tierForm.benefits, monthly_credit: parseFloat(e.target.value) || 0 },
+                      })
+                    }
+                    style={{ ...inputStyle, paddingLeft: 28 }}
+                  />
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Automatic monthly credit issued to tier members
+                </p>
+              </div>
+
+              {/* Free Shipping Threshold */}
+              <div>
+                <label style={labelStyle}>Free Shipping Threshold</label>
+                <div style={{ position: 'relative', maxWidth: 200 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: colors.textSubdued,
+                    }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5"
+                    placeholder="e.g., 50"
+                    value={tierForm.benefits.free_shipping_threshold || ''}
+                    onChange={(e) =>
+                      setTierForm({
+                        ...tierForm,
+                        benefits: { ...tierForm.benefits, free_shipping_threshold: parseFloat(e.target.value) || 0 },
+                      })
+                    }
+                    style={{ ...inputStyle, paddingLeft: 28 }}
+                  />
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Order minimum for free shipping (0 = always free)
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: spacing[3],
+                padding: '16px 20px',
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              <button
+                onClick={() => setShowTierModal(false)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: radius.md,
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.bgSurface,
+                  color: colors.text,
+                  fontSize: typography.sm,
+                  fontWeight: typography.medium,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTierSave}
+                disabled={saving || !tierForm.name}
+                style={{
+                  ...saveButtonStyle,
+                  opacity: !tierForm.name ? 0.5 : 1,
+                  cursor: !tierForm.name ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {editingTier ? 'Update Tier' : 'Create Tier'}
+              </button>
+            </div>
           </div>
         </div>
       )}

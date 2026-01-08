@@ -26,11 +26,31 @@ import {
   Divider,
   ChoiceList,
   InlineGrid,
+  Tag,
+  Autocomplete,
+  Icon,
+  LegacyStack,
 } from '@shopify/polaris';
-import { PlusIcon, DeleteIcon, EditIcon } from '@shopify/polaris-icons';
-import { useState, useCallback } from 'react';
+import { PlusIcon, DeleteIcon, EditIcon, SearchIcon } from '@shopify/polaris-icons';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { useCollections, useVendors, useProductTypes, useTags } from '../../hooks/useShopifyData';
+
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 interface PromotionsProps {
   shop: string | null;
@@ -51,7 +71,12 @@ interface Promotion {
   daily_end_time: string | null;
   active_days: string | null;  // "0,1,2,3,4" for Mon-Fri
   channel: 'all' | 'in_store' | 'online';
-  category_ids: string[] | null;  // Product tag IDs (legacy, now uses product_tags_filter)
+  category_ids: string[] | null;  // Legacy field
+  // New Shopify filter fields
+  collection_ids: string[] | null;
+  vendor_filter: string[] | null;
+  product_type_filter: string[] | null;
+  product_tags_filter: string[] | null;
   tier_restriction: string[] | null;
   min_value: number;
   stackable: boolean;
@@ -59,6 +84,7 @@ interface Promotion {
   current_uses: number;
   active: boolean;
   is_active_now: boolean;
+  credit_expiration_days: number | null;
 }
 
 interface TierConfiguration {
@@ -103,6 +129,15 @@ const DAY_OPTIONS = [
   { label: 'Friday', value: '4' },
   { label: 'Saturday', value: '5' },
   { label: 'Sunday', value: '6' },
+];
+
+const CREDIT_EXPIRATION_OPTIONS = [
+  { label: 'Never expires', value: '' },
+  { label: '30 days', value: '30' },
+  { label: '60 days', value: '60' },
+  { label: '90 days', value: '90' },
+  { label: '180 days', value: '180' },
+  { label: '1 year (365 days)', value: '365' },
 ];
 
 async function fetchPromotions(shop: string | null): Promise<{ promotions: Promotion[]; total: number }> {
@@ -155,6 +190,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
   const [promoToDelete, setPromoToDelete] = useState<Promotion | null>(null);
   const [activeTab, setActiveTab] = useState<'promotions' | 'tiers'>('promotions');
+  const isMobile = useIsMobile();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -167,17 +203,75 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     multiplier: 1,
     starts_at: new Date().toISOString().slice(0, 16),
     ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-    daily_start_time: '',  // e.g., "18:00" for 6pm
-    daily_end_time: '',    // e.g., "21:00" for 9pm
-    active_days: [] as string[],  // ["0", "1", "5"] for Mon, Tue, Sat
+    daily_start_time: '',
+    daily_end_time: '',
+    active_days: [] as string[],
     channel: 'all' as Promotion['channel'],
-    product_tags: '',  // Comma-separated product tags like "pokemon,sports"
+    // Shopify filter fields
+    collection_ids: [] as string[],
+    vendor_filter: [] as string[],
+    product_type_filter: [] as string[],
+    product_tags_filter: [] as string[],
     tier_restriction: [] as string[],
-    min_value: '',  // Minimum order value
+    min_value: '',
     stackable: true,
     max_uses: '',
     active: true,
+    credit_expiration_days: '',
   });
+
+  // Search input states for autocomplete pickers
+  const [collectionSearch, setCollectionSearch] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [productTypeSearch, setProductTypeSearch] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
+
+  // Fetch Shopify data for pickers
+  const { data: collectionsData } = useCollections(shop);
+  const { data: vendorsData } = useVendors(shop);
+  const { data: productTypesData } = useProductTypes(shop);
+  const { data: tagsData } = useTags(shop);
+
+  // Memoized options for autocomplete pickers
+  const collectionOptions = useMemo(() => {
+    if (!collectionsData?.collections) return [];
+    const filtered = collectionSearch
+      ? collectionsData.collections.filter(c =>
+          c.title.toLowerCase().includes(collectionSearch.toLowerCase())
+        )
+      : collectionsData.collections;
+    return filtered.map(c => ({ value: c.id, label: c.title }));
+  }, [collectionsData, collectionSearch]);
+
+  const vendorOptions = useMemo(() => {
+    if (!vendorsData?.vendors) return [];
+    const filtered = vendorSearch
+      ? vendorsData.vendors.filter(v =>
+          v.toLowerCase().includes(vendorSearch.toLowerCase())
+        )
+      : vendorsData.vendors;
+    return filtered.map(v => ({ value: v, label: v }));
+  }, [vendorsData, vendorSearch]);
+
+  const productTypeOptions = useMemo(() => {
+    if (!productTypesData?.product_types) return [];
+    const filtered = productTypeSearch
+      ? productTypesData.product_types.filter(pt =>
+          pt.toLowerCase().includes(productTypeSearch.toLowerCase())
+        )
+      : productTypesData.product_types;
+    return filtered.map(pt => ({ value: pt, label: pt }));
+  }, [productTypesData, productTypeSearch]);
+
+  const tagOptions = useMemo(() => {
+    if (!tagsData?.tags) return [];
+    const filtered = tagSearch
+      ? tagsData.tags.filter(t =>
+          t.toLowerCase().includes(tagSearch.toLowerCase())
+        )
+      : tagsData.tags;
+    return filtered.map(t => ({ value: t, label: t }));
+  }, [tagsData, tagSearch]);
 
   const { data: promotionsData, isLoading: promotionsLoading, error: promotionsError } = useQuery({
     queryKey: ['promotions', shop],
@@ -241,13 +335,22 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       daily_end_time: '',
       active_days: [],
       channel: 'all',
-      product_tags: '',
+      collection_ids: [],
+      vendor_filter: [],
+      product_type_filter: [],
+      product_tags_filter: [],
       tier_restriction: [],
       min_value: '',
       stackable: true,
       max_uses: '',
       active: true,
+      credit_expiration_days: '',
     });
+    // Reset search states
+    setCollectionSearch('');
+    setVendorSearch('');
+    setProductTypeSearch('');
+    setTagSearch('');
   }, []);
 
   const openCreateModal = useCallback(() => {
@@ -272,13 +375,22 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       daily_end_time: promo.daily_end_time || '',
       active_days: promo.active_days ? promo.active_days.split(',') : [],
       channel: promo.channel,
-      product_tags: promo.category_ids ? promo.category_ids.join(', ') : '',
+      collection_ids: promo.collection_ids || [],
+      vendor_filter: promo.vendor_filter || [],
+      product_type_filter: promo.product_type_filter || [],
+      product_tags_filter: promo.product_tags_filter || promo.category_ids || [],
       tier_restriction: promo.tier_restriction || [],
       min_value: promo.min_value?.toString() || '',
       stackable: promo.stackable,
       max_uses: promo.max_uses?.toString() || '',
       active: promo.active,
+      credit_expiration_days: promo.credit_expiration_days?.toString() || '',
     });
+    // Reset search states
+    setCollectionSearch('');
+    setVendorSearch('');
+    setProductTypeSearch('');
+    setTagSearch('');
     setModalOpen(true);
   }, []);
 
@@ -288,25 +400,34 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   }, []);
 
   const handleSubmit = useCallback(() => {
-    // Parse product tags into array
-    const productTags = formData.product_tags
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
-
     const data = {
-      ...formData,
+      name: formData.name,
+      description: formData.description || null,
+      code: formData.code || null,
+      promo_type: formData.promo_type,
+      bonus_percent: formData.bonus_percent,
+      bonus_flat: formData.bonus_flat,
+      multiplier: formData.multiplier,
+      starts_at: formData.starts_at,
+      ends_at: formData.ends_at,
+      channel: formData.channel,
+      stackable: formData.stackable,
+      active: formData.active,
       // Convert active_days array to comma-separated string
       active_days: formData.active_days.length > 0 ? formData.active_days.join(',') : null,
-      // Convert product tags to category_ids (backend expects this field name)
-      category_ids: productTags.length > 0 ? productTags : null,
-      product_tags: undefined,  // Don't send this field
-      // Convert empty strings to null for optional numeric fields
-      daily_start_time: formData.daily_start_time || undefined,
-      daily_end_time: formData.daily_end_time || undefined,
+      // Time-based scheduling
+      daily_start_time: formData.daily_start_time || null,
+      daily_end_time: formData.daily_end_time || null,
+      // Shopify filter fields
+      collection_ids: formData.collection_ids.length > 0 ? formData.collection_ids : null,
+      vendor_filter: formData.vendor_filter.length > 0 ? formData.vendor_filter : null,
+      product_type_filter: formData.product_type_filter.length > 0 ? formData.product_type_filter : null,
+      product_tags_filter: formData.product_tags_filter.length > 0 ? formData.product_tags_filter : null,
+      tier_restriction: formData.tier_restriction.length > 0 ? formData.tier_restriction : null,
+      // Numeric fields
       min_value: formData.min_value ? parseFloat(formData.min_value) : 0,
-      max_uses: formData.max_uses ? parseInt(formData.max_uses) : undefined,
-      tier_restriction: formData.tier_restriction.length > 0 ? formData.tier_restriction : undefined,
+      max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
+      credit_expiration_days: formData.credit_expiration_days ? parseInt(formData.credit_expiration_days) : null,
     };
 
     if (editingPromo) {
@@ -384,29 +505,29 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       <Layout>
         {/* Stats Cards */}
         <Layout.Section>
-          <InlineGrid columns={4} gap="400">
+          <InlineGrid columns={isMobile ? 2 : 4} gap="400">
             <Card>
               <BlockStack gap="200">
-                <Text as="h3" variant="headingSm" tone="subdued">Active Promotions</Text>
-                <Text as="p" variant="headingXl">{stats?.active_promotions || 0}</Text>
+                <Text as="h3" variant="headingSm" tone="subdued">Active Promos</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "headingXl"}>{stats?.active_promotions || 0}</Text>
               </BlockStack>
             </Card>
             <Card>
               <BlockStack gap="200">
                 <Text as="h3" variant="headingSm" tone="subdued">Ending Soon</Text>
-                <Text as="p" variant="headingXl">{stats?.promotions_ending_soon || 0}</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "headingXl"}>{stats?.promotions_ending_soon || 0}</Text>
               </BlockStack>
             </Card>
             <Card>
               <BlockStack gap="200">
                 <Text as="h3" variant="headingSm" tone="subdued">Cashback (30d)</Text>
-                <Text as="p" variant="headingXl">{formatCurrency(stats?.total_cashback_30d || 0)}</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "headingXl"}>{formatCurrency(stats?.total_cashback_30d || 0)}</Text>
               </BlockStack>
             </Card>
             <Card>
               <BlockStack gap="200">
                 <Text as="h3" variant="headingSm" tone="subdued">Bulk Credits (30d)</Text>
-                <Text as="p" variant="headingXl">{formatCurrency(stats?.total_bulk_credits_30d || 0)}</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "headingXl"}>{formatCurrency(stats?.total_bulk_credits_30d || 0)}</Text>
               </BlockStack>
             </Card>
           </InlineGrid>
@@ -435,37 +556,92 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
           <Layout.Section>
             <Card>
               {promotions.length > 0 ? (
-                <DataTable
-                  columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
-                  headings={['Name', 'Type', 'Value', 'Schedule', 'Status', 'Actions']}
-                  rows={promotions.map((promo) => [
-                    <BlockStack gap="100" key={promo.id}>
-                      <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name}</Text>
-                      {promo.code && <Badge>{promo.code}</Badge>}
-                    </BlockStack>,
-                    PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type,
-                    getPromoValue(promo),
-                    <Text as="span" variant="bodySm" key={promo.id}>
-                      {new Date(promo.starts_at).toLocaleDateString()} - {new Date(promo.ends_at).toLocaleDateString()}
-                    </Text>,
-                    getStatusBadge(promo),
-                    <InlineStack gap="200" key={promo.id}>
-                      <Button
-                        size="slim"
-                        icon={EditIcon}
-                        onClick={() => openEditModal(promo)}
-                        accessibilityLabel={`Edit ${promo.name}`}
-                      />
-                      <Button
-                        size="slim"
-                        icon={DeleteIcon}
-                        tone="critical"
-                        onClick={() => confirmDelete(promo)}
-                        accessibilityLabel={`Delete ${promo.name}`}
-                      />
-                    </InlineStack>,
-                  ])}
-                />
+                isMobile ? (
+                  /* Mobile: Card-based layout */
+                  <Box padding="300">
+                    <BlockStack gap="300">
+                      {promotions.map((promo, index) => (
+                        <Box key={promo.id}>
+                          {index > 0 && <Divider />}
+                          <Box paddingBlock="300">
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between" blockAlign="start">
+                                <BlockStack gap="100">
+                                  <Text as="span" fontWeight="semibold">{promo.name}</Text>
+                                  {promo.code && <Badge size="small">{promo.code}</Badge>}
+                                </BlockStack>
+                                {getStatusBadge(promo)}
+                              </InlineStack>
+                              <InlineStack gap="200" wrap>
+                                <Badge tone="info">
+                                  {PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type}
+                                </Badge>
+                                <Text as="span" variant="bodySm" fontWeight="medium">
+                                  {getPromoValue(promo)}
+                                </Text>
+                              </InlineStack>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                {new Date(promo.starts_at).toLocaleDateString()} - {new Date(promo.ends_at).toLocaleDateString()}
+                              </Text>
+                              <InlineStack gap="200">
+                                <Button
+                                  size="slim"
+                                  icon={EditIcon}
+                                  onClick={() => openEditModal(promo)}
+                                  accessibilityLabel={`Edit ${promo.name}`}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="slim"
+                                  icon={DeleteIcon}
+                                  tone="critical"
+                                  onClick={() => confirmDelete(promo)}
+                                  accessibilityLabel={`Delete ${promo.name}`}
+                                >
+                                  Delete
+                                </Button>
+                              </InlineStack>
+                            </BlockStack>
+                          </Box>
+                        </Box>
+                      ))}
+                    </BlockStack>
+                  </Box>
+                ) : (
+                  /* Desktop: DataTable layout */
+                  <DataTable
+                    columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
+                    headings={['Name', 'Type', 'Value', 'Schedule', 'Status', 'Actions']}
+                    rows={promotions.map((promo) => [
+                      <BlockStack gap="100" key={promo.id}>
+                        <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name}</Text>
+                        {promo.code && <Badge>{promo.code}</Badge>}
+                      </BlockStack>,
+                      PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type,
+                      getPromoValue(promo),
+                      <Text as="span" variant="bodySm" key={promo.id}>
+                        {new Date(promo.starts_at).toLocaleDateString()} - {new Date(promo.ends_at).toLocaleDateString()}
+                      </Text>,
+                      getStatusBadge(promo),
+                      <InlineStack gap="200" key={promo.id}>
+                        <Button
+                          size="slim"
+                          icon={EditIcon}
+                          onClick={() => openEditModal(promo)}
+                          accessibilityLabel={`Edit ${promo.name}`}
+                        />
+                        <Button
+                          size="slim"
+                          icon={DeleteIcon}
+                          tone="critical"
+                          onClick={() => confirmDelete(promo)}
+                          accessibilityLabel={`Delete ${promo.name}`}
+                        />
+                      </InlineStack>,
+                    ])}
+                  />
+                )
               ) : (
                 <EmptyState
                   heading="No promotions yet"
@@ -485,7 +661,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
         {/* Tier Benefits */}
         {activeTab === 'tiers' && (
           <Layout.Section>
-            <InlineGrid columns={3} gap="400">
+            <InlineGrid columns={isMobile ? 1 : 3} gap="400">
               {tiers.map((tier) => (
                 <Card key={tier.id}>
                   <BlockStack gap="300">
@@ -666,16 +842,164 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
             />
 
             <Divider />
-            <Text as="h3" variant="headingSm">Restrictions</Text>
+            <Text as="h3" variant="headingSm">Product Eligibility Filters</Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              Leave empty to apply to all products. Multiple selections use AND logic.
+            </Text>
 
-            <TextField
-              label="Product Tags"
-              value={formData.product_tags}
-              onChange={(value) => setFormData({ ...formData, product_tags: value })}
-              autoComplete="off"
-              placeholder="pokemon, sports, magic"
-              helpText="Comma-separated tags. Leave empty for all products."
-            />
+            {/* Collections Picker */}
+            <BlockStack gap="200">
+              <Autocomplete
+                options={collectionOptions}
+                selected={formData.collection_ids}
+                onSelect={(selected) => setFormData({ ...formData, collection_ids: selected })}
+                textField={
+                  <Autocomplete.TextField
+                    label="Collections"
+                    value={collectionSearch}
+                    onChange={setCollectionSearch}
+                    placeholder="Search collections..."
+                    prefix={<Icon source={SearchIcon} />}
+                    autoComplete="off"
+                  />
+                }
+                allowMultiple
+              />
+              {formData.collection_ids.length > 0 && (
+                <InlineStack gap="100" wrap>
+                  {formData.collection_ids.map(id => {
+                    const collection = collectionsData?.collections.find(c => c.id === id);
+                    return (
+                      <Tag
+                        key={id}
+                        onRemove={() =>
+                          setFormData({
+                            ...formData,
+                            collection_ids: formData.collection_ids.filter(c => c !== id),
+                          })
+                        }
+                      >
+                        {collection?.title || id}
+                      </Tag>
+                    );
+                  })}
+                </InlineStack>
+              )}
+            </BlockStack>
+
+            {/* Vendors Picker */}
+            <BlockStack gap="200">
+              <Autocomplete
+                options={vendorOptions}
+                selected={formData.vendor_filter}
+                onSelect={(selected) => setFormData({ ...formData, vendor_filter: selected })}
+                textField={
+                  <Autocomplete.TextField
+                    label="Vendors/Brands"
+                    value={vendorSearch}
+                    onChange={setVendorSearch}
+                    placeholder="Search vendors..."
+                    prefix={<Icon source={SearchIcon} />}
+                    autoComplete="off"
+                  />
+                }
+                allowMultiple
+              />
+              {formData.vendor_filter.length > 0 && (
+                <InlineStack gap="100" wrap>
+                  {formData.vendor_filter.map(v => (
+                    <Tag
+                      key={v}
+                      onRemove={() =>
+                        setFormData({
+                          ...formData,
+                          vendor_filter: formData.vendor_filter.filter(x => x !== v),
+                        })
+                      }
+                    >
+                      {v}
+                    </Tag>
+                  ))}
+                </InlineStack>
+              )}
+            </BlockStack>
+
+            {/* Product Types Picker */}
+            <BlockStack gap="200">
+              <Autocomplete
+                options={productTypeOptions}
+                selected={formData.product_type_filter}
+                onSelect={(selected) => setFormData({ ...formData, product_type_filter: selected })}
+                textField={
+                  <Autocomplete.TextField
+                    label="Product Types"
+                    value={productTypeSearch}
+                    onChange={setProductTypeSearch}
+                    placeholder="Search product types..."
+                    prefix={<Icon source={SearchIcon} />}
+                    autoComplete="off"
+                  />
+                }
+                allowMultiple
+              />
+              {formData.product_type_filter.length > 0 && (
+                <InlineStack gap="100" wrap>
+                  {formData.product_type_filter.map(pt => (
+                    <Tag
+                      key={pt}
+                      onRemove={() =>
+                        setFormData({
+                          ...formData,
+                          product_type_filter: formData.product_type_filter.filter(x => x !== pt),
+                        })
+                      }
+                    >
+                      {pt}
+                    </Tag>
+                  ))}
+                </InlineStack>
+              )}
+            </BlockStack>
+
+            {/* Product Tags Picker */}
+            <BlockStack gap="200">
+              <Autocomplete
+                options={tagOptions}
+                selected={formData.product_tags_filter}
+                onSelect={(selected) => setFormData({ ...formData, product_tags_filter: selected })}
+                textField={
+                  <Autocomplete.TextField
+                    label="Product Tags"
+                    value={tagSearch}
+                    onChange={setTagSearch}
+                    placeholder="Search tags..."
+                    prefix={<Icon source={SearchIcon} />}
+                    autoComplete="off"
+                  />
+                }
+                allowMultiple
+              />
+              {formData.product_tags_filter.length > 0 && (
+                <InlineStack gap="100" wrap>
+                  {formData.product_tags_filter.map(t => (
+                    <Tag
+                      key={t}
+                      onRemove={() =>
+                        setFormData({
+                          ...formData,
+                          product_tags_filter: formData.product_tags_filter.filter(x => x !== t),
+                        })
+                      }
+                    >
+                      {t}
+                    </Tag>
+                  ))}
+                </InlineStack>
+              )}
+            </BlockStack>
+
+            <Divider />
+            <Text as="h3" variant="headingSm">Additional Restrictions</Text>
 
             <Select
               label="Channel"
@@ -684,17 +1008,18 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               onChange={(value) => setFormData({ ...formData, channel: value as Promotion['channel'] })}
             />
 
-            <ChoiceList
-              title="Tier Restriction (optional)"
-              choices={[
-                { label: 'Silver', value: 'SILVER' },
-                { label: 'Gold', value: 'GOLD' },
-                { label: 'Platinum', value: 'PLATINUM' },
-              ]}
-              selected={formData.tier_restriction}
-              onChange={(value) => setFormData({ ...formData, tier_restriction: value })}
-              allowMultiple
-            />
+            {tiersData?.tiers && tiersData.tiers.length > 0 && (
+              <ChoiceList
+                title="Tier Restriction (optional)"
+                choices={tiersData.tiers.map(tier => ({
+                  label: tier.tier_name,
+                  value: tier.tier_name.toUpperCase(),
+                }))}
+                selected={formData.tier_restriction}
+                onChange={(value) => setFormData({ ...formData, tier_restriction: value })}
+                allowMultiple
+              />
+            )}
 
             <FormLayout.Group>
               <TextField
@@ -715,6 +1040,17 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 helpText="Total uses allowed"
               />
             </FormLayout.Group>
+
+            <Divider />
+            <Text as="h3" variant="headingSm">Credit Settings</Text>
+
+            <Select
+              label="Credit Expiration"
+              options={CREDIT_EXPIRATION_OPTIONS}
+              value={formData.credit_expiration_days}
+              onChange={(value) => setFormData({ ...formData, credit_expiration_days: value })}
+              helpText="How long before credits from this promotion expire"
+            />
 
             <Checkbox
               label="Stackable with other promotions"

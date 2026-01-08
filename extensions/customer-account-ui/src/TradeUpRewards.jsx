@@ -1,8 +1,8 @@
 /**
  * TradeUp Rewards - Customer Account Extension
  *
- * Displays member tier status, store credit balance, and trade-in history
- * in the Shopify customer account page.
+ * Displays member tier status, store credit balance, trade-in history,
+ * and referral program info in the Shopify customer account page.
  */
 import {
   reactExtension,
@@ -22,8 +22,10 @@ import {
   ListItem,
   Link,
   useSettings,
+  Button,
+  TextField,
 } from '@shopify/ui-extensions-react/customer-account';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Extension entry point
 export default reactExtension(
@@ -45,6 +47,7 @@ function TradeUpRewards() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -94,6 +97,38 @@ function TradeUpRewards() {
     fetchData();
   }, [customer?.id, sessionToken, shop.domain]);
 
+  const handleCopyCode = useCallback(async () => {
+    if (!data?.referral?.referral_code) return;
+
+    try {
+      await navigator.clipboard.writeText(data.referral.share_url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  }, [data?.referral]);
+
+  const handleShare = useCallback((platform) => {
+    if (!data?.referral?.share_url) return;
+
+    const shareUrl = encodeURIComponent(data.referral.share_url);
+    const text = encodeURIComponent(
+      `Join me and we'll both get store credit! Use my referral code: ${data.referral.referral_code}`
+    );
+
+    const urls = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`,
+      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${shareUrl}`,
+      whatsapp: `https://wa.me/?text=${text}%20${shareUrl}`,
+      email: `mailto:?subject=${encodeURIComponent('Join me and get store credit!')}&body=${text}%20${shareUrl}`
+    };
+
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank');
+    }
+  }, [data?.referral]);
+
   // Loading state
   if (loading) {
     return (
@@ -135,7 +170,7 @@ function TradeUpRewards() {
   }
 
   // Member view
-  const { member, stats, recent_trade_ins } = data;
+  const { member, stats, recent_trade_ins, referral } = data;
 
   return (
     <Card>
@@ -158,12 +193,32 @@ function TradeUpRewards() {
           </InlineStack>
 
           {member.tier && (
-            <InlineStack spacing="base" blockAlignment="center">
-              <Text appearance="subdued">Trade-in Bonus:</Text>
-              <Text emphasis="bold" tone="success">
-                {member.tier.bonus_percent}%
-              </Text>
-            </InlineStack>
+            <>
+              {member.tier.trade_in_bonus_pct > 0 && (
+                <InlineStack spacing="base" blockAlignment="center">
+                  <Text appearance="subdued">Trade-in Bonus:</Text>
+                  <Text emphasis="bold" tone="success">
+                    +{member.tier.trade_in_bonus_pct}%
+                  </Text>
+                </InlineStack>
+              )}
+              {member.tier.purchase_cashback_pct > 0 && (
+                <InlineStack spacing="base" blockAlignment="center">
+                  <Text appearance="subdued">Purchase Cashback:</Text>
+                  <Text emphasis="bold" tone="success">
+                    {member.tier.purchase_cashback_pct}%
+                  </Text>
+                </InlineStack>
+              )}
+              {member.tier.monthly_credit_amount > 0 && (
+                <InlineStack spacing="base" blockAlignment="center">
+                  <Text appearance="subdued">Monthly Credit:</Text>
+                  <Text emphasis="bold" tone="success">
+                    ${member.tier.monthly_credit_amount.toFixed(2)}
+                  </Text>
+                </InlineStack>
+              )}
+            </>
           )}
         </BlockStack>
 
@@ -196,6 +251,70 @@ function TradeUpRewards() {
             </BlockStack>
           </InlineStack>
         </BlockStack>
+
+        {/* Referral Program */}
+        {referral?.program_active && (
+          <>
+            <Divider />
+
+            <BlockStack spacing="tight">
+              <InlineStack spacing="loose" blockAlignment="center">
+                <Text emphasis="bold">Refer Friends</Text>
+                <Badge tone="info">
+                  Give ${referral.rewards?.referred_amount}, Get ${referral.rewards?.referrer_amount}
+                </Badge>
+              </InlineStack>
+
+              <Text appearance="subdued" size="small">
+                Share your code and you both earn store credit!
+              </Text>
+
+              <BlockStack spacing="tight">
+                <InlineStack spacing="base" blockAlignment="center">
+                  <Text appearance="subdued">Your Code:</Text>
+                  <Text emphasis="bold" size="large">
+                    {referral.referral_code}
+                  </Text>
+                  <Button
+                    kind={copied ? 'secondary' : 'primary'}
+                    onPress={handleCopyCode}
+                  >
+                    {copied ? 'Copied!' : 'Copy Link'}
+                  </Button>
+                </InlineStack>
+
+                <InlineStack spacing="tight">
+                  <Button kind="secondary" onPress={() => handleShare('email')}>
+                    Email
+                  </Button>
+                  <Button kind="secondary" onPress={() => handleShare('whatsapp')}>
+                    WhatsApp
+                  </Button>
+                  <Button kind="secondary" onPress={() => handleShare('twitter')}>
+                    Tweet
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+
+              {(referral.referral_count > 0 || referral.referral_earnings > 0) && (
+                <InlineStack spacing="loose">
+                  <BlockStack spacing="extraTight">
+                    <Text appearance="subdued" size="small">Friends Referred</Text>
+                    <Text emphasis="bold" size="large">
+                      {referral.referral_count}
+                    </Text>
+                  </BlockStack>
+                  <BlockStack spacing="extraTight">
+                    <Text appearance="subdued" size="small">Rewards Earned</Text>
+                    <Text emphasis="bold" size="large" tone="success">
+                      ${referral.referral_earnings.toFixed(2)}
+                    </Text>
+                  </BlockStack>
+                </InlineStack>
+              )}
+            </BlockStack>
+          </>
+        )}
 
         {/* Trade-in History */}
         {settings.show_trade_history !== false && recent_trade_ins?.length > 0 && (
@@ -261,6 +380,22 @@ function TradeUpRewards() {
                       <Text>
                         Free shipping on orders over ${member.tier.benefits.free_shipping_threshold}
                       </Text>
+                    </InlineStack>
+                  </ListItem>
+                )}
+                {member.tier.benefits.priority_support && (
+                  <ListItem>
+                    <InlineStack spacing="tight" blockAlignment="center">
+                      <Icon source="chat" />
+                      <Text>Priority customer support</Text>
+                    </InlineStack>
+                  </ListItem>
+                )}
+                {member.tier.benefits.early_access && (
+                  <ListItem>
+                    <InlineStack spacing="tight" blockAlignment="center">
+                      <Icon source="star" />
+                      <Text>Early access to new products</Text>
                     </InlineStack>
                   </ListItem>
                 )}

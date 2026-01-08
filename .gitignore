@@ -6,7 +6,8 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# Note: frontend/dist is NOT ignored (needed for deployment)
+/dist/
 downloads/
 eggs/
 .eggs/
@@ -69,3 +70,7 @@ yarn-error.log
 
 # Shopify
 .shopify/
+
+# Frontend dist - INCLUDE for deployment (exception to dist/ rule)
+!frontend/dist/
+!frontend/dist/**

@@ -88,6 +88,12 @@ export function useShopifyBridge(): ShopifyBridgeState {
         shop = localStorage.getItem('tradeup_shop');
       }
 
+      // Development fallback - use a test shop for local dev
+      if (!shop && import.meta.env.DEV) {
+        shop = import.meta.env.VITE_SHOPIFY_SHOP || 'dev-shop.myshopify.com';
+        console.log('[TradeUp] Dev mode: Using fallback shop:', shop);
+      }
+
       if (shop) {
         localStorage.setItem('tradeup_shop', shop);
       }
@@ -117,12 +123,15 @@ export function useShopifyBridge(): ShopifyBridgeState {
 
 /**
  * Get API base URL based on environment.
+ * Prefers VITE_API_URL if set (for tunnel/production), falls back to localhost in dev.
  */
 export function getApiUrl(): string {
-  const isDev = import.meta.env.DEV;
-  return isDev
-    ? 'http://localhost:5000/api'
-    : (import.meta.env.VITE_API_URL || '/api');
+  // Always prefer explicit API URL if set (supports tunnels in dev)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Fall back to localhost for local dev, or /api for production
+  return import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
 }
 
 /**

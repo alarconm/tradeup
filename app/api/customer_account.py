@@ -15,6 +15,7 @@ from datetime import datetime
 from decimal import Decimal
 from ..extensions import db
 from ..models import Member, TradeInBatch, MembershipTier, StoreCreditLedger
+from ..models.referral import Referral, ReferralProgram
 
 customer_account_bp = Blueprint('customer_account', __name__)
 
@@ -301,7 +302,7 @@ def get_extension_data():
         shop: Shop domain
 
     Returns:
-        Combined data for the extension UI
+        Combined data for the extension UI (member info, stats, trade-ins, referrals)
     """
     data = request.json or {}
     customer_id = data.get('customer_id')
@@ -328,6 +329,9 @@ def get_extension_data():
         tier_info = {
             'name': tier.name,
             'bonus_percent': float(tier.bonus_rate * 100),
+            'trade_in_bonus_pct': float(tier.trade_in_bonus_pct or 0),
+            'purchase_cashback_pct': float(tier.purchase_cashback_pct or 0),
+            'monthly_credit_amount': float(tier.monthly_credit_amount or 0),
             'benefits': tier.benefits or {}
         }
 
@@ -344,6 +348,70 @@ def get_extension_data():
     ).filter(
         StoreCreditLedger.member_id == member.id
     ).scalar() or Decimal('0')
+
+    # Get referral data
+    referral_data = None
+    program = ReferralProgram.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).first()
+
+    if program:
+        # Get or create referral code for this member
+        referral = Referral.query.filter_by(
+            member_id=member.id,
+            program_id=program.id
+        ).first()
+
+        if not referral:
+            import random
+            import string
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            referral = Referral(
+                member_id=member.id,
+                program_id=program.id,
+                referral_code=code,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(referral)
+            db.session.commit()
+
+        # Count successful referrals
+        successful_referrals = Referral.query.filter(
+            Referral.referred_by_id == member.id,
+            Referral.status == 'completed'
+        ).count()
+
+        # Calculate referral rewards earned
+        referral_rewards = db.session.query(
+            db.func.sum(StoreCreditLedger.amount)
+        ).filter(
+            StoreCreditLedger.member_id == member.id,
+            StoreCreditLedger.source_type == 'referral'
+        ).scalar() or Decimal('0')
+
+        # Build share URL
+        from ..models.tenant import Tenant
+        tenant = Tenant.query.get(member.tenant_id)
+        shop_domain = tenant.shop_domain if tenant else shop
+        share_url = f"https://{shop_domain}?ref={referral.referral_code}"
+
+        referral_data = {
+            'program_active': True,
+            'referral_code': referral.referral_code,
+            'share_url': share_url,
+            'referral_count': successful_referrals,
+            'referral_earnings': float(referral_rewards),
+            'rewards': {
+                'referrer_amount': float(program.referrer_reward_amount),
+                'referred_amount': float(program.referred_reward_amount),
+                'reward_type': program.reward_type
+            },
+            'program': {
+                'name': program.name,
+                'description': program.description
+            }
+        }
 
     return jsonify({
         'is_member': True,
@@ -365,5 +433,230 @@ def get_extension_data():
             'trade_value': float(batch.total_trade_value or 0),
             'bonus_amount': float(batch.bonus_amount or 0),
             'created_at': batch.created_at.isoformat() if batch.created_at else None
-        } for batch in recent_trade_ins]
+        } for batch in recent_trade_ins],
+        'referral': referral_data
+    })
+
+
+# ==================== Referral Endpoints ====================
+
+@customer_account_bp.route('/referral', methods=['GET'])
+def get_customer_referral():
+    """
+    Get customer's referral code and stats.
+
+    Returns:
+        Referral code, share URL, and referral stats
+    """
+    member, error, status = get_member_from_customer_token()
+    if error:
+        return jsonify(error), status
+
+    # Get active referral program
+    program = ReferralProgram.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).first()
+
+    if not program:
+        return jsonify({
+            'program_active': False,
+            'message': 'Referral program is not currently active'
+        })
+
+    # Get or create referral code
+    referral = Referral.query.filter_by(
+        member_id=member.id,
+        program_id=program.id
+    ).first()
+
+    if not referral:
+        # Generate referral code for this member
+        import random
+        import string
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        referral = Referral(
+            member_id=member.id,
+            program_id=program.id,
+            referral_code=code,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(referral)
+        db.session.commit()
+
+    # Count successful referrals
+    successful_referrals = Referral.query.filter(
+        Referral.referred_by_id == member.id,
+        Referral.status == 'completed'
+    ).count()
+
+    # Calculate total rewards earned
+    total_rewards = db.session.query(
+        db.func.sum(StoreCreditLedger.amount)
+    ).filter(
+        StoreCreditLedger.member_id == member.id,
+        StoreCreditLedger.source_type == 'referral'
+    ).scalar() or Decimal('0')
+
+    # Build share URL
+    from ..models.tenant import Tenant
+    tenant = Tenant.query.get(member.tenant_id)
+    shop_domain = tenant.shop_domain if tenant else ''
+    share_url = f"https://{shop_domain}?ref={referral.referral_code}"
+
+    return jsonify({
+        'program_active': True,
+        'referral_code': referral.referral_code,
+        'share_url': share_url,
+        'rewards': {
+            'referrer_reward': float(program.referrer_reward_amount),
+            'referred_reward': float(program.referred_reward_amount),
+            'reward_type': program.reward_type
+        },
+        'stats': {
+            'successful_referrals': successful_referrals,
+            'total_rewards_earned': float(total_rewards)
+        },
+        'program': {
+            'name': program.name,
+            'description': program.description
+        }
+    })
+
+
+@customer_account_bp.route('/referral/share', methods=['POST'])
+def track_referral_share():
+    """
+    Track when a customer shares their referral link.
+    Used for analytics.
+
+    Request body:
+        platform: Where they shared (e.g., 'email', 'facebook', 'twitter', 'copy')
+
+    Returns:
+        Success confirmation
+    """
+    member, error, status = get_member_from_customer_token()
+    if error:
+        return jsonify(error), status
+
+    data = request.json or {}
+    platform = data.get('platform', 'unknown')
+
+    # Log the share (for analytics)
+    current_app.logger.info(f"Referral share: member={member.id}, platform={platform}")
+
+    # Could add to a shares table for detailed analytics
+    # For now, just acknowledge
+
+    return jsonify({
+        'success': True,
+        'message': 'Share tracked'
+    })
+
+
+@customer_account_bp.route('/extension/referral', methods=['POST'])
+def get_referral_extension_data():
+    """
+    Get referral data for Customer Account Extension.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        Referral program info and customer's referral data
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+    shop = data.get('shop')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'program_active': False,
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Get active referral program
+    program = ReferralProgram.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).first()
+
+    if not program:
+        return jsonify({
+            'is_member': True,
+            'program_active': False,
+            'message': 'Referral program is not currently active'
+        })
+
+    # Get or create referral code
+    referral = Referral.query.filter_by(
+        member_id=member.id,
+        program_id=program.id
+    ).first()
+
+    if not referral:
+        import random
+        import string
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        referral = Referral(
+            member_id=member.id,
+            program_id=program.id,
+            referral_code=code,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(referral)
+        db.session.commit()
+
+    # Count successful referrals
+    successful_referrals = Referral.query.filter(
+        Referral.referred_by_id == member.id,
+        Referral.status == 'completed'
+    ).count()
+
+    # Get recent referrals
+    recent_referrals = Referral.query.filter(
+        Referral.referred_by_id == member.id
+    ).order_by(Referral.created_at.desc()).limit(5).all()
+
+    # Build share URL
+    from ..models.tenant import Tenant
+    tenant = Tenant.query.get(member.tenant_id)
+    shop_domain = tenant.shop_domain if tenant else shop
+    share_url = f"https://{shop_domain}?ref={referral.referral_code}"
+
+    return jsonify({
+        'is_member': True,
+        'program_active': True,
+        'member_name': member.name or member.email.split('@')[0],
+        'referral_code': referral.referral_code,
+        'share_url': share_url,
+        'rewards': {
+            'referrer_amount': float(program.referrer_reward_amount),
+            'referred_amount': float(program.referred_reward_amount),
+            'reward_type': program.reward_type
+        },
+        'stats': {
+            'total_referrals': successful_referrals,
+            'pending_referrals': len([r for r in recent_referrals if r.status == 'pending'])
+        },
+        'recent_referrals': [{
+            'name': 'Friend',  # Privacy - don't expose actual names
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None
+        } for r in recent_referrals],
+        'program': {
+            'name': program.name,
+            'description': program.description or f"Share your code and you both get ${program.referrer_reward_amount} credit!"
+        }
     })

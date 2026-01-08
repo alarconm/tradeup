@@ -1,85 +1,165 @@
 """
 Dashboard API endpoints.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from ..extensions import db
-from ..models import Member, TradeInBatch, TradeInItem, StoreCreditLedger
+from ..models import Member, MembershipTier, TradeInBatch, TradeInItem, StoreCreditLedger, Tenant
+from ..middleware.shop_auth import require_shop_auth
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
 @dashboard_bp.route('/stats', methods=['GET'])
+@require_shop_auth
 def get_dashboard_stats():
-    """Get dashboard statistics overview."""
-    try:
-        tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    """
+    Get dashboard statistics overview.
 
-        # Active members count
+    Returns format expected by EmbeddedDashboard.tsx:
+    - total_members, active_members (flat)
+    - pending_trade_ins, completed_trade_ins
+    - total_trade_in_value, total_credits_issued
+    - subscription object with plan and usage
+    """
+    try:
+        tenant_id = g.tenant_id
+
+        # Get tenant for subscription info
+        tenant = g.tenant
+
+        # Member counts
+        total_members = Member.query.filter_by(tenant_id=tenant_id).count()
         active_members = Member.query.filter_by(
             tenant_id=tenant_id,
             status='active'
         ).count()
 
-        # Total members
-        total_members = Member.query.filter_by(tenant_id=tenant_id).count()
-
-        # Trade-ins this month (includes both member and guest trade-ins)
-        start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        # Use outerjoin to include guest trade-ins (member_id is NULL)
-        trade_ins_this_month = (
+        # Trade-in counts by status
+        pending_trade_ins = (
             TradeInBatch.query
-            .outerjoin(Member, TradeInBatch.member_id == Member.id)
+            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
             .filter(
                 db.or_(
                     Member.tenant_id == tenant_id,
-                    TradeInBatch.member_id.is_(None)  # Include guest trade-ins
+                    TradeInBatch.member_id.is_(None)
                 ),
-                TradeInBatch.created_at >= start_of_month
+                TradeInBatch.status.in_(['pending', 'pending_review'])
             )
             .count()
         )
 
-        # Store credit issued this month (requires member, so use inner join)
-        credit_result = db.session.query(
-            func.count(StoreCreditLedger.id).label('count'),
-            func.coalesce(func.sum(StoreCreditLedger.amount), 0).label('total')
-        ).join(Member, StoreCreditLedger.member_id == Member.id).filter(
-            Member.tenant_id == tenant_id,
-            StoreCreditLedger.created_at >= start_of_month,
-            StoreCreditLedger.amount > 0  # Only credits, not debits
-        ).first()
+        completed_trade_ins = (
+            TradeInBatch.query
+            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
+            .filter(
+                db.or_(
+                    Member.tenant_id == tenant_id,
+                    TradeInBatch.member_id.is_(None)
+                ),
+                TradeInBatch.status == 'completed'
+            )
+            .count()
+        )
+
+        # Total trade-in value (all time)
+        total_value_result = (
+            db.session.query(
+                func.coalesce(func.sum(TradeInBatch.total_trade_value), 0)
+            )
+            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
+            .filter(
+                db.or_(
+                    Member.tenant_id == tenant_id,
+                    TradeInBatch.member_id.is_(None)
+                )
+            )
+            .scalar()
+        )
+        total_trade_in_value = float(total_value_result or 0)
+
+        # Total credits issued (all time, positive amounts only)
+        total_credits_result = (
+            db.session.query(
+                func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            )
+            .join(Member, StoreCreditLedger.member_id == Member.id)
+            .filter(
+                Member.tenant_id == tenant_id,
+                StoreCreditLedger.amount > 0
+            )
+            .scalar()
+        )
+        total_credits_issued = float(total_credits_result or 0)
+
+        # Tier count for usage
+        tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id).count()
+
+        # Build subscription object
+        max_members = tenant.max_members if tenant else 100
+        max_tiers = tenant.max_tiers if tenant else 3
+
+        member_percentage = (total_members / max_members * 100) if max_members else 0
+        tier_percentage = (tier_count / max_tiers * 100) if max_tiers else 0
+
+        subscription = {
+            'plan': tenant.subscription_plan if tenant else 'starter',
+            'status': tenant.subscription_status if tenant else 'pending',
+            'active': tenant.subscription_active if tenant else False,
+            'usage': {
+                'members': {
+                    'current': total_members,
+                    'limit': max_members,
+                    'percentage': min(100, round(member_percentage, 1))
+                },
+                'tiers': {
+                    'current': tier_count,
+                    'limit': max_tiers,
+                    'percentage': min(100, round(tier_percentage, 1))
+                }
+            }
+        }
 
         return jsonify({
-            'members': {
-                'active': active_members,
-                'total': total_members
-            },
-            'trade_ins_this_month': trade_ins_this_month,
-            'credit_this_month': {
-                'count': credit_result.count if credit_result else 0,
-                'total': float(credit_result.total) if credit_result and credit_result.total else 0
-            }
+            'total_members': total_members,
+            'active_members': active_members,
+            'pending_trade_ins': pending_trade_ins,
+            'completed_trade_ins': completed_trade_ins,
+            'total_trade_in_value': total_trade_in_value,
+            'total_credits_issued': total_credits_issued,
+            'subscription': subscription
         })
     except Exception as e:
-        # Log error and return safe defaults
         import traceback
         print(f"[Dashboard] Error getting stats: {e}")
         traceback.print_exc()
+        # Return safe defaults matching expected interface
         return jsonify({
-            'members': {'active': 0, 'total': 0},
-            'trade_ins_this_month': 0,
-            'credit_this_month': {'count': 0, 'total': 0},
+            'total_members': 0,
+            'active_members': 0,
+            'pending_trade_ins': 0,
+            'completed_trade_ins': 0,
+            'total_trade_in_value': 0,
+            'total_credits_issued': 0,
+            'subscription': {
+                'plan': 'starter',
+                'status': 'pending',
+                'active': False,
+                'usage': {
+                    'members': {'current': 0, 'limit': 100, 'percentage': 0},
+                    'tiers': {'current': 0, 'limit': 3, 'percentage': 0}
+                }
+            },
             'error': str(e)
-        }), 200  # Return 200 with error message for graceful degradation
+        }), 200
 
 
 @dashboard_bp.route('/trade-in-report', methods=['GET'])
+@require_shop_auth
 def get_trade_in_report():
     """Get trade-in performance report."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     days = request.args.get('days', 30, type=int)
 
     start_date = datetime.utcnow() - timedelta(days=days)
@@ -115,9 +195,10 @@ def get_trade_in_report():
 
 
 @dashboard_bp.route('/top-members', methods=['GET'])
+@require_shop_auth
 def get_top_members():
     """Get top members by trade-in value."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     limit = request.args.get('limit', 10, type=int)
 
     top_members = (
@@ -134,9 +215,10 @@ def get_top_members():
 
 
 @dashboard_bp.route('/recent-activity', methods=['GET'])
+@require_shop_auth
 def get_recent_activity():
     """Get recent trade-ins and credit transactions."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     limit = request.args.get('limit', 20, type=int)
 
     # Recent trade-ins
@@ -163,3 +245,84 @@ def get_recent_activity():
         'recent_trade_ins': [b.to_dict() for b in recent_batches],
         'recent_credits': [c.to_dict() for c in recent_credits]
     })
+
+
+@dashboard_bp.route('/activity', methods=['GET'])
+@require_shop_auth
+def get_activity():
+    """
+    Get recent activity feed for dashboard.
+
+    Returns format expected by EmbeddedDashboard.tsx:
+    [{id, type, member_name, description, amount, created_at}, ...]
+    """
+    try:
+        tenant_id = g.tenant_id
+        limit = request.args.get('limit', 10, type=int)
+
+        activities = []
+
+        # Get recent trade-ins
+        recent_batches = (
+            TradeInBatch.query
+            .join(Member, isouter=True)
+            .filter(
+                db.or_(
+                    Member.tenant_id == tenant_id,
+                    TradeInBatch.member_id.is_(None)
+                )
+            )
+            .order_by(TradeInBatch.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+        for batch in recent_batches:
+            member_name = 'Guest'
+            if batch.member:
+                member_name = batch.member.name or batch.member.email or 'Member'
+            elif batch.guest_name:
+                member_name = batch.guest_name
+
+            activities.append({
+                'id': batch.id,
+                'type': 'trade_in',
+                'member_name': member_name,
+                'description': f"{batch.total_items or 0} items trade-in ({batch.status})",
+                'amount': float(batch.total_trade_value or 0),
+                'created_at': batch.created_at.isoformat() if batch.created_at else None
+            })
+
+        # Get recent credit transactions
+        recent_credits = (
+            StoreCreditLedger.query
+            .join(Member)
+            .filter(Member.tenant_id == tenant_id)
+            .order_by(StoreCreditLedger.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+        for credit in recent_credits:
+            member_name = credit.member.name or credit.member.email or 'Member'
+            credit_type = 'credit' if credit.amount > 0 else 'debit'
+
+            activities.append({
+                'id': credit.id + 100000,  # Offset to avoid ID collision
+                'type': credit_type,
+                'member_name': member_name,
+                'description': credit.description or f"Store {credit_type}",
+                'amount': abs(float(credit.amount)),
+                'created_at': credit.created_at.isoformat() if credit.created_at else None
+            })
+
+        # Sort by created_at and limit
+        activities.sort(key=lambda x: x['created_at'] or '', reverse=True)
+        activities = activities[:limit]
+
+        return jsonify(activities)
+    except Exception as e:
+        import traceback
+        print(f"[Dashboard] Error getting activity: {e}")
+        traceback.print_exc()
+        return jsonify([]), 200

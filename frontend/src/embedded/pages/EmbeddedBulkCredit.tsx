@@ -59,7 +59,7 @@ interface PreviewData {
 async function fetchOperations(
   shop: string | null
 ): Promise<{ operations: BulkCreditOperation[] }> {
-  const response = await authFetch(`${getApiUrl()}/bulk-credit`, shop);
+  const response = await authFetch(`${getApiUrl()}/promotions/credit/bulk`, shop);
   if (!response.ok) throw new Error('Failed to fetch operations');
   return response.json();
 }
@@ -73,7 +73,7 @@ async function createOperation(
     tier_filter?: string;
   }
 ): Promise<BulkCreditOperation> {
-  const response = await authFetch(`${getApiUrl()}/bulk-credit`, shop, {
+  const response = await authFetch(`${getApiUrl()}/promotions/credit/bulk`, shop, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -85,7 +85,7 @@ async function previewOperation(
   shop: string | null,
   operationId: number
 ): Promise<{ member_count: number; total_amount: number; members: Array<{ id: number; email: string; tier: string }> }> {
-  const response = await authFetch(`${getApiUrl()}/bulk-credit/${operationId}/preview`, shop);
+  const response = await authFetch(`${getApiUrl()}/promotions/credit/bulk/${operationId}/preview`, shop);
   if (!response.ok) throw new Error('Failed to preview operation');
   return response.json();
 }
@@ -94,7 +94,7 @@ async function executeOperation(
   shop: string | null,
   operationId: number
 ): Promise<void> {
-  const response = await authFetch(`${getApiUrl()}/bulk-credit/${operationId}/execute`, shop, {
+  const response = await authFetch(`${getApiUrl()}/promotions/credit/bulk/${operationId}/execute`, shop, {
     method: 'POST',
   });
   if (!response.ok) throw new Error('Failed to execute operation');

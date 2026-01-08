@@ -25,6 +25,7 @@ from .promotions import (
     TIER_CASHBACK,
     seed_tier_configurations,
 )
+from .referral import Referral, ReferralProgram
 
 __all__ = [
     'Tenant',
@@ -53,4 +54,7 @@ __all__ = [
     'CreditEventType',
     'TIER_CASHBACK',
     'seed_tier_configurations',
+    # Referrals
+    'Referral',
+    'ReferralProgram',
 ]

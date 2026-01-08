@@ -1,16 +1,18 @@
 """
 Trade-in API endpoints.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from datetime import datetime
 from ..extensions import db
 from ..models import TradeInBatch, TradeInItem, Member
 from ..services.trade_in_service import TradeInService
+from ..middleware.shop_auth import require_shop_auth
 
 trade_ins_bp = Blueprint('trade_ins', __name__)
 
 
 @trade_ins_bp.route('', methods=['GET'])
+@require_shop_auth
 def list_batches():
     """
     List trade-in batches (both member and guest).
@@ -23,7 +25,7 @@ def list_batches():
         - guest_only: If 'true', show only guest trade-ins
     """
     try:
-        tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+        tenant_id = g.tenant_id
 
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 50, type=int), 100)  # Cap at 100
@@ -90,6 +92,7 @@ def list_batches():
 
 
 @trade_ins_bp.route('/<int:batch_id>', methods=['GET'])
+@require_shop_auth
 def get_batch(batch_id):
     """Get trade-in batch details with items."""
     batch = TradeInBatch.query.get_or_404(batch_id)
@@ -97,6 +100,7 @@ def get_batch(batch_id):
 
 
 @trade_ins_bp.route('/by-reference/<batch_reference>', methods=['GET'])
+@require_shop_auth
 def get_batch_by_reference(batch_reference):
     """Get batch by reference number."""
     batch = TradeInBatch.query.filter_by(batch_reference=batch_reference).first_or_404()
@@ -104,6 +108,7 @@ def get_batch_by_reference(batch_reference):
 
 
 @trade_ins_bp.route('', methods=['POST'])
+@require_shop_auth
 def create_batch():
     """
     Create a new trade-in batch.
@@ -112,7 +117,7 @@ def create_batch():
     - For members: provide member_id
     - For guests: provide guest_name, guest_email, and optionally guest_phone
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     data = request.json
 
     member_id = data.get('member_id')
@@ -142,6 +147,7 @@ def create_batch():
 
 
 @trade_ins_bp.route('/categories', methods=['GET'])
+@require_shop_auth
 def get_categories():
     """Get available trade-in categories."""
     return jsonify({
@@ -157,6 +163,7 @@ def get_categories():
 
 
 @trade_ins_bp.route('/<int:batch_id>/items', methods=['POST'])
+@require_shop_auth
 def add_items(batch_id):
     """Add items to a trade-in batch."""
     batch = TradeInBatch.query.get_or_404(batch_id)
@@ -192,6 +199,7 @@ def add_items(batch_id):
 
 
 @trade_ins_bp.route('/items/<int:item_id>/listed', methods=['PUT'])
+@require_shop_auth
 def mark_item_listed(item_id):
     """Mark an item as listed in Shopify."""
     item = TradeInItem.query.get_or_404(item_id)
@@ -218,6 +226,7 @@ def mark_item_listed(item_id):
 
 
 @trade_ins_bp.route('/items/<int:item_id>/sold', methods=['PUT'])
+@require_shop_auth
 def mark_item_sold(item_id):
     """Mark an item as sold (usually called by webhook)."""
     item = TradeInItem.query.get_or_404(item_id)
@@ -237,6 +246,7 @@ def mark_item_sold(item_id):
 
 
 @trade_ins_bp.route('/items/by-product/<shopify_product_id>', methods=['GET'])
+@require_shop_auth
 def get_item_by_product(shopify_product_id):
     """Get trade-in item by Shopify product ID."""
     item = TradeInItem.query.filter_by(
@@ -247,6 +257,7 @@ def get_item_by_product(shopify_product_id):
 
 
 @trade_ins_bp.route('/<int:batch_id>/preview-bonus', methods=['GET'])
+@require_shop_auth
 def preview_batch_bonus(batch_id):
     """
     Preview the tier bonus for a batch (without issuing it).
@@ -254,7 +265,7 @@ def preview_batch_bonus(batch_id):
     Returns:
         Bonus calculation based on member's tier
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     service = TradeInService(tenant_id)
 
     try:
@@ -265,6 +276,7 @@ def preview_batch_bonus(batch_id):
 
 
 @trade_ins_bp.route('/<int:batch_id>/complete', methods=['POST'])
+@require_shop_auth
 def complete_batch(batch_id):
     """
     Complete a trade-in batch and issue tier bonus credit.
@@ -280,7 +292,7 @@ def complete_batch(batch_id):
     Returns:
         Completion details with bonus info
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
     staff_email = request.headers.get('X-Staff-Email', 'API')
 
     data = request.json or {}

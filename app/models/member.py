@@ -18,6 +18,7 @@ class MembershipTier(db.Model):
 
     name = db.Column(db.String(50), nullable=False)  # 'Silver', 'Gold', 'Platinum'
     monthly_price = db.Column(db.Numeric(10, 2), nullable=False)
+    yearly_price = db.Column(db.Numeric(10, 2))  # Optional yearly pricing
 
     # Shopify selling plan integration (for subscription products)
     shopify_selling_plan_id = db.Column(db.String(100))  # gid://shopify/SellingPlan/xxx
@@ -26,6 +27,15 @@ class MembershipTier(db.Model):
     # bonus_rate: Percentage of trade-in value given as bonus credit
     # e.g., 0.05 = 5% bonus, 0.10 = 10% bonus
     bonus_rate = db.Column(db.Numeric(5, 4), nullable=False)  # 0.05, 0.10, 0.15
+
+    # Purchase cashback percentage (e.g., 1%, 2%, 3%)
+    purchase_cashback_pct = db.Column(db.Numeric(5, 2), default=0)
+
+    # Monthly store credit reward
+    monthly_credit_amount = db.Column(db.Numeric(10, 2), default=0)
+
+    # Credit expiration in days (null = no expiration)
+    credit_expiration_days = db.Column(db.Integer)
 
     # Other benefits (JSON for flexibility)
     benefits = db.Column(db.JSON, default=dict)
@@ -47,9 +57,14 @@ class MembershipTier(db.Model):
             'id': self.id,
             'name': self.name,
             'monthly_price': float(self.monthly_price),
+            'yearly_price': float(self.yearly_price) if self.yearly_price else None,
             'bonus_rate': float(self.bonus_rate),
+            'purchase_cashback_pct': float(self.purchase_cashback_pct or 0),
+            'monthly_credit_amount': float(self.monthly_credit_amount or 0),
+            'credit_expiration_days': self.credit_expiration_days,
             'benefits': self.benefits,
             'is_active': self.is_active,
+            'display_order': self.display_order,
             'shopify_selling_plan_id': self.shopify_selling_plan_id
         }
 

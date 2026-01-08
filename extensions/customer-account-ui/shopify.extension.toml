@@ -1,10 +1,14 @@
 # TradeUp Customer Account Extension
 # Displays in the customer account page
+# https://shopify.dev/docs/api/customer-account-ui-extensions
 
 api_version = "2024-10"
 
 [[extensions]]
-type = "customer_account_ui"
+
+uid = "f6052032-28f3-08ea-96de-4cf93395f601ac6baa3a"
+
+type = "ui_extension"
 name = "TradeUp Rewards"
 handle = "tradeup-rewards"
 

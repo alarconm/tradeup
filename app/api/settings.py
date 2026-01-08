@@ -3,9 +3,10 @@ Tenant Settings API endpoints.
 
 Manages branding, features, and configuration for tenants.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import Tenant
+from ..middleware.shop_auth import require_shop_auth
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -100,11 +101,10 @@ def get_settings_with_defaults(settings: dict) -> dict:
 
 
 @settings_bp.route('', methods=['GET'])
+@require_shop_auth
 def get_settings():
     """Get all tenant settings with defaults."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -118,12 +118,11 @@ def get_settings():
 
 
 @settings_bp.route('', methods=['PATCH'])
+@require_shop_auth
 def update_settings():
     """Update tenant settings (partial update)."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
 
     # Deep merge settings
     current_settings = tenant.settings or {}
@@ -144,11 +143,10 @@ def update_settings():
 
 
 @settings_bp.route('/branding', methods=['GET'])
+@require_shop_auth
 def get_branding():
     """Get branding settings only."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -158,6 +156,7 @@ def get_branding():
 
 
 @settings_bp.route('/branding', methods=['PATCH'])
+@require_shop_auth
 def update_branding():
     """Update branding settings."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -189,11 +188,10 @@ def update_branding():
 
 
 @settings_bp.route('/features', methods=['GET'])
+@require_shop_auth
 def get_features():
     """Get feature flags."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -202,6 +200,7 @@ def get_features():
 
 
 @settings_bp.route('/features', methods=['PATCH'])
+@require_shop_auth
 def update_features():
     """Update feature flags."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -226,11 +225,10 @@ def update_features():
 
 
 @settings_bp.route('/cashback', methods=['GET'])
+@require_shop_auth
 def get_cashback_settings():
     """Get cashback/rewards settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -240,6 +238,7 @@ def get_cashback_settings():
 
 
 @settings_bp.route('/cashback', methods=['PATCH'])
+@require_shop_auth
 def update_cashback_settings():
     """
     Update cashback/rewards settings.
@@ -280,11 +279,10 @@ def update_cashback_settings():
 
 
 @settings_bp.route('/subscriptions', methods=['GET'])
+@require_shop_auth
 def get_subscription_settings():
     """Get subscription/membership settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -293,6 +291,7 @@ def get_subscription_settings():
 
 
 @settings_bp.route('/subscriptions', methods=['PATCH'])
+@require_shop_auth
 def update_subscription_settings():
     """
     Update subscription/membership settings.
@@ -325,11 +324,10 @@ def update_subscription_settings():
 
 
 @settings_bp.route('/auto-enrollment', methods=['GET'])
+@require_shop_auth
 def get_auto_enrollment_settings():
     """Get auto-enrollment settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -338,6 +336,7 @@ def get_auto_enrollment_settings():
 
 
 @settings_bp.route('/auto-enrollment', methods=['PATCH'])
+@require_shop_auth
 def update_auto_enrollment_settings():
     """
     Update auto-enrollment settings.
@@ -370,11 +369,10 @@ def update_auto_enrollment_settings():
 
 
 @settings_bp.route('/notifications', methods=['GET'])
+@require_shop_auth
 def get_notification_settings():
     """Get notification settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -383,6 +381,7 @@ def get_notification_settings():
 
 
 @settings_bp.route('/notifications', methods=['PATCH'])
+@require_shop_auth
 def update_notification_settings():
     """
     Update notification settings.
@@ -418,11 +417,10 @@ def update_notification_settings():
 
 
 @settings_bp.route('/trade-ins', methods=['GET'])
+@require_shop_auth
 def get_trade_in_settings():
     """Get trade-in settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -431,6 +429,7 @@ def get_trade_in_settings():
 
 
 @settings_bp.route('/trade-ins', methods=['PATCH'])
+@require_shop_auth
 def update_trade_in_settings():
     """
     Update trade-in settings.
@@ -465,11 +464,10 @@ def update_trade_in_settings():
 
 
 @settings_bp.route('/general', methods=['GET'])
+@require_shop_auth
 def get_general_settings():
     """Get general settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
     settings = get_settings_with_defaults(tenant.settings or {})
 
     return jsonify({
@@ -479,6 +477,7 @@ def get_general_settings():
 
 
 @settings_bp.route('/general', methods=['PATCH'])
+@require_shop_auth
 def update_general_settings():
     """
     Update general settings.
@@ -513,6 +512,7 @@ def update_general_settings():
 # ==============================================
 
 @settings_bp.route('/segments', methods=['GET'])
+@require_shop_auth
 def get_shopify_segments():
     """
     Get all customer segments from Shopify, highlighting TradeUp ones.
@@ -521,9 +521,7 @@ def get_shopify_segments():
         segments: List of all segments
         tradeup_segments: List of TradeUp-specific segments
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -548,6 +546,7 @@ def get_shopify_segments():
 
 
 @settings_bp.route('/segments/sync', methods=['POST'])
+@require_shop_auth
 def sync_tradeup_segments():
     """
     Create/update Shopify customer segments for all TradeUp tiers.
@@ -563,9 +562,7 @@ def sync_tradeup_segments():
         segments: List of created/updated segments
         errors: Any errors that occurred
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
 
     try:
         # Get all tiers for this tenant
@@ -595,6 +592,7 @@ def sync_tradeup_segments():
 
 
 @settings_bp.route('/segments/<segment_id>', methods=['DELETE'])
+@require_shop_auth
 def delete_shopify_segment(segment_id: str):
     """
     Delete a customer segment from Shopify.
@@ -625,6 +623,7 @@ def delete_shopify_segment(segment_id: str):
 # ==============================================
 
 @settings_bp.route('/products', methods=['GET'])
+@require_shop_auth
 def get_membership_products():
     """
     Get all TradeUp membership products from Shopify.
@@ -652,6 +651,7 @@ def get_membership_products():
 
 
 @settings_bp.route('/products/sync', methods=['POST'])
+@require_shop_auth
 def sync_membership_products():
     """
     Create/update Shopify products for all TradeUp tiers.
@@ -664,9 +664,7 @@ def sync_membership_products():
         products: List of created/updated products
         errors: Any errors that occurred
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
-
-    tenant = Tenant.query.get_or_404(tenant_id)
+    tenant = g.tenant
 
     try:
         # Get all tiers for this tenant

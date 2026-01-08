@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - TradeUp by Cardflow Labs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8f9fa;
+            color: #1a1a2e;
+            line-height: 1.7;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #e85d27 0%, #f39c12 100%);
+            padding: 60px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #e85d27;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 20px 0 10px;
+            color: #1a1a2e;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #4a4a6a;
+        }
+
+        ul {
+            margin: 15px 0 15px 25px;
+            color: #4a4a6a;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .contact-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+
+        .contact-icon {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .contact-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1a1a2e;
+        }
+
+        .contact-card a {
+            color: #e85d27;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .contact-card a:hover {
+            text-decoration: underline;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid #eee;
+            padding: 20px 0;
+        }
+
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+
+        .faq-question {
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-question::after {
+            content: '+';
+            font-size: 1.5rem;
+            color: #e85d27;
+        }
+
+        .faq-answer {
+            color: #4a4a6a;
+            padding-left: 0;
+        }
+
+        .quick-start {
+            background: linear-gradient(135deg, #e85d27 0%, #f39c12 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+        }
+
+        .quick-start h2 {
+            color: white;
+        }
+
+        .quick-start p, .quick-start li {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .quick-start ol {
+            margin: 20px 0 20px 25px;
+        }
+
+        .quick-start li {
+            margin-bottom: 12px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: #e85d27;
+            text-decoration: none;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #e85d27;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .feature-item span {
+            font-size: 1.2rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">TU</div>
+        </div>
+        <h1>Help & Support</h1>
+        <p>TradeUp by Cardflow Labs</p>
+    </div>
+
+    <div class="container">
+        <div class="card quick-start">
+            <h2>Quick Start Guide</h2>
+            <p>Get up and running with TradeUp in just a few minutes:</p>
+            <ol>
+                <li><strong>Install the app</strong> from the Shopify App Store</li>
+                <li><strong>Set up membership tiers</strong> (e.g., Silver, Gold, Platinum) with bonus rates</li>
+                <li><strong>Enroll customers</strong> by searching for them or importing from Shopify</li>
+                <li><strong>Create trade-in batches</strong> when customers bring in items</li>
+                <li><strong>Process bonuses</strong> to automatically calculate and apply store credit</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>Contact Support</h2>
+            <p>Need help? Our team is here to assist you.</p>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="contact-icon">📧</div>
+                    <h4>Email Support</h4>
+                    <a href="mailto:support@cardflowlabs.com">support@cardflowlabs.com</a>
+                    <p style="margin-top: 10px; font-size: 0.9rem;">Response within 24 hours</p>
+                </div>
+
+                <div class="contact-card">
+                    <div class="contact-icon">💬</div>
+                    <h4>Live Chat</h4>
+                    <p>Available in the app</p>
+                    <p style="font-size: 0.9rem;">Mon-Fri 9am-5pm PST</p>
+                </div>
+
+                <div class="contact-card">
+                    <div class="contact-icon">📚</div>
+                    <h4>Documentation</h4>
+                    <a href="https://docs.cardflowlabs.com/tradeup">View Docs</a>
+                    <p style="margin-top: 10px; font-size: 0.9rem;">Guides & tutorials</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Features Overview</h2>
+            <p>TradeUp helps you manage store credit, rewards, and memberships:</p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span>👥</span>
+                    <div>Member Management</div>
+                </div>
+                <div class="feature-item">
+                    <span>🏆</span>
+                    <div>Membership Tiers</div>
+                </div>
+                <div class="feature-item">
+                    <span>📦</span>
+                    <div>Trade-In Tracking</div>
+                </div>
+                <div class="feature-item">
+                    <span>💰</span>
+                    <div>Cashback Rewards</div>
+                </div>
+                <div class="feature-item">
+                    <span>🎁</span>
+                    <div>Store Credit</div>
+                </div>
+                <div class="feature-item">
+                    <span>📊</span>
+                    <div>Analytics Dashboard</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I enroll a customer as a member?</div>
+                <div class="faq-answer">
+                    <p>From the dashboard, click "+ Enroll" and search for the customer by name or email. Select them from the results, choose a membership tier, and click "Enroll Member".</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do cashback rewards work?</div>
+                <div class="faq-answer">
+                    <p>Cashback rewards give members bonus store credit based on their tier. Members earn a percentage back on purchases and trade-ins, which is applied as store credit for future orders.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How is store credit applied to orders?</div>
+                <div class="faq-answer">
+                    <p>Store credit is synced with Shopify as a discount code or gift card (depending on your configuration). Customers can apply it at checkout like any other discount.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can I import existing customers?</div>
+                <div class="faq-answer">
+                    <p>Yes! TradeUp can search your existing Shopify customers. Just search by name or email in the enrollment flow, and we'll find matching customers from your store.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I change a member's tier?</div>
+                <div class="faq-answer">
+                    <p>Click on a member in the Members list to view their details, then click "Change Tier" to assign a different tier. All tier changes are logged in the member's history.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">What happens if I uninstall the app?</div>
+                <div class="faq-answer">
+                    <p>Your data is retained for 30 days after uninstallation. If you reinstall within this period, all your data will be restored. After 30 days, data is permanently deleted. You can also request immediate deletion by contacting support.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do promotional tiers work?</div>
+                <div class="faq-answer">
+                    <p>You can create time-limited tier promotions with promo codes. Members can redeem these to temporarily upgrade their tier. When the promotion expires, they revert to their previous tier automatically.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>System Status</h2>
+            <p><span class="status-badge">All Systems Operational</span></p>
+            <p style="margin-top: 15px;">For real-time status updates and incident reports, visit <a href="https://status.cardflowlabs.com">status.cardflowlabs.com</a></p>
+        </div>
+
+        <div class="card">
+            <h2>Billing & Plans</h2>
+            <p>TradeUp offers flexible pricing through Shopify Billing:</p>
+            <ul>
+                <li><strong>Free:</strong> Up to 25 members, basic features</li>
+                <li><strong>Starter ($19/mo):</strong> Up to 100 members, all features</li>
+                <li><strong>Growth ($49/mo):</strong> Up to 500 members, priority support</li>
+                <li><strong>Pro ($99/mo):</strong> Unlimited members, API access, dedicated support</li>
+            </ul>
+            <p>All paid plans include a 7-day free trial. You can upgrade, downgrade, or cancel anytime from your Shopify admin.</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2026 Cardflow Labs. All rights reserved.</p>
+        <p><a href="/">Back to TradeUp</a> | <a href="/privacy-policy.html">Privacy Policy</a></p>
+    </div>
+</body>
+</html>

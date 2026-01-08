@@ -11,11 +11,12 @@ Endpoints for:
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 import sqlalchemy as sa
 from sqlalchemy import func, and_, or_
 
 from ..extensions import db
+from ..middleware.shop_auth import require_shop_auth
 from ..models.member import Member
 from ..models.promotions import (
     Promotion,
@@ -99,6 +100,7 @@ def init_database():
 # ==================== Promotions CRUD ====================
 
 @promotions_bp.route('/promotions', methods=['GET'])
+@require_shop_auth
 def list_promotions():
     """
     List promotions with filtering.
@@ -140,6 +142,7 @@ def list_promotions():
 
 
 @promotions_bp.route('/promotions', methods=['POST'])
+@require_shop_auth
 def create_promotion():
     """
     Create a new promotion.
@@ -256,6 +259,7 @@ def create_promotion():
 
 
 @promotions_bp.route('/promotions/<int:promo_id>', methods=['GET'])
+@require_shop_auth
 def get_promotion(promo_id: int):
     """Get a single promotion."""
     promotion = Promotion.query.get_or_404(promo_id)
@@ -263,6 +267,7 @@ def get_promotion(promo_id: int):
 
 
 @promotions_bp.route('/promotions/<int:promo_id>', methods=['PUT'])
+@require_shop_auth
 def update_promotion(promo_id: int):
     """Update a promotion."""
     promotion = Promotion.query.get_or_404(promo_id)
@@ -353,6 +358,7 @@ def update_promotion(promo_id: int):
 
 
 @promotions_bp.route('/promotions/<int:promo_id>', methods=['DELETE'])
+@require_shop_auth
 def delete_promotion(promo_id: int):
     """Delete a promotion."""
     promotion = Promotion.query.get_or_404(promo_id)
@@ -373,6 +379,7 @@ def delete_promotion(promo_id: int):
 # ==================== Quick Promotion Templates ====================
 
 @promotions_bp.route('/promotions/templates', methods=['GET'])
+@require_shop_auth
 def get_promotion_templates():
     """Get common promotion templates for quick creation."""
     now = datetime.utcnow()
@@ -439,6 +446,7 @@ def get_promotion_templates():
 # ==================== Store Credit Operations ====================
 
 @promotions_bp.route('/credit/balance/<int:member_id>', methods=['GET'])
+@require_shop_auth
 def get_member_balance(member_id: int):
     """Get member's store credit balance and history."""
     limit = request.args.get('limit', 50, type=int)
@@ -454,6 +462,7 @@ def get_member_balance(member_id: int):
 
 
 @promotions_bp.route('/credit/add', methods=['POST'])
+@require_shop_auth
 def add_credit():
     """
     Manually add store credit to a member.
@@ -495,6 +504,7 @@ def add_credit():
 
 
 @promotions_bp.route('/credit/deduct', methods=['POST'])
+@require_shop_auth
 def deduct_credit():
     """
     Deduct store credit from a member (redemption).
@@ -535,6 +545,7 @@ def deduct_credit():
 # ==================== Bulk Operations ====================
 
 @promotions_bp.route('/credit/bulk', methods=['POST'])
+@require_shop_auth
 def create_bulk_operation():
     """
     Create a bulk credit operation.
@@ -571,6 +582,7 @@ def create_bulk_operation():
 
 
 @promotions_bp.route('/credit/bulk/<int:op_id>/preview', methods=['GET'])
+@require_shop_auth
 def preview_bulk_operation(op_id: int):
     """Preview a bulk operation before execution."""
     try:
@@ -581,6 +593,7 @@ def preview_bulk_operation(op_id: int):
 
 
 @promotions_bp.route('/credit/bulk/<int:op_id>/execute', methods=['POST'])
+@require_shop_auth
 def execute_bulk_operation(op_id: int):
     """Execute a bulk credit operation."""
     try:
@@ -594,6 +607,7 @@ def execute_bulk_operation(op_id: int):
 
 
 @promotions_bp.route('/credit/bulk', methods=['GET'])
+@require_shop_auth
 def list_bulk_operations():
     """List bulk credit operations."""
     operations = BulkCreditOperation.query.order_by(
@@ -609,6 +623,7 @@ def list_bulk_operations():
 # ==================== Tier Configuration ====================
 
 @promotions_bp.route('/tiers', methods=['GET'])
+@require_shop_auth
 def list_tiers():
     """Get all tier configurations."""
     try:
@@ -634,6 +649,7 @@ def list_tiers():
 
 
 @promotions_bp.route('/tiers/<int:tier_id>', methods=['PUT'])
+@require_shop_auth
 def update_tier(tier_id: int):
     """
     Update a tier configuration.
@@ -689,6 +705,7 @@ def update_tier(tier_id: int):
 
 @promotions_bp.route('/dashboard/stats', methods=['GET'])
 @promotions_bp.route('/stats', methods=['GET'])
+@require_shop_auth
 def get_promotion_stats():
     """Get promotion and store credit statistics."""
     try:
@@ -795,6 +812,7 @@ def get_promotion_stats():
 # ==================== Product Filter Options ====================
 
 @promotions_bp.route('/filter-options', methods=['GET'])
+@require_shop_auth
 def get_filter_options():
     """
     Get all product filter options from Shopify for promotion configuration.
@@ -804,16 +822,8 @@ def get_filter_options():
         - vendors: List of unique product vendors
         - productTypes: List of unique product types
         - productTags: List of unique product tags
-
-    Query params:
-        tenant_id: Tenant ID to get Shopify client (required)
     """
-    # Get tenant from session or query param
-    from flask import session
-    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
-
-    if not tenant_id:
-        return jsonify({'error': 'tenant_id is required'}), 400
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -837,13 +847,10 @@ def get_filter_options():
 
 
 @promotions_bp.route('/filter-options/collections', methods=['GET'])
+@require_shop_auth
 def get_collections():
     """Get just collections for the filter."""
-    from flask import session
-    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
-
-    if not tenant_id:
-        return jsonify({'error': 'tenant_id is required'}), 400
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -855,13 +862,10 @@ def get_collections():
 
 
 @promotions_bp.route('/filter-options/vendors', methods=['GET'])
+@require_shop_auth
 def get_vendors():
     """Get just vendors for the filter."""
-    from flask import session
-    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
-
-    if not tenant_id:
-        return jsonify({'error': 'tenant_id is required'}), 400
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -873,13 +877,10 @@ def get_vendors():
 
 
 @promotions_bp.route('/filter-options/product-types', methods=['GET'])
+@require_shop_auth
 def get_product_types():
     """Get just product types for the filter."""
-    from flask import session
-    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
-
-    if not tenant_id:
-        return jsonify({'error': 'tenant_id is required'}), 400
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient

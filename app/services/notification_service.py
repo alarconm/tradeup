@@ -197,6 +197,91 @@ Use it on your next purchase!
     <p>{shop_name}</p>
 </div>
 '''
+        },
+        'credit_expiring': {
+            'subject': 'Your ${expiring_amount} Store Credit is Expiring Soon!',
+            'text': '''Hi {member_name},
+
+This is a friendly reminder that you have store credit expiring soon!
+
+Amount Expiring: ${expiring_amount}
+Expiration Date: {expiration_date}
+
+Don't let it go to waste - use it on your next purchase!
+
+{shop_name}
+''',
+            'html': '''
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2>⏰ Credit Expiring Soon!</h2>
+    <p>Hi {member_name},</p>
+    <p>This is a friendly reminder that you have store credit expiring soon!</p>
+    <div style="background: #fff8e1; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+        <p><strong>Amount Expiring:</strong> <span style="color: #e65100; font-weight: bold;">${expiring_amount}</span></p>
+        <p><strong>Expiration Date:</strong> {expiration_date}</p>
+    </div>
+    <p>Don't let it go to waste - use it on your next purchase!</p>
+    <p>{shop_name}</p>
+</div>
+'''
+        },
+        'monthly_credit': {
+            'subject': 'Your Monthly ${credit_amount} Store Credit Has Arrived!',
+            'text': '''Hi {member_name},
+
+Your monthly membership credit has been added to your account!
+
+Amount: ${credit_amount}
+Tier: {tier_name}
+{expiration_info}
+
+Thank you for being a valued {tier_name} member!
+
+{shop_name}
+''',
+            'html': '''
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2>🎁 Monthly Credit Arrived!</h2>
+    <p>Hi {member_name},</p>
+    <p>Your monthly membership credit has been added to your account!</p>
+    <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Amount:</strong> <span style="color: #2e7d32; font-weight: bold;">${credit_amount}</span></p>
+        <p><strong>Tier:</strong> {tier_name}</p>
+        {expiration_html}
+    </div>
+    <p>Thank you for being a valued {tier_name} member!</p>
+    <p>{shop_name}</p>
+</div>
+'''
+        },
+        'referral_success': {
+            'subject': 'You Earned ${reward_amount} for Your Referral!',
+            'text': '''Hi {member_name},
+
+Congratulations! {referred_name} signed up using your referral code.
+
+Your Reward: ${reward_amount}
+Their Reward: ${referred_reward}
+
+Keep sharing your referral code to earn more rewards!
+Your Code: {referral_code}
+
+{shop_name}
+''',
+            'html': '''
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2>🎉 Referral Reward!</h2>
+    <p>Hi {member_name},</p>
+    <p>Congratulations! <strong>{referred_name}</strong> signed up using your referral code.</p>
+    <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Your Reward:</strong> <span style="color: #7b1fa2; font-weight: bold;">${reward_amount}</span></p>
+        <p><strong>Their Reward:</strong> ${referred_reward}</p>
+    </div>
+    <p>Keep sharing your referral code to earn more rewards!</p>
+    <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 18px; text-align: center;">{referral_code}</p>
+    <p>{shop_name}</p>
+</div>
+'''
         }
     }
 
@@ -711,6 +796,160 @@ Use it on your next purchase!
         ).group_by(Tier.name).all()
 
         return {tier_name: count for tier_name, count in counts}
+
+    def send_credit_expiring(
+        self,
+        tenant_id: int,
+        member_id: int,
+        expiring_amount: float,
+        expiration_date: str
+    ) -> Dict[str, Any]:
+        """
+        Send notification when member's store credit is expiring soon.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            expiring_amount: Amount of credit expiring
+            expiration_date: Date credit expires (formatted string)
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member
+        settings = self._get_tenant_settings(tenant_id)
+
+        if not settings.get('enabled') or not settings.get('credit_issued'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        member = Member.query.get(member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'expiring_amount': f"{expiring_amount:.2f}",
+            'expiration_date': expiration_date
+        }
+
+        rendered = self._render_template('credit_expiring', variables, settings)
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=rendered['subject'],
+            text_content=rendered['text'],
+            html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
+
+    def send_monthly_credit(
+        self,
+        tenant_id: int,
+        member_id: int,
+        credit_amount: float,
+        tier_name: str,
+        expiration_date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Send notification when monthly credit is issued.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            credit_amount: Amount of monthly credit
+            tier_name: Member's tier name
+            expiration_date: When credit expires (optional)
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member
+        settings = self._get_tenant_settings(tenant_id)
+
+        if not settings.get('enabled') or not settings.get('credit_issued'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        member = Member.query.get(member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        expiration_info = f"Expires: {expiration_date}" if expiration_date else "No expiration"
+        expiration_html = f"<p><strong>Expires:</strong> {expiration_date}</p>" if expiration_date else ""
+
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'credit_amount': f"{credit_amount:.2f}",
+            'tier_name': tier_name,
+            'expiration_info': expiration_info,
+            'expiration_html': expiration_html
+        }
+
+        rendered = self._render_template('monthly_credit', variables, settings)
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=rendered['subject'],
+            text_content=rendered['text'],
+            html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
+
+    def send_referral_success(
+        self,
+        tenant_id: int,
+        referrer_member_id: int,
+        referred_name: str,
+        referrer_reward: float,
+        referred_reward: float,
+        referral_code: str
+    ) -> Dict[str, Any]:
+        """
+        Send notification when a referral is successful.
+
+        Args:
+            tenant_id: Tenant ID
+            referrer_member_id: ID of the referring member
+            referred_name: Name of the person who signed up
+            referrer_reward: Reward given to the referrer
+            referred_reward: Reward given to the new member
+            referral_code: The referral code used
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member
+        settings = self._get_tenant_settings(tenant_id)
+
+        if not settings.get('enabled'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        member = Member.query.get(referrer_member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'referred_name': referred_name,
+            'reward_amount': f"{referrer_reward:.2f}",
+            'referred_reward': f"{referred_reward:.2f}",
+            'referral_code': referral_code
+        }
+
+        rendered = self._render_template('referral_success', variables, settings)
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=rendered['subject'],
+            text_content=rendered['text'],
+            html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
 
 
 # Singleton instance

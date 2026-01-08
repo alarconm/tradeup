@@ -6,10 +6,11 @@ Shopify-Native Member System:
 - No manual member creation - use search & enroll workflow
 - Flow: Search Shopify customers → Enroll as member → Create trade-ins
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import Member, MembershipTier
 from ..services.membership_service import MembershipService
+from ..middleware.shop_auth import require_shop_auth
 
 members_bp = Blueprint('members', __name__)
 
@@ -17,6 +18,7 @@ members_bp = Blueprint('members', __name__)
 # ==================== Shopify Customer Search & Enroll ====================
 
 @members_bp.route('/search-shopify', methods=['GET'])
+@require_shop_auth
 def search_shopify_customers():
     """
     Search Shopify customers for enrollment.
@@ -71,6 +73,7 @@ def search_shopify_customers():
 
 
 @members_bp.route('/enroll', methods=['POST'])
+@require_shop_auth
 def enroll_shopify_customer():
     """
     Enroll an existing Shopify customer as a TradeUp member.
@@ -113,6 +116,7 @@ def enroll_shopify_customer():
 # ==================== Member CRUD ====================
 
 @members_bp.route('', methods=['GET'])
+@require_shop_auth
 def list_members():
     """List all members for the tenant."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))  # Default to tenant 1 for MVP
@@ -140,6 +144,7 @@ def list_members():
 
 
 @members_bp.route('/<int:member_id>', methods=['GET'])
+@require_shop_auth
 def get_member(member_id):
     """Get member details."""
     member = Member.query.get_or_404(member_id)
@@ -147,6 +152,7 @@ def get_member(member_id):
 
 
 @members_bp.route('/by-number/<member_number>', methods=['GET'])
+@require_shop_auth
 def get_member_by_number(member_number):
     """Get member by member number (TU1001)."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -167,6 +173,7 @@ def get_member_by_number(member_number):
 
 
 @members_bp.route('', methods=['POST'])
+@require_shop_auth
 def create_member():
     """Create a new member."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -196,6 +203,7 @@ def create_member():
 
 
 @members_bp.route('/<int:member_id>', methods=['PUT'])
+@require_shop_auth
 def update_member(member_id):
     """Update member details."""
     member = Member.query.get_or_404(member_id)
@@ -222,6 +230,7 @@ def update_member(member_id):
 
 
 @members_bp.route('/tiers', methods=['GET'])
+@require_shop_auth
 def list_tiers():
     """List membership tiers for tenant.
 
@@ -249,6 +258,7 @@ def list_tiers():
 
 
 @members_bp.route('/tiers', methods=['POST'])
+@require_shop_auth
 def create_tier():
     """Create a new membership tier."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -257,8 +267,12 @@ def create_tier():
     tier = MembershipTier(
         tenant_id=tenant_id,
         name=data['name'],
-        monthly_price=data['monthly_price'],
-        bonus_rate=data['bonus_rate'],
+        monthly_price=data.get('monthly_price', 0),
+        yearly_price=data.get('yearly_price'),
+        bonus_rate=data.get('bonus_rate', 0),
+        purchase_cashback_pct=data.get('purchase_cashback_pct', 0),
+        monthly_credit_amount=data.get('monthly_credit_amount', 0),
+        credit_expiration_days=data.get('credit_expiration_days'),
         benefits=data.get('benefits', {}),
         display_order=data.get('display_order', 0)
     )
@@ -270,6 +284,7 @@ def create_tier():
 
 
 @members_bp.route('/tiers/<int:tier_id>', methods=['GET'])
+@require_shop_auth
 def get_tier(tier_id):
     """Get a single membership tier."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -283,6 +298,7 @@ def get_tier(tier_id):
 
 
 @members_bp.route('/tiers/<int:tier_id>', methods=['PUT'])
+@require_shop_auth
 def update_tier(tier_id):
     """Update a membership tier."""
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
@@ -298,8 +314,16 @@ def update_tier(tier_id):
         tier.name = data['name']
     if 'monthly_price' in data:
         tier.monthly_price = data['monthly_price']
+    if 'yearly_price' in data:
+        tier.yearly_price = data['yearly_price'] if data['yearly_price'] else None
     if 'bonus_rate' in data:
         tier.bonus_rate = data['bonus_rate']
+    if 'purchase_cashback_pct' in data:
+        tier.purchase_cashback_pct = data['purchase_cashback_pct']
+    if 'monthly_credit_amount' in data:
+        tier.monthly_credit_amount = data['monthly_credit_amount']
+    if 'credit_expiration_days' in data:
+        tier.credit_expiration_days = data['credit_expiration_days'] if data['credit_expiration_days'] else None
     if 'benefits' in data:
         tier.benefits = data['benefits']
     if 'display_order' in data:
@@ -312,6 +336,7 @@ def update_tier(tier_id):
 
 
 @members_bp.route('/tiers/<int:tier_id>', methods=['DELETE'])
+@require_shop_auth
 def delete_tier(tier_id):
     """Delete (deactivate) a membership tier.
 
@@ -340,6 +365,7 @@ def delete_tier(tier_id):
 
 
 @members_bp.route('/tiers/reorder', methods=['POST'])
+@require_shop_auth
 def reorder_tiers():
     """Reorder membership tiers.
 
@@ -379,6 +405,7 @@ def reorder_tiers():
 # ==================== Bulk Email Operations ====================
 
 @members_bp.route('/email/preview', methods=['POST'])
+@require_shop_auth
 def preview_tier_email():
     """
     Preview tier email - get recipient counts without sending.
@@ -428,6 +455,7 @@ def preview_tier_email():
 
 
 @members_bp.route('/email/send', methods=['POST'])
+@require_shop_auth
 def send_tier_email():
     """
     Send bulk email to members in specified tiers.
@@ -482,6 +510,7 @@ def send_tier_email():
 
 
 @members_bp.route('/email/templates', methods=['GET'])
+@require_shop_auth
 def get_email_templates():
     """Get pre-built email templates for common scenarios."""
     templates = [

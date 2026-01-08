@@ -29,16 +29,16 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <AppProvider i18n={enTranslations}>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AppProvider i18n={enTranslations}>
+            <ErrorBoundary>
               <App />
-            </AppProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
+            </ErrorBoundary>
+          </AppProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   </StrictMode>,
 );

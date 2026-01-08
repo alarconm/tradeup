@@ -1,0 +1,23 @@
+{
+  "name": "tradeup-jobs",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "TradeUp background jobs and AI agents powered by Trigger.dev",
+  "scripts": {
+    "dev": "npx trigger.dev@latest dev",
+    "deploy": "npx trigger.dev@latest deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "^3.3.0",
+    "@anthropic-ai/sdk": "^0.35.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "trigger.dev": {
+    "endpointId": "tradeup-jobs"
+  }
+}

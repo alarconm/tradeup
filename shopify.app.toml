@@ -1,16 +1,71 @@
-# Cardflow Labs - TradeUp Shopify App Configuration
-# https://shopify.dev/docs/apps/tools/cli/configuration
-#
-# TradeUp: Store Credit, Rewards & Membership for Shopify
-# https://cardflowlabs.com
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "TradeUp by Cardflow Labs"
 client_id = "f27841c5cf965100dfa81a212d7d9c10"
+name = "TradeUp by Cardflow Labs"
 application_url = "https://app.cardflowlabs.com"
 embedded = true
 
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2024-10"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhook/shopify-billing/subscriptions"
+
+  [[webhooks.subscriptions]]
+  topics = [ "shop/update" ]
+  uri = "/webhook/shop/update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhook/orders/paid"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/fulfilled" ]
+  uri = "/webhook/orders/fulfilled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/create" ]
+  uri = "/webhook/customers/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/update" ]
+  uri = "/webhook/customers/update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/cancelled" ]
+  uri = "/webhook/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/create" ]
+  uri = "/webhook/products/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhook/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhook/refunds/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/delete" ]
+  uri = "/webhook/customers/delete"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhook/orders/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app_purchases_one_time/update" ]
+  uri = "/webhook/shopify-billing/purchases"
+
 [access_scopes]
-scopes = "read_customers,write_customers,read_orders,read_products,write_products,read_inventory,read_fulfillments"
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products"
 
 [auth]
 redirect_urls = [
@@ -18,69 +73,3 @@ redirect_urls = [
   "https://app.cardflowlabs.com/api/shopify/callback",
   "https://localhost:3000/api/shopify/callback"
 ]
-
-[webhooks]
-api_version = "2024-10"
-
-[[webhooks.subscriptions]]
-topics = ["customers/create"]
-uri = "/webhook/customers/create"
-
-[[webhooks.subscriptions]]
-topics = ["customers/update"]
-uri = "/webhook/customers/update"
-
-[[webhooks.subscriptions]]
-topics = ["customers/delete"]
-uri = "/webhook/customers/delete"
-
-[[webhooks.subscriptions]]
-topics = ["orders/create"]
-uri = "/webhook/orders/create"
-
-[[webhooks.subscriptions]]
-topics = ["orders/paid"]
-uri = "/webhook/orders/paid"
-
-[[webhooks.subscriptions]]
-topics = ["orders/cancelled"]
-uri = "/webhook/orders/cancelled"
-
-[[webhooks.subscriptions]]
-topics = ["orders/fulfilled"]
-uri = "/webhook/orders/fulfilled"
-
-[[webhooks.subscriptions]]
-topics = ["refunds/create"]
-uri = "/webhook/refunds/create"
-
-[[webhooks.subscriptions]]
-topics = ["products/create"]
-uri = "/webhook/products/create"
-
-[[webhooks.subscriptions]]
-topics = ["app/uninstalled"]
-uri = "/webhook/app/uninstalled"
-
-[[webhooks.subscriptions]]
-topics = ["shop/update"]
-uri = "/webhook/shop/update"
-
-[[webhooks.subscriptions]]
-topics = ["app_subscriptions/update"]
-uri = "/webhook/shopify-billing/subscriptions"
-
-[[webhooks.subscriptions]]
-topics = ["app_purchases_one_time/update"]
-uri = "/webhook/shopify-billing/purchases"
-
-# GDPR Mandatory Webhooks (configured automatically by Shopify)
-# customers/redact, shop/redact, customers/data_request are handled via Partner Dashboard
-
-[build]
-automatically_update_urls_on_dev = true
-
-# ==================== Shopify Flow Integration ====================
-# NOTE: Flow integration requires a separate flow extension, not inline config
-# TODO: Create extensions/flow-triggers and extensions/flow-actions when ready
-# For now, Flow features are disabled to allow app to run
