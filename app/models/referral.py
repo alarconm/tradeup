@@ -94,7 +94,7 @@ class Referral(db.Model):
 
     # Relationships
     referrer = db.relationship('Member', foreign_keys=[referrer_id], backref='referrals_made')
-    referee = db.relationship('Member', foreign_keys=[referee_id], backref='referred_by')
+    referee = db.relationship('Member', foreign_keys=[referee_id], backref='referral_received')
 
     def __repr__(self):
         return f'<Referral {self.referral_code} by member={self.referrer_id}>'
