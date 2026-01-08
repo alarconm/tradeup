@@ -84,19 +84,26 @@ export function useShopifyBridge(): ShopifyBridgeState {
         // Try to get shop from various sources (in priority order)
         let shop: string | null = null;
 
+        // Helper to ensure shop has .myshopify.com suffix
+        const normalizeShop = (s: string): string => {
+          if (!s) return s;
+          return s.includes('.myshopify.com') ? s : `${s}.myshopify.com`;
+        };
+
         // 1. First check Flask-injected config (most reliable in production)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tradeupConfig = (window as any).__TRADEUP_CONFIG__;
         if (tradeupConfig?.shop) {
-          shop = tradeupConfig.shop;
+          shop = normalizeShop(tradeupConfig.shop);
           console.log('[TradeUp] Got shop from server config:', shop);
         }
 
         // 2. Then check URL params (works for direct navigation)
         if (!shop) {
           const urlParams = new URLSearchParams(window.location.search);
-          shop = urlParams.get('shop');
-          if (shop) {
+          const shopParam = urlParams.get('shop');
+          if (shopParam) {
+            shop = normalizeShop(shopParam);
             console.log('[TradeUp] Got shop from URL params:', shop);
           }
         }
@@ -156,8 +163,9 @@ export function useShopifyBridge(): ShopifyBridgeState {
         // 4. Try local storage for returning users (wrapped in try-catch for iframe restrictions)
         if (!shop) {
           try {
-            shop = localStorage.getItem('tradeup_shop');
-            if (shop) {
+            const storedShop = localStorage.getItem('tradeup_shop');
+            if (storedShop) {
+              shop = normalizeShop(storedShop);
               console.log('[TradeUp] Got shop from localStorage:', shop);
             }
           } catch (e) {
