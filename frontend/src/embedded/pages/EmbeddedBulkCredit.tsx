@@ -56,6 +56,24 @@ interface PreviewData {
   members: Array<{ id: number; email: string; tier: string }>;
 }
 
+interface MembershipTier {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  active: boolean;
+}
+
+interface TiersResponse {
+  tiers: MembershipTier[];
+}
+
+async function fetchTiers(shop: string | null): Promise<TiersResponse> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers`, shop);
+  if (!response.ok) throw new Error('Failed to fetch tiers');
+  return response.json();
+}
+
 async function fetchOperations(
   shop: string | null
 ): Promise<{ operations: BulkCreditOperation[] }> {
@@ -117,6 +135,25 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
     queryFn: () => fetchOperations(shop),
     enabled: !!shop,
   });
+
+  // Fetch tiers for filter dropdown
+  const { data: tiersData } = useQuery({
+    queryKey: ['tiers', shop],
+    queryFn: () => fetchTiers(shop),
+    enabled: !!shop,
+    staleTime: 60000, // Tiers don't change often
+  });
+
+  // Build tier filter options from backend data
+  const tierFilterOptions = [
+    { label: 'All Active Members', value: '' },
+    ...(tiersData?.tiers
+      ? tiersData.tiers.filter(t => t.active).map(tier => ({
+          label: `${tier.name} Only`,
+          value: tier.name.toUpperCase(),
+        }))
+      : []),
+  ];
 
   // Create mutation
   const createMutation = useMutation({
@@ -449,13 +486,7 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
 
             <Select
               label="Filter by Tier"
-              options={[
-                { label: 'All Active Members', value: '' },
-                { label: 'Silver Only', value: 'SILVER' },
-                { label: 'Gold Only', value: 'GOLD' },
-                { label: 'Platinum Only', value: 'PLATINUM' },
-                { label: 'Gold & Platinum', value: 'GOLD,PLATINUM' },
-              ]}
+              options={tierFilterOptions}
               value={formTierFilter}
               onChange={setFormTierFilter}
             />

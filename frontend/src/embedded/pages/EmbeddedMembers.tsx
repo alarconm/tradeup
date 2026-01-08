@@ -75,6 +75,24 @@ interface MembersResponse {
   pages: number;
 }
 
+interface MembershipTier {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  active: boolean;
+}
+
+interface TiersResponse {
+  tiers: MembershipTier[];
+}
+
+async function fetchTiers(shop: string | null): Promise<TiersResponse> {
+  const response = await authFetch(`${getApiUrl()}/members/tiers`, shop);
+  if (!response.ok) throw new Error('Failed to fetch tiers');
+  return response.json();
+}
+
 async function fetchMembers(
   shop: string | null,
   page: number,
@@ -123,6 +141,14 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     enabled: !!shop,
   });
 
+  // Fetch tiers for filter dropdown
+  const { data: tiersData } = useQuery({
+    queryKey: ['tiers', shop],
+    queryFn: () => fetchTiers(shop),
+    enabled: !!shop,
+    staleTime: 60000, // Tiers don't change often
+  });
+
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
     setPage(1);
@@ -161,27 +187,32 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  const filters = [
-    {
-      key: 'tier',
-      label: 'Tier',
-      filter: (
-        <ChoiceList
-          title="Tier"
-          titleHidden
-          choices={[
-            { label: 'Bronze', value: 'bronze' },
-            { label: 'Silver', value: 'silver' },
-            { label: 'Gold', value: 'gold' },
-            { label: 'Platinum', value: 'platinum' },
-          ]}
-          selected={selectedTier}
-          onChange={handleTierChange}
-        />
-      ),
-      shortcut: true,
-    },
-  ];
+  // Build tier filter choices from backend data
+  const tierChoices = tiersData?.tiers
+    ? tiersData.tiers.filter(t => t.active).map(tier => ({
+        label: tier.name,
+        value: tier.name.toLowerCase(),
+      }))
+    : [];
+
+  const filters = tierChoices.length > 0
+    ? [
+        {
+          key: 'tier',
+          label: 'Tier',
+          filter: (
+            <ChoiceList
+              title="Tier"
+              titleHidden
+              choices={tierChoices}
+              selected={selectedTier}
+              onChange={handleTierChange}
+            />
+          ),
+          shortcut: true,
+        },
+      ]
+    : [];
 
   const appliedFilters = selectedTier.length > 0
     ? [
@@ -389,6 +420,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         open={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
         shop={shop}
+        tiers={tiersData?.tiers}
       />
 
       {/* Add Member Modal */}
@@ -922,6 +954,7 @@ interface BulkEmailModalProps {
   open: boolean;
   onClose: () => void;
   shop: string | null;
+  tiers?: MembershipTier[];
 }
 
 interface EmailTemplate {
@@ -938,7 +971,7 @@ interface PreviewResponse {
   total_recipients: number;
 }
 
-function BulkEmailModal({ open, onClose, shop }: BulkEmailModalProps) {
+function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
   const [selectedTiers, setSelectedTiers] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -1062,12 +1095,13 @@ function BulkEmailModal({ open, onClose, shop }: BulkEmailModalProps) {
 
               <ChoiceList
                 title="Select Tiers to Email"
-                choices={[
-                  { label: 'Bronze', value: 'BRONZE' },
-                  { label: 'Silver', value: 'SILVER' },
-                  { label: 'Gold', value: 'GOLD' },
-                  { label: 'Platinum', value: 'PLATINUM' },
-                ]}
+                choices={tiers
+                  ? tiers.filter(t => t.active).map(tier => ({
+                      label: tier.name,
+                      value: tier.name.toUpperCase(),
+                    }))
+                  : []
+                }
                 selected={selectedTiers}
                 onChange={handleTierChange}
                 allowMultiple
