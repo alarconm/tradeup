@@ -220,8 +220,8 @@ export default function CardSetupQueue() {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
-      member.member_number.toLowerCase().includes(query) ||
-      member.email.toLowerCase().includes(query) ||
+      (member.member_number && member.member_number.toLowerCase().includes(query)) ||
+      (member.email && member.email.toLowerCase().includes(query)) ||
       (member.name && member.name.toLowerCase().includes(query))
     )
   })

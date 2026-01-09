@@ -180,7 +180,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                   <BlockStack gap="100">
                     <InlineStack gap="200" blockAlign="center">
                       <Text as="h2" variant="headingLg">
-                        {status.plan?.charAt(0).toUpperCase() + status.plan?.slice(1) || 'Free'}
+                        {status.plan ? status.plan.charAt(0).toUpperCase() + status.plan.slice(1) : 'Free'}
                       </Text>
                       <Badge tone={status.active ? 'success' : 'warning'}>
                         {status.status}
