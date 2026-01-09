@@ -102,7 +102,7 @@ function StatusBadge({ status }: { status: string }) {
       style={{ color, background: bg }}
     >
       <Icon />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
     </span>
   );
 }
@@ -429,7 +429,7 @@ export default function EventsList() {
                     {event.filters.tiers?.map((tier: string) => (
                       <span
                         key={tier}
-                        className={`px-2 py-1 rounded text-xs admin-tier-badge ${tier.toLowerCase()}`}
+                        className={`px-2 py-1 rounded text-xs admin-tier-badge ${tier?.toLowerCase() || ''}`}
                       >
                         {tier}
                       </span>

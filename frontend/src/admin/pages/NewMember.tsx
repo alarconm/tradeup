@@ -198,7 +198,7 @@ export default function NewMember() {
       gold: { bg: colors.tierGoldLight, color: colors.tierGold },
       platinum: { bg: colors.tierPlatinumLight, color: colors.tierPlatinum },
     }
-    return tierColorMap[tierName.toLowerCase()] || tierColorMap.silver
+    return tierColorMap[tierName?.toLowerCase() || 'silver'] || tierColorMap.silver
   }
 
   // Styles

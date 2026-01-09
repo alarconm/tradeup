@@ -127,7 +127,7 @@ function StatusBadge({ status }: { status: string }) {
           backgroundColor: style.dot,
         }}
       />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
     </span>
   );
 }
@@ -495,7 +495,7 @@ export default function MembersList() {
                       flexShrink: 0,
                     }}
                   >
-                    {(member.name || member.email)[0].toUpperCase()}
+                    {(member.name || member.email || 'M')[0].toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: colors.text, marginBottom: 2 }}>
@@ -725,7 +725,7 @@ export default function MembersList() {
                               flexShrink: 0,
                             }}
                           >
-                            {(member.name || member.email)[0].toUpperCase()}
+                            {(member.name || member.email || 'M')[0].toUpperCase()}
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div

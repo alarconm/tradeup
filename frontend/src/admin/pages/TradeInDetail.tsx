@@ -88,7 +88,7 @@ function StatusBadge({ status }: { status: string }) {
         className="w-2 h-2 rounded-full"
         style={{ background: colors.dot }}
       />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
     </span>
   );
 }

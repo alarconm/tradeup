@@ -177,7 +177,7 @@ export default function Dashboard() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status</span>
                   <span className={`font-semibold ${membershipStatus.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {membershipStatus.status.charAt(0).toUpperCase() + membershipStatus.status.slice(1)}
+                    {membershipStatus.status ? membershipStatus.status.charAt(0).toUpperCase() + membershipStatus.status.slice(1) : 'Unknown'}
                   </span>
                 </div>
                 {membershipStatus.tier && (

@@ -189,9 +189,9 @@ export function EmbeddedMembers({ shop }: MembersProps) {
 
   // Build tier filter choices from backend data
   const tierChoices = tiersData?.tiers
-    ? tiersData.tiers.filter(t => t.active).map(tier => ({
+    ? tiersData.tiers.filter(t => t.active && t.name).map(tier => ({
         label: tier.name,
-        value: tier.name.toLowerCase(),
+        value: tier.name?.toLowerCase() || '',
       }))
     : [];
 
@@ -1096,9 +1096,9 @@ function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
               <ChoiceList
                 title="Select Tiers to Email"
                 choices={tiers
-                  ? tiers.filter(t => t.active).map(tier => ({
+                  ? tiers.filter(t => t.active && t.name).map(tier => ({
                       label: tier.name,
-                      value: tier.name.toUpperCase(),
+                      value: tier.name?.toUpperCase() || '',
                     }))
                   : []
                 }

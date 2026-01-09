@@ -105,7 +105,7 @@ function StatusBadge({ status }: { status: string }) {
           backgroundColor: style.dot,
         }}
       />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
     </span>
   );
 }

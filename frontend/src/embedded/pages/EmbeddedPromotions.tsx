@@ -367,40 +367,40 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     if (!collectionsData?.collections) return [];
     const filtered = collectionSearch
       ? collectionsData.collections.filter(c =>
-          c.title.toLowerCase().includes(collectionSearch.toLowerCase())
+          c?.title?.toLowerCase()?.includes(collectionSearch.toLowerCase()) ?? false
         )
       : collectionsData.collections;
-    return filtered.map(c => ({ value: c.id, label: c.title }));
+    return filtered.filter(c => c?.title).map(c => ({ value: c.id, label: c.title }));
   }, [collectionsData, collectionSearch]);
 
   const vendorOptions = useMemo(() => {
     if (!vendorsData?.vendors) return [];
     const filtered = vendorSearch
       ? vendorsData.vendors.filter(v =>
-          v.toLowerCase().includes(vendorSearch.toLowerCase())
+          v?.toLowerCase()?.includes(vendorSearch.toLowerCase()) ?? false
         )
       : vendorsData.vendors;
-    return filtered.map(v => ({ value: v, label: v }));
+    return filtered.filter(v => v).map(v => ({ value: v, label: v }));
   }, [vendorsData, vendorSearch]);
 
   const productTypeOptions = useMemo(() => {
     if (!productTypesData?.product_types) return [];
     const filtered = productTypeSearch
       ? productTypesData.product_types.filter(pt =>
-          pt.toLowerCase().includes(productTypeSearch.toLowerCase())
+          pt?.toLowerCase()?.includes(productTypeSearch.toLowerCase()) ?? false
         )
       : productTypesData.product_types;
-    return filtered.map(pt => ({ value: pt, label: pt }));
+    return filtered.filter(pt => pt).map(pt => ({ value: pt, label: pt }));
   }, [productTypesData, productTypeSearch]);
 
   const tagOptions = useMemo(() => {
     if (!tagsData?.tags) return [];
     const filtered = tagSearch
       ? tagsData.tags.filter(t =>
-          t.toLowerCase().includes(tagSearch.toLowerCase())
+          t?.toLowerCase()?.includes(tagSearch.toLowerCase()) ?? false
         )
       : tagsData.tags;
-    return filtered.map(t => ({ value: t, label: t }));
+    return filtered.filter(t => t).map(t => ({ value: t, label: t }));
   }, [tagsData, tagSearch]);
 
   const { data: promotionsData, isLoading: promotionsLoading, error: promotionsError } = useQuery({

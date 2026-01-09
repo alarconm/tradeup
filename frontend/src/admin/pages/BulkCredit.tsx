@@ -162,7 +162,7 @@ export default function BulkCredit() {
         backgroundColor: s.bg,
         color: s.color,
       }}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
       </span>
     )
   }

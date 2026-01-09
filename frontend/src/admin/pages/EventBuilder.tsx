@@ -649,7 +649,7 @@ export default function EventBuilder() {
                     <div className="space-y-2">
                       {Object.entries(preview.breakdown_by_tier).map(([tier, count]) => (
                         <div key={tier} className="flex items-center justify-between">
-                          <span className={`admin-tier-badge ${tier.toLowerCase()}`}>{tier}</span>
+                          <span className={`admin-tier-badge ${tier?.toLowerCase() || ''}`}>{tier}</span>
                           <span className="text-white/60">{(count as number).toLocaleString()}</span>
                         </div>
                       ))}
@@ -668,7 +668,7 @@ export default function EventBuilder() {
                           className="flex items-center gap-2 text-sm text-white/60 truncate"
                         >
                           <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs">
-                            {customer.name?.[0] || customer.email[0].toUpperCase()}
+                            {(customer.name?.[0] || customer.email?.[0] || 'C').toUpperCase()}
                           </div>
                           <span className="truncate">{customer.name || customer.email}</span>
                         </div>

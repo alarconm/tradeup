@@ -1309,7 +1309,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                   {Object.entries(emailTemplatesData.by_category).map(([category, templates]) => (
                     <BlockStack key={category} gap="200">
                       <Text as="h4" variant="headingSm">
-                        {category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Emails
+                        {(category || '').replace('_', ' ').split(' ').filter(w => w).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Emails
                       </Text>
                       <BlockStack gap="100">
                         {templates.map((template) => (

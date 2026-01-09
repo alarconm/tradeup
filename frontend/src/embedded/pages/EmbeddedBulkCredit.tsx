@@ -148,9 +148,9 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
   const tierFilterOptions = [
     { label: 'All Active Members', value: '' },
     ...(tiersData?.tiers
-      ? tiersData.tiers.filter(t => t.active).map(tier => ({
+      ? tiersData.tiers.filter(t => t.active && t.name).map(tier => ({
           label: `${tier.name} Only`,
-          value: tier.name.toUpperCase(),
+          value: tier.name?.toUpperCase() || '',
         }))
       : []),
   ];
