@@ -1407,10 +1407,12 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
             {tiersData?.tiers && tiersData.tiers.length > 0 && (
               <ChoiceList
                 title="Tier Restriction (optional)"
-                choices={tiersData.tiers.map(tier => ({
-                  label: tier.tier_name,
-                  value: tier.tier_name.toUpperCase(),
-                }))}
+                choices={tiersData.tiers
+                  .filter(tier => tier.tier_name)
+                  .map(tier => ({
+                    label: tier.tier_name,
+                    value: tier.tier_name.toUpperCase(),
+                  }))}
                 selected={formData.tier_restriction}
                 onChange={(value) => setFormData({ ...formData, tier_restriction: value })}
                 allowMultiple
