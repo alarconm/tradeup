@@ -181,7 +181,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
       cancelled: 'critical',
       unknown: undefined,
     };
-    return <Badge tone={tones[safeStatus]}>{safeStatus}</Badge>;
+    return <Badge tone={tones[safeStatus]}>{String(safeStatus)}</Badge>;
   };
 
   const tabs = [
@@ -258,7 +258,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                         {batch.batch_reference}
                       </Text>,
                       formatCurrency(batch.total_trade_value),
-                      <Badge key={`cat-${batch.id}`}>{batch.category || 'General'}</Badge>,
+                      <Badge key={`cat-${batch.id}`}>{String(batch.category || 'General')}</Badge>,
                       getStatusBadge(batch.status),
                       <Button
                         key={`view-${batch.id}`}
@@ -340,7 +340,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                   <Text as="span" variant="bodySm" tone="subdued">
                     Category
                   </Text>
-                  <Badge>{detailBatch.category || 'General'}</Badge>
+                  <Badge>{String(detailBatch.category || 'General')}</Badge>
                 </BlockStack>
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">

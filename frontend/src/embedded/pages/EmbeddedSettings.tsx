@@ -1604,7 +1604,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                         <InlineStack align="space-between" blockAlign="center">
                           <InlineStack gap="200">
                             <Badge tone={product.status === 'ACTIVE' ? 'success' : 'attention'}>
-                              {product.status || 'DRAFT'}
+                              {String(product.status || 'DRAFT')}
                             </Badge>
                             <Text as="span" variant="bodySm" fontWeight="semibold">
                               {product.title || 'Untitled'}

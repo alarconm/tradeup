@@ -305,9 +305,9 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                                   </Text>
                                 </BlockStack>
                                 <BlockStack gap="100" inlineAlign="end">
-                                  <Badge tone="info">{member.tier?.name || 'None'}</Badge>
+                                  <Badge tone="info">{String(member.tier?.name || 'None')}</Badge>
                                   <Badge tone={member.status === 'active' ? 'success' : undefined}>
-                                    {member.status || 'unknown'}
+                                    {String(member.status || 'unknown')}
                                   </Badge>
                                 </BlockStack>
                               </InlineStack>
@@ -363,13 +363,13 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                         </Text>
                       </BlockStack>,
                       <Badge key={`tier-${member.id}`} tone="info">
-                        {member.tier?.name || 'None'}
+                        {String(member.tier?.name || 'None')}
                       </Badge>,
                       <Badge
                         key={`status-${member.id}`}
                         tone={member.status === 'active' ? 'success' : undefined}
                       >
-                        {member.status || 'unknown'}
+                        {String(member.status || 'unknown')}
                       </Badge>,
                       member.trade_in_count,
                       formatCurrency(member.total_credits_issued),
@@ -655,7 +655,7 @@ function MemberDetailModal({
                 <Text as="span" variant="bodySm" tone="subdued">
                   Tier
                 </Text>
-                <Badge tone="info">{member.tier?.name || 'None'}</Badge>
+                <Badge tone="info">{String(member.tier?.name || 'None')}</Badge>
               </BlockStack>
             </InlineStack>
 

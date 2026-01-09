@@ -232,7 +232,7 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
       failed: 'critical',
       unknown: undefined,
     };
-    return <Badge tone={tones[safeStatus]}>{safeStatus}</Badge>;
+    return <Badge tone={tones[safeStatus]}>{String(safeStatus)}</Badge>;
   };
 
   if (!shop) {
