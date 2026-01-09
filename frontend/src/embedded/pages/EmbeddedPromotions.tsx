@@ -682,16 +682,18 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   };
 
   const getStatusBadge = (promo: Promotion) => {
+    if (!promo) return <Badge>Unknown</Badge>;
     if (!promo.active) return <Badge>Disabled</Badge>;
     if (promo.is_active_now) return <Badge tone="success">Active Now</Badge>;
-    if (new Date(promo.starts_at) > new Date()) return <Badge tone="info">Scheduled</Badge>;
+    if (promo.starts_at && new Date(promo.starts_at) > new Date()) return <Badge tone="info">Scheduled</Badge>;
     return <Badge tone="warning">Ended</Badge>;
   };
 
   const getPromoValue = (promo: Promotion) => {
-    if (promo.promo_type === 'flat_bonus') return `${formatCurrency(promo.bonus_flat)} flat`;
-    if (promo.promo_type === 'multiplier') return `${promo.multiplier}x multiplier`;
-    return `+${promo.bonus_percent}% bonus`;
+    if (!promo) return '—';
+    if (promo.promo_type === 'flat_bonus') return `${formatCurrency(promo.bonus_flat ?? 0)} flat`;
+    if (promo.promo_type === 'multiplier') return `${promo.multiplier ?? 1}x multiplier`;
+    return `+${promo.bonus_percent ?? 0}% bonus`;
   };
 
   if (!shop) {
@@ -856,14 +858,14 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                               </InlineStack>
                               <InlineStack gap="200" wrap>
                                 <Badge tone="info">
-                                  {PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type}
+                                  {PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type || 'Promotion'}
                                 </Badge>
                                 <Text as="span" variant="bodySm" fontWeight="medium">
                                   {getPromoValue(promo)}
                                 </Text>
                               </InlineStack>
                               <Text as="span" variant="bodySm" tone="subdued">
-                                {new Date(promo.starts_at).toLocaleDateString()} - {new Date(promo.ends_at).toLocaleDateString()}
+                                {promo.starts_at ? new Date(promo.starts_at).toLocaleDateString() : '—'} - {promo.ends_at ? new Date(promo.ends_at).toLocaleDateString() : '—'}
                               </Text>
                               <InlineStack gap="200">
                                 <Button
@@ -900,10 +902,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                         <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
                         {promo.code && <Badge>{promo.code}</Badge>}
                       </BlockStack>,
-                      PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type,
+                      PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type || 'Promotion',
                       getPromoValue(promo),
                       <Text as="span" variant="bodySm" key={promo.id}>
-                        {new Date(promo.starts_at).toLocaleDateString()} - {new Date(promo.ends_at).toLocaleDateString()}
+                        {promo.starts_at ? new Date(promo.starts_at).toLocaleDateString() : '—'} - {promo.ends_at ? new Date(promo.ends_at).toLocaleDateString() : '—'}
                       </Text>,
                       getStatusBadge(promo),
                       <InlineStack gap="200" key={promo.id}>
