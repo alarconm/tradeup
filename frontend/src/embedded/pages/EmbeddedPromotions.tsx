@@ -852,13 +852,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                               <InlineStack align="space-between" blockAlign="start">
                                 <BlockStack gap="100">
                                   <Text as="span" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
-                                  {promo.code && <Badge size="small">{promo.code}</Badge>}
+                                  {promo.code && <Badge size="small">{String(promo.code)}</Badge>}
                                 </BlockStack>
                                 {getStatusBadge(promo)}
                               </InlineStack>
                               <InlineStack gap="200" wrap>
                                 <Badge tone="info">
-                                  {PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type || 'Promotion'}
+                                  {String(PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type || 'Promotion')}
                                 </Badge>
                                 <Text as="span" variant="bodySm" fontWeight="medium">
                                   {getPromoValue(promo)}
@@ -900,7 +900,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     rows={promotions.filter(p => p && p.id != null).map((promo) => [
                       <BlockStack gap="100" key={promo.id}>
                         <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
-                        {promo.code && <Badge>{promo.code}</Badge>}
+                        {promo.code && <Badge>{String(promo.code)}</Badge>}
                       </BlockStack>,
                       PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type || 'Promotion',
                       getPromoValue(promo),
@@ -952,7 +952,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     <InlineStack align="space-between">
                       <Text as="h3" variant="headingMd">{String(tier.tier_name || '').toUpperCase() || 'UNKNOWN'}</Text>
                       <Badge tone={tier.active ? 'success' : undefined}>
-                        {tier.active ? 'Active' : 'Inactive'}
+                        {String(tier.active ? 'Active' : 'Inactive')}
                       </Badge>
                     </InlineStack>
 
@@ -965,15 +965,15 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     <BlockStack gap="200">
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Trade-In Bonus</Text>
-                        <Badge tone="success">{`+${tier.trade_in_bonus_pct ?? 0}%`}</Badge>
+                        <Badge tone="success">{String(`+${tier.trade_in_bonus_pct ?? 0}%`)}</Badge>
                       </InlineStack>
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Purchase Cashback</Text>
-                        <Badge tone="info">{`${tier.purchase_cashback_pct ?? 0}%`}</Badge>
+                        <Badge tone="info">{String(`${tier.purchase_cashback_pct ?? 0}%`)}</Badge>
                       </InlineStack>
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Store Discount</Text>
-                        <Badge>{`${tier.store_discount_pct ?? 0}%`}</Badge>
+                        <Badge>{String(`${tier.store_discount_pct ?? 0}%`)}</Badge>
                       </InlineStack>
                     </BlockStack>
 
@@ -1621,7 +1621,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                         customer.order_count || 0,
                         formatCurrency(customer.total_spent || 0),
                         <Badge key={customer.customer_id} tone="success">
-                          {formatCurrency(customer.credit_amount || 0)}
+                          {String(formatCurrency(customer.credit_amount || 0))}
                         </Badge>,
                       ])}
                     />
@@ -1637,7 +1637,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     <InlineStack gap="200" wrap>
                       {Object.entries(eventPreview.orders_by_source).filter(([source]) => source).map(([source, count]) => (
                         <Badge key={source} tone="info">
-                          {`${source}: ${count || 0}`}
+                          {String(`${source}: ${count || 0}`)}
                         </Badge>
                       ))}
                     </InlineStack>

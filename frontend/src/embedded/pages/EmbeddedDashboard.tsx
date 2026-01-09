@@ -178,7 +178,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">Total Members</Text>
                 <Text as="p" variant="heading2xl">{stats?.total_members || 0}</Text>
-                <Badge tone="success">{`${stats?.active_members || 0} active`}</Badge>
+                <Badge tone="success">{String(`${stats?.active_members ?? 0} active`)}</Badge>
               </BlockStack>
             </Card>
 
@@ -186,7 +186,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">Trade-Ins</Text>
                 <Text as="p" variant="heading2xl">{stats?.completed_trade_ins || 0}</Text>
-                <Badge tone="attention">{`${stats?.pending_trade_ins || 0} pending`}</Badge>
+                <Badge tone="attention">{String(`${stats?.pending_trade_ins ?? 0} pending`)}</Badge>
               </BlockStack>
             </Card>
 
@@ -222,7 +222,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
             <BlockStack gap="400">
               <InlineStack align="space-between">
                 <Text as="h3" variant="headingMd">Current Plan</Text>
-                <Badge tone="info">{stats?.subscription?.plan || 'Free'}</Badge>
+                <Badge tone="info">{String(stats?.subscription?.plan || 'Free')}</Badge>
               </InlineStack>
 
               <BlockStack gap="200">
@@ -284,7 +284,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                       key={item.id}
                       tone={item.type === 'trade_in' ? 'success' : 'info'}
                     >
-                      {item.type === 'trade_in' ? 'Trade-In' : (item.type || 'Activity')}
+                      {String(item.type === 'trade_in' ? 'Trade-In' : (item.type || 'Activity'))}
                     </Badge>,
                     item.member_name || 'Unknown',
                     item.description || '-',

@@ -282,7 +282,7 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                       </BlockStack>
                       <BlockStack gap="100" inlineAlign="end">
                         <Badge tone="success">
-                          {`${tier.trade_in_rate}% trade-in rate`}
+                          {String(`${tier.trade_in_rate ?? 0}% trade-in rate`)}
                         </Badge>
                         {tier.monthly_fee > 0 && (
                           <Text as="p" variant="bodySm" tone="subdued">
