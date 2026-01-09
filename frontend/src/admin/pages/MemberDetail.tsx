@@ -654,7 +654,7 @@ export default function MemberDetail() {
                   <option value="">No Tier</option>
                   {tiers.map(tier => (
                     <option key={tier.id} value={tier.id}>
-                      {tier.name} - {formatCurrency(tier.monthly_price)}/mo (+{(tier.bonus_rate * 100).toFixed(0)}% bonus)
+                      {tier.name} - {formatCurrency(tier.monthly_price || 0)}/mo (+{((tier.bonus_rate || 0) * 100).toFixed(0)}% bonus)
                     </option>
                   ))}
                 </select>
@@ -686,7 +686,7 @@ export default function MemberDetail() {
                   </p>
                   {member.tier && (
                     <p style={{ color: colors.textSecondary, fontSize: typography.sm, margin: 0 }}>
-                      +{(member.tier.bonus_rate * 100).toFixed(0)}% trade-in bonus
+                      +{((member.tier.bonus_rate || 0) * 100).toFixed(0)}% trade-in bonus
                     </p>
                   )}
                 </div>

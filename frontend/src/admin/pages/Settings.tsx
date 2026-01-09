@@ -606,7 +606,7 @@ export default function Settings() {
                     <option value="">Lowest tier (auto)</option>
                     {tiers.map((tier) => (
                       <option key={tier.id} value={tier.id}>
-                        {tier.name} ({(tier.bonus_rate * 100).toFixed(0)}% bonus)
+                        {tier.name} ({((tier.bonus_rate || 0) * 100).toFixed(0)}% bonus)
                       </option>
                     ))}
                   </select>
@@ -1307,10 +1307,10 @@ export default function Settings() {
                     </div>
                     <div style={{ display: 'flex', gap: spacing[4], marginTop: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
-                        <strong>${tier.monthly_price.toFixed(2)}</strong>/mo
+                        <strong>${(tier.monthly_price || 0).toFixed(2)}</strong>/mo
                       </span>
                       <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
-                        Trade-in Bonus: <strong>{(tier.bonus_rate * 100).toFixed(0)}%</strong>
+                        Trade-in Bonus: <strong>{((tier.bonus_rate || 0) * 100).toFixed(0)}%</strong>
                       </span>
                       {tier.benefits?.discount_percent ? (
                         <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
@@ -1491,7 +1491,7 @@ export default function Settings() {
                       textAlign: 'center',
                     }}
                   >
-                    {(tierForm.bonus_rate * 100).toFixed(0)}%
+                    {((tierForm.bonus_rate || 0) * 100).toFixed(0)}%
                   </span>
                 </div>
                 <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>

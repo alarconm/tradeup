@@ -1160,7 +1160,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               {tier.yearly_price ? ` · $${tier.yearly_price}/yr` : ''}
                             </Text>
                             <Text as="span" variant="bodySm" tone="subdued">
-                              +{(tier.bonus_rate * 100).toFixed(1).replace(/\.0$/, '')}% trade-in bonus
+                              +{((tier.bonus_rate || 0) * 100).toFixed(1).replace(/\.0$/, '')}% trade-in bonus
                             </Text>
                             {tier.purchase_cashback_pct ? (
                               <Text as="span" variant="bodySm" tone="subdued">
@@ -1834,7 +1834,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       </BlockStack>
                       <BlockStack gap="100">
                         <Text as="p" variant="bodySm" tone="subdued">Total Amount</Text>
-                        <Text as="p" variant="headingLg">${monthlyCreditsPreview.total_amount.toFixed(2)}</Text>
+                        <Text as="p" variant="headingLg">${(monthlyCreditsPreview.total_amount || 0).toFixed(2)}</Text>
                       </BlockStack>
                       <BlockStack gap="100">
                         <Text as="p" variant="bodySm" tone="subdued">Already Received</Text>
@@ -1851,7 +1851,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               <Text as="span" variant="bodySm">
                                 {detail.member_number} ({detail.tier})
                               </Text>
-                              <Badge tone="success">{`$${detail.amount.toFixed(2)}`}</Badge>
+                              <Badge tone="success">{`$${(detail.amount || 0).toFixed(2)}`}</Badge>
                             </InlineStack>
                           ))}
                         </BlockStack>
@@ -1926,7 +1926,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       </BlockStack>
                       <BlockStack gap="100">
                         <Text as="p" variant="bodySm" tone="subdued">Total Amount Expiring</Text>
-                        <Text as="p" variant="headingLg">${expiringCredits.total_amount_expiring.toFixed(2)}</Text>
+                        <Text as="p" variant="headingLg">${(expiringCredits.total_amount_expiring || 0).toFixed(2)}</Text>
                       </BlockStack>
                     </InlineStack>
 
@@ -1939,7 +1939,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               <Text as="span" variant="bodySm">
                                 {member.member_number} ({member.email || 'No email'})
                               </Text>
-                              <Badge tone="warning">{`$${member.total_expiring.toFixed(2)}`}</Badge>
+                              <Badge tone="warning">{`$${(member.total_expiring || 0).toFixed(2)}`}</Badge>
                             </InlineStack>
                           ))}
                         </BlockStack>

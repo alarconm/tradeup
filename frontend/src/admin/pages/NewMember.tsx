@@ -543,7 +543,7 @@ export default function NewMember() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.success, fontSize: typography.xs }}>
                           <DollarSign size={14} />
-                          <span>${customer.storeCreditBalance.toFixed(2)}</span>
+                          <span>${(customer.storeCreditBalance || 0).toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
@@ -667,7 +667,7 @@ export default function NewMember() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.textSecondary }}>
                     <DollarSign size={16} />
-                    <span>${shopifyCustomer.totalSpent.toFixed(2)} spent</span>
+                    <span>${(shopifyCustomer.totalSpent || 0).toFixed(2)} spent</span>
                   </div>
                   <div
                     style={{
@@ -679,7 +679,7 @@ export default function NewMember() {
                     }}
                   >
                     <CreditCard size={16} />
-                    <span>${shopifyCustomer.storeCreditBalance.toFixed(2)} credit</span>
+                    <span>${(shopifyCustomer.storeCreditBalance || 0).toFixed(2)} credit</span>
                   </div>
                 </div>
               </div>
@@ -878,7 +878,7 @@ export default function NewMember() {
                 <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.base }}>Store Credit</span>
               </div>
               <p style={{ fontSize: typography.xs, color: colors.textSecondary, margin: 0 }}>
-                {shopifyCustomer ? `$${shopifyCustomer.storeCreditBalance.toFixed(2)} available` : 'Not available'}
+                {shopifyCustomer ? `$${(shopifyCustomer.storeCreditBalance || 0).toFixed(2)} available` : 'Not available'}
               </p>
             </button>
 

@@ -333,7 +333,7 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodyMd">{tier.tier_name}</Text>
                         <Text as="span" variant="bodyMd" fontWeight="semibold">
-                          {formatNumber(tier.member_count)} ({tier.percentage.toFixed(1)}%)
+                          {formatNumber(tier.member_count)} ({(tier.percentage || 0).toFixed(1)}%)
                         </Text>
                       </InlineStack>
                       <ProgressBar
