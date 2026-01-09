@@ -307,7 +307,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                                 <BlockStack gap="100" inlineAlign="end">
                                   <Badge tone="info">{member.tier?.name || 'None'}</Badge>
                                   <Badge tone={member.status === 'active' ? 'success' : undefined}>
-                                    {member.status}
+                                    {member.status || 'unknown'}
                                   </Badge>
                                 </BlockStack>
                               </InlineStack>
@@ -369,7 +369,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                         key={`status-${member.id}`}
                         tone={member.status === 'active' ? 'success' : undefined}
                       >
-                        {member.status}
+                        {member.status || 'unknown'}
                       </Badge>,
                       member.trade_in_count,
                       formatCurrency(member.total_credits_issued),
@@ -616,7 +616,7 @@ function MemberDetailModal({
 
   const tierOptions = [
     { label: 'No Tier', value: '' },
-    ...(tiers?.map((t) => ({ label: t.name, value: String(t.id) })) || []),
+    ...(tiers?.filter(t => t && t.name).map((t) => ({ label: t.name || '', value: String(t.id) })) || []),
   ];
 
   return (
@@ -732,10 +732,10 @@ function MemberDetailModal({
                       <InlineStack align="space-between">
                         <BlockStack gap="050">
                           <Text as="span" variant="bodySm">
-                            {item.previous_tier || 'None'} → {item.new_tier || 'None'}
+                            {String(item.previous_tier || 'None')} → {String(item.new_tier || 'None')}
                           </Text>
                           <Text as="span" variant="bodySm" tone="subdued">
-                            {item.change_type || 'change'} • {item.source_type || 'system'}
+                            {String(item.change_type || 'change')} • {String(item.source_type || 'system')}
                           </Text>
                         </BlockStack>
                         <Text as="span" variant="bodySm" tone="subdued">
@@ -771,7 +771,7 @@ function MemberDetailModal({
                 </InlineStack>
               ) : creditHistory?.bonuses && creditHistory.bonuses.length > 0 ? (
                 <BlockStack gap="200">
-                  {creditHistory.bonuses.map((item) => (
+                  {creditHistory.bonuses.filter(item => item && item.id != null).map((item) => (
                     <Box
                       key={item.id}
                       padding="200"
@@ -789,7 +789,7 @@ function MemberDetailModal({
                             )}
                           </InlineStack>
                           <Text as="span" variant="bodySm" tone="subdued">
-                            {item.description || item.event_type}
+                            {String(item.description || item.event_type || 'credit')}
                           </Text>
                         </BlockStack>
                         <Text as="span" variant="bodySm" tone="subdued">
@@ -1268,7 +1268,7 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
 
   const tierOptions = [
     { label: 'No Tier (Start at base)', value: '' },
-    ...(tiers?.map((t) => ({ label: t.name, value: String(t.id) })) || []),
+    ...(tiers?.filter(t => t && t.name).map((t) => ({ label: t.name || '', value: String(t.id) })) || []),
   ];
 
   return (

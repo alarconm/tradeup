@@ -172,14 +172,16 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null | undefined) => {
+    const safeStatus = status || 'unknown';
     const tones: Record<string, 'success' | 'warning' | 'critical' | 'info' | undefined> = {
       pending: 'warning',
       listed: 'info',
       completed: 'success',
       cancelled: 'critical',
+      unknown: undefined,
     };
-    return <Badge tone={tones[status]}>{status}</Badge>;
+    return <Badge tone={tones[safeStatus]}>{safeStatus}</Badge>;
   };
 
   const tabs = [
@@ -256,7 +258,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                         {batch.batch_reference}
                       </Text>,
                       formatCurrency(batch.total_trade_value),
-                      <Badge key={`cat-${batch.id}`}>{batch.category}</Badge>,
+                      <Badge key={`cat-${batch.id}`}>{batch.category || 'General'}</Badge>,
                       getStatusBadge(batch.status),
                       <Button
                         key={`view-${batch.id}`}
@@ -338,7 +340,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                   <Text as="span" variant="bodySm" tone="subdued">
                     Category
                   </Text>
-                  <Badge>{detailBatch.category}</Badge>
+                  <Badge>{detailBatch.category || 'General'}</Badge>
                 </BlockStack>
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">

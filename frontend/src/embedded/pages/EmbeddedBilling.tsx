@@ -183,7 +183,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                         {status.plan ? String(status.plan).charAt(0).toUpperCase() + String(status.plan).slice(1) : 'Free'}
                       </Text>
                       <Badge tone={status.active ? 'success' : 'warning'}>
-                        {status.status}
+                        {status.status || 'inactive'}
                       </Badge>
                     </InlineStack>
                     {status.trial_ends_at && (

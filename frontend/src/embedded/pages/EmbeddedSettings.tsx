@@ -1599,22 +1599,22 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                   </InlineStack>
                 ) : productsData?.products && productsData.products.length > 0 ? (
                   <BlockStack gap="300">
-                    {productsData.products.map((product) => (
+                    {productsData.products.filter(p => p && p.id).map((product) => (
                       <BlockStack key={product.id} gap="100">
                         <InlineStack align="space-between" blockAlign="center">
                           <InlineStack gap="200">
                             <Badge tone={product.status === 'ACTIVE' ? 'success' : 'attention'}>
-                              {product.status}
+                              {product.status || 'DRAFT'}
                             </Badge>
                             <Text as="span" variant="bodySm" fontWeight="semibold">
-                              {product.title}
+                              {product.title || 'Untitled'}
                             </Text>
                           </InlineStack>
                         </InlineStack>
                         <InlineStack gap="200">
-                          {product.variants.map((variant) => (
+                          {(product.variants || []).filter(v => v && v.id).map((variant) => (
                             <Badge key={variant.id} tone="info">
-                              {`${variant.title}: $${variant.price}`}
+                              {`${variant.title || 'Variant'}: $${variant.price || '0'}`}
                             </Badge>
                           ))}
                         </InlineStack>

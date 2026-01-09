@@ -223,14 +223,16 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null | undefined) => {
+    const safeStatus = status || 'unknown';
     const tones: Record<string, 'success' | 'warning' | 'critical' | 'info' | undefined> = {
       pending: 'warning',
       processing: 'info',
       completed: 'success',
       failed: 'critical',
+      unknown: undefined,
     };
-    return <Badge tone={tones[status]}>{status}</Badge>;
+    return <Badge tone={tones[safeStatus]}>{safeStatus}</Badge>;
   };
 
   if (!shop) {
