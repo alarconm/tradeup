@@ -979,7 +979,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                       <>
                         <Divider />
                         <BlockStack gap="100">
-                          {tier.features.map((feature, i) => (
+                          {tier.features.filter(f => f).map((feature, i) => (
                             <Text as="p" variant="bodySm" key={i}>
                               {feature}
                             </Text>
@@ -1267,7 +1267,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               />
               {formData.collection_ids.length > 0 && (
                 <InlineStack gap="100" wrap>
-                  {formData.collection_ids.map(id => {
+                  {formData.collection_ids.filter(id => id).map(id => {
                     const collection = collectionsData?.collections.find(c => c.id === id);
                     return (
                       <Tag
@@ -1307,7 +1307,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               />
               {formData.vendor_filter.length > 0 && (
                 <InlineStack gap="100" wrap>
-                  {formData.vendor_filter.map(v => (
+                  {formData.vendor_filter.filter(v => v).map(v => (
                     <Tag
                       key={v}
                       onRemove={() =>
@@ -1344,7 +1344,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               />
               {formData.product_type_filter.length > 0 && (
                 <InlineStack gap="100" wrap>
-                  {formData.product_type_filter.map(pt => (
+                  {formData.product_type_filter.filter(pt => pt).map(pt => (
                     <Tag
                       key={pt}
                       onRemove={() =>
@@ -1381,7 +1381,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               />
               {formData.product_tags_filter.length > 0 && (
                 <InlineStack gap="100" wrap>
-                  {formData.product_tags_filter.map(t => (
+                  {formData.product_tags_filter.filter(t => t).map(t => (
                     <Tag
                       key={t}
                       onRemove={() =>
@@ -1559,7 +1559,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 <Card>
                   <BlockStack gap="200">
                     <Text as="h4" variant="headingSm" tone="critical">Errors</Text>
-                    {eventResult.errors.map((error, i) => (
+                    {eventResult.errors.filter(e => e).map((error, i) => (
                       <Text as="p" variant="bodySm" key={i}>{error}</Text>
                     ))}
                   </BlockStack>
@@ -1633,9 +1633,9 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                   <BlockStack gap="200">
                     <Text as="h4" variant="headingSm">Orders by Source</Text>
                     <InlineStack gap="200" wrap>
-                      {Object.entries(eventPreview.orders_by_source).map(([source, count]) => (
+                      {Object.entries(eventPreview.orders_by_source).filter(([source]) => source).map(([source, count]) => (
                         <Badge key={source} tone="info">
-                          {`${source}: ${count}`}
+                          {`${source}: ${count || 0}`}
                         </Badge>
                       ))}
                     </InlineStack>
@@ -1703,8 +1703,8 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 ) : availableSources.length > 0 ? (
                   <ChoiceList
                     title=""
-                    choices={availableSources.map((source) => ({
-                      label: `${source.name} (${source.count} orders)`,
+                    choices={availableSources.filter(s => s && s.name).map((source) => ({
+                      label: `${source.name} (${source.count || 0} orders)`,
                       value: source.name,
                     }))}
                     selected={eventForm.sources}

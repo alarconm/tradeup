@@ -180,7 +180,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                   <BlockStack gap="100">
                     <InlineStack gap="200" blockAlign="center">
                       <Text as="h2" variant="headingLg">
-                        {status.plan ? status.plan.charAt(0).toUpperCase() + status.plan.slice(1) : 'Free'}
+                        {status.plan ? String(status.plan).charAt(0).toUpperCase() + String(status.plan).slice(1) : 'Free'}
                       </Text>
                       <Badge tone={status.active ? 'success' : 'warning'}>
                         {status.status}
@@ -252,7 +252,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
 
         <Layout.Section>
           <InlineStack gap="400" wrap={false}>
-            {plansData?.plans.map((plan) => (
+            {plansData?.plans.filter(plan => plan && plan.key).map((plan) => (
               <Card key={plan.key}>
                 <BlockStack gap="400">
                   <BlockStack gap="200">
@@ -287,7 +287,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                         {formatLimit(plan.max_tiers)} tiers
                       </Text>
                     </InlineStack>
-                    {plan.features.map((feature, idx) => (
+                    {(plan.features || []).filter(f => f).map((feature, idx) => (
                       <InlineStack gap="200" key={idx}>
                         <Icon source={CheckIcon} tone="success" />
                         <Text as="span" variant="bodySm">

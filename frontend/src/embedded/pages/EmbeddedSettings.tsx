@@ -1312,7 +1312,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                         {(category || '').replace('_', ' ').split(' ').filter(w => w).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Emails
                       </Text>
                       <BlockStack gap="100">
-                        {templates.map((template) => (
+                        {templates.filter(template => template && template.id).map((template) => (
                           <Box
                             key={template.id}
                             padding="300"
