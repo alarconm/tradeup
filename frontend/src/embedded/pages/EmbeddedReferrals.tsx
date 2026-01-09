@@ -262,23 +262,23 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                 <DataTable
                   columnContentTypes={['text', 'text', 'numeric', 'numeric']}
                   headings={['Member', 'Code', 'Referrals', 'Earnings']}
-                  rows={stats.top_referrers.slice(0, 5).map((referrer, index) => [
+                  rows={stats.top_referrers.slice(0, 5).filter(referrer => referrer && referrer.id != null).map((referrer, index) => [
                     <InlineStack gap="200" key={referrer.id} blockAlign="center">
                       <Badge tone={index === 0 ? 'success' : index === 1 ? 'info' : 'enabled'}>
                         {`#${index + 1}`}
                       </Badge>
                       <BlockStack gap="050">
                         <Text as="span" variant="bodyMd" fontWeight="semibold">
-                          {referrer.name || referrer.member_number}
+                          {referrer.name || referrer.member_number || 'Unknown'}
                         </Text>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          {referrer.email}
+                          {referrer.email || '-'}
                         </Text>
                       </BlockStack>
                     </InlineStack>,
-                    <Badge key={`code-${referrer.id}`}>{referrer.referral_code}</Badge>,
-                    referrer.referral_count,
-                    formatCurrency(referrer.referral_earnings),
+                    <Badge key={`code-${referrer.id}`}>{referrer.referral_code || '-'}</Badge>,
+                    referrer.referral_count || 0,
+                    formatCurrency(referrer.referral_earnings || 0),
                   ])}
                 />
               ) : (
@@ -306,16 +306,16 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                 <DataTable
                   columnContentTypes={['text', 'text', 'text']}
                   headings={['New Member', 'Referred By', 'Joined']}
-                  rows={stats.recent_referrals.slice(0, 5).map((referral) => [
+                  rows={stats.recent_referrals.slice(0, 5).filter(referral => referral && referral.id != null).map((referral) => [
                     <BlockStack gap="050" key={referral.id}>
                       <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        {referral.name || referral.member_number}
+                        {referral.name || referral.member_number || 'Unknown'}
                       </Text>
                     </BlockStack>,
                     <Badge key={`by-${referral.id}`} tone="info">
                       {referral.referred_by || 'Unknown'}
                     </Badge>,
-                    formatDate(referral.created_at),
+                    referral.created_at ? formatDate(referral.created_at) : '-',
                   ])}
                 />
               ) : (

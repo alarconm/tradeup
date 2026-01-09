@@ -328,10 +328,10 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
               <Text as="h3" variant="headingMd">Tier Distribution</Text>
               {tierDistribution.length > 0 ? (
                 <BlockStack gap="300">
-                  {tierDistribution.map((tier) => (
-                    <BlockStack key={tier.tier_name} gap="100">
+                  {tierDistribution.filter(tier => tier && tier.tier_name).map((tier) => (
+                    <BlockStack key={tier.tier_name || 'unknown'} gap="100">
                       <InlineStack align="space-between">
-                        <Text as="span" variant="bodyMd">{tier.tier_name}</Text>
+                        <Text as="span" variant="bodyMd">{tier.tier_name || 'Unknown'}</Text>
                         <Text as="span" variant="bodyMd" fontWeight="semibold">
                           {formatNumber(tier.member_count)} ({(tier.percentage || 0).toFixed(1)}%)
                         </Text>
@@ -360,11 +360,11 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
                 <DataTable
                   columnContentTypes={['text', 'numeric', 'numeric', 'numeric']}
                   headings={['Category', 'Trade-Ins', 'Total Value', 'Avg Value']}
-                  rows={categoryPerformance.slice(0, 5).map((cat) => [
-                    cat.category_name,
-                    formatNumber(cat.trade_in_count),
-                    formatCurrency(cat.total_value),
-                    formatCurrency(cat.avg_value),
+                  rows={categoryPerformance.slice(0, 5).filter(cat => cat && cat.category_name).map((cat) => [
+                    cat.category_name || 'Unknown',
+                    formatNumber(cat.trade_in_count || 0),
+                    formatCurrency(cat.total_value || 0),
+                    formatCurrency(cat.avg_value || 0),
                   ])}
                 />
               ) : (
@@ -386,18 +386,18 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
                 <DataTable
                   columnContentTypes={['text', 'numeric', 'numeric', 'numeric']}
                   headings={['Member', 'Trade-Ins', 'Credit Earned', 'Referrals']}
-                  rows={topMembers.slice(0, 10).map((member) => [
+                  rows={topMembers.slice(0, 10).filter(member => member && member.id != null).map((member) => [
                     <BlockStack key={member.id} gap="050">
                       <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        {member.name || member.member_number}
+                        {member.name || member.member_number || 'Unknown'}
                       </Text>
                       <Text as="span" variant="bodySm" tone="subdued">
-                        {member.member_number}
+                        {member.member_number || '-'}
                       </Text>
                     </BlockStack>,
-                    formatNumber(member.total_trade_ins),
-                    formatCurrency(member.total_credit_earned),
-                    formatNumber(member.referral_count),
+                    formatNumber(member.total_trade_ins || 0),
+                    formatCurrency(member.total_credit_earned || 0),
+                    formatNumber(member.referral_count || 0),
                   ])}
                 />
               ) : (

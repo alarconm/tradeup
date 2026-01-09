@@ -722,7 +722,7 @@ function MemberDetailModal({
                 </InlineStack>
               ) : history?.history && history.history.length > 0 ? (
                 <BlockStack gap="200">
-                  {history.history.slice(0, 5).map((item) => (
+                  {history.history.slice(0, 5).filter(item => item && item.id != null).map((item) => (
                     <Box
                       key={item.id}
                       padding="200"
@@ -735,11 +735,11 @@ function MemberDetailModal({
                             {item.previous_tier || 'None'} → {item.new_tier || 'None'}
                           </Text>
                           <Text as="span" variant="bodySm" tone="subdued">
-                            {item.change_type} • {item.source_type}
+                            {item.change_type || 'change'} • {item.source_type || 'system'}
                           </Text>
                         </BlockStack>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          {formatDate(item.created_at)}
+                          {item.created_at ? formatDate(item.created_at) : '-'}
                         </Text>
                       </InlineStack>
                     </Box>

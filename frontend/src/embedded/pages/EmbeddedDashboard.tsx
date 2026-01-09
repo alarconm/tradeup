@@ -279,16 +279,16 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                 <DataTable
                   columnContentTypes={['text', 'text', 'text', 'numeric']}
                   headings={['Type', 'Member', 'Description', 'Amount']}
-                  rows={activity.slice(0, 5).map((item) => [
+                  rows={activity.slice(0, 5).filter(item => item && item.id != null).map((item) => [
                     <Badge
                       key={item.id}
                       tone={item.type === 'trade_in' ? 'success' : 'info'}
                     >
-                      {item.type === 'trade_in' ? 'Trade-In' : item.type}
+                      {item.type === 'trade_in' ? 'Trade-In' : (item.type || 'Activity')}
                     </Badge>,
-                    item.member_name,
-                    item.description,
-                    formatCurrency(item.amount),
+                    item.member_name || 'Unknown',
+                    item.description || '-',
+                    formatCurrency(item.amount || 0),
                   ])}
                 />
               ) : (

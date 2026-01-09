@@ -1846,10 +1846,10 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       <Box paddingBlockStart="200">
                         <BlockStack gap="200">
                           <Text as="h4" variant="headingSm">Preview (first 5 members):</Text>
-                          {monthlyCreditsPreview.details.slice(0, 5).map((detail, idx) => (
+                          {monthlyCreditsPreview.details.slice(0, 5).filter(detail => detail && detail.member_number).map((detail, idx) => (
                             <InlineStack key={idx} gap="200" align="space-between">
                               <Text as="span" variant="bodySm">
-                                {detail.member_number} ({detail.tier})
+                                {detail.member_number || 'Unknown'} ({detail.tier || 'No tier'})
                               </Text>
                               <Badge tone="success">{`$${(detail.amount || 0).toFixed(2)}`}</Badge>
                             </InlineStack>
@@ -1934,10 +1934,10 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       <Box paddingBlockStart="200">
                         <BlockStack gap="200">
                           <Text as="h4" variant="headingSm">Members with expiring credits:</Text>
-                          {expiringCredits.members.slice(0, 5).map((member, idx) => (
+                          {expiringCredits.members.slice(0, 5).filter(member => member && member.member_number).map((member, idx) => (
                             <InlineStack key={idx} gap="200" align="space-between">
                               <Text as="span" variant="bodySm">
-                                {member.member_number} ({member.email || 'No email'})
+                                {member.member_number || 'Unknown'} ({member.email || 'No email'})
                               </Text>
                               <Badge tone="warning">{`$${(member.total_expiring || 0).toFixed(2)}`}</Badge>
                             </InlineStack>
