@@ -165,9 +165,9 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
       try {
         const result = await searchMembers(shop, memberSearch);
         setMemberOptions(
-          result.members.map((m) => ({
+          result.members.filter(m => m && m.id != null).map((m) => ({
             value: String(m.id),
-            label: `${m.name || m.email} (${m.member_number})`,
+            label: `${m.name || m.email || 'Unknown'} (${m.member_number || 'N/A'})`,
             member: m,
           }))
         );

@@ -243,7 +243,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                       'Status',
                       '',
                     ]}
-                    rows={data.batches.map((batch) => [
+                    rows={data.batches.filter(b => b && b.id != null).map((batch) => [
                       <BlockStack gap="100" key={batch.id}>
                         <Text as="span" fontWeight="bold">
                           {batch.member_name || batch.guest_name || 'Unknown'}

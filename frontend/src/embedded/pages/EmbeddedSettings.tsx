@@ -1122,7 +1122,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               ) : tiersData?.tiers && tiersData.tiers.length > 0 ? (
                 <ResourceList
                   resourceName={{ singular: 'tier', plural: 'tiers' }}
-                  items={tiersData.tiers}
+                  items={tiersData.tiers.filter(t => t && t.id != null)}
                   renderItem={(tier) => (
                     <ResourceItem
                       id={String(tier.id)}
@@ -1135,7 +1135,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                         {
                           content: 'Delete',
                           onAction: () => {
-                            if (confirm(`Delete the "${tier.name}" tier?`)) {
+                            if (confirm(`Delete the "${tier.name || 'this'}" tier?`)) {
                               deleteTierMutation.mutate(tier.id);
                             }
                           },
@@ -1447,9 +1447,9 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       {syncSegmentsMutation.data.segments.length} segments synced successfully!
                     </Text>
                     <List type="bullet">
-                      {syncSegmentsMutation.data.segments.map((seg) => (
+                      {syncSegmentsMutation.data.segments.filter(s => s && s.id != null).map((seg) => (
                         <List.Item key={seg.id}>
-                          {seg.name} ({seg.action})
+                          {seg.name || 'Unknown'} ({seg.action || 'unknown'})
                         </List.Item>
                       ))}
                     </List>
@@ -1569,9 +1569,9 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       {syncProductsMutation.data.products.length} membership products synced!
                     </Text>
                     <List type="bullet">
-                      {syncProductsMutation.data.products.map((prod) => (
+                      {syncProductsMutation.data.products.filter(p => p && p.product_id != null).map((prod) => (
                         <List.Item key={prod.product_id}>
-                          {prod.tier} Membership ({prod.action})
+                          {prod.tier || 'Unknown'} Membership ({prod.action || 'unknown'})
                         </List.Item>
                       ))}
                     </List>

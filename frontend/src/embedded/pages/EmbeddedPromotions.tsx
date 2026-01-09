@@ -842,14 +842,14 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                   /* Mobile: Card-based layout */
                   <Box padding="300">
                     <BlockStack gap="300">
-                      {promotions.map((promo, index) => (
+                      {promotions.filter(p => p && p.id != null).map((promo, index) => (
                         <Box key={promo.id}>
                           {index > 0 && <Divider />}
                           <Box paddingBlock="300">
                             <BlockStack gap="200">
                               <InlineStack align="space-between" blockAlign="start">
                                 <BlockStack gap="100">
-                                  <Text as="span" fontWeight="semibold">{promo.name}</Text>
+                                  <Text as="span" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
                                   {promo.code && <Badge size="small">{promo.code}</Badge>}
                                 </BlockStack>
                                 {getStatusBadge(promo)}
@@ -895,9 +895,9 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                   <DataTable
                     columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
                     headings={['Name', 'Type', 'Value', 'Schedule', 'Status', 'Actions']}
-                    rows={promotions.map((promo) => [
+                    rows={promotions.filter(p => p && p.id != null).map((promo) => [
                       <BlockStack gap="100" key={promo.id}>
-                        <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name}</Text>
+                        <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
                         {promo.code && <Badge>{promo.code}</Badge>}
                       </BlockStack>,
                       PROMO_TYPE_OPTIONS.find(o => o.value === promo.promo_type)?.label || promo.promo_type,
@@ -1613,13 +1613,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     <DataTable
                       columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric']}
                       headings={['Customer', 'Email', 'Orders', 'Spent', 'Credit']}
-                      rows={eventPreview.top_customers.slice(0, 10).map((customer) => [
+                      rows={eventPreview.top_customers.slice(0, 10).filter(c => c && c.customer_id != null).map((customer) => [
                         customer.name || 'Guest',
                         customer.email || '-',
-                        customer.order_count,
-                        formatCurrency(customer.total_spent),
+                        customer.order_count || 0,
+                        formatCurrency(customer.total_spent || 0),
                         <Badge key={customer.customer_id} tone="success">
-                          {formatCurrency(customer.credit_amount)}
+                          {formatCurrency(customer.credit_amount || 0)}
                         </Badge>,
                       ])}
                     />

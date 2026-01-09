@@ -188,8 +188,9 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   };
 
   // Build tier filter choices from backend data
+  // IMPORTANT: Check t exists first to prevent "Cannot read properties of undefined" errors
   const tierChoices = tiersData?.tiers
-    ? tiersData.tiers.filter(t => t.active && t.name).map(tier => ({
+    ? tiersData.tiers.filter(t => t && t.active && t.name).map(tier => ({
         label: tier.name,
         value: tier.name?.toLowerCase() || '',
       }))
@@ -286,7 +287,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                   /* Mobile: Card-based layout */
                   <Box padding="300">
                     <BlockStack gap="300">
-                      {data.members.map((member, index) => (
+                      {data.members.filter(m => m && m.id != null).map((member, index) => (
                         <Box key={member.id}>
                           {index > 0 && <Divider />}
                           <Box paddingBlock="300">
@@ -349,13 +350,13 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                       'Credits Issued',
                       'Last Activity',
                     ]}
-                    rows={data.members.map((member) => [
+                    rows={data.members.filter(m => m && m.id != null).map((member) => [
                       <BlockStack gap="100" key={member.id}>
                         <Button
                           variant="plain"
                           onClick={() => setDetailMember(member)}
                         >
-                          {member.first_name} {member.last_name}
+                          {member.first_name || ''} {member.last_name || ''}
                         </Button>
                         <Text as="p" variant="bodySm" tone="subdued">
                           {member.email}
@@ -1096,7 +1097,7 @@ function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
               <ChoiceList
                 title="Select Tiers to Email"
                 choices={tiers
-                  ? tiers.filter(t => t.active && t.name).map(tier => ({
+                  ? tiers.filter(t => t && t.active && t.name).map(tier => ({
                       label: tier.name,
                       value: tier.name?.toUpperCase() || '',
                     }))

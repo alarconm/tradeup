@@ -242,7 +242,7 @@ export function EmbeddedCategories({ shop }: CategoriesProps) {
             <Card padding="0">
               <ResourceList
                 resourceName={{ singular: 'category', plural: 'categories' }}
-                items={categories}
+                items={categories.filter(c => c && c.id != null)}
                 renderItem={(category) => (
                   <ResourceItem
                     id={category.id}

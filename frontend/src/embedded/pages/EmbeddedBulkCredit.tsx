@@ -145,10 +145,11 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
   });
 
   // Build tier filter options from backend data
+  // IMPORTANT: Check t exists first to prevent "Cannot read properties of undefined" errors
   const tierFilterOptions = [
     { label: 'All Active Members', value: '' },
     ...(tiersData?.tiers
-      ? tiersData.tiers.filter(t => t.active && t.name).map(tier => ({
+      ? tiersData.tiers.filter(t => t && t.active && t.name).map(tier => ({
           label: `${tier.name} Only`,
           value: tier.name?.toUpperCase() || '',
         }))
@@ -328,9 +329,9 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
                       Sample Recipients ({previewData.members.length} of {previewData.member_count})
                     </Text>
                     <InlineStack gap="200" wrap>
-                      {previewData.members.map((m) => (
+                      {previewData.members.filter(m => m && m.id != null).map((m) => (
                         <Tag key={m.id}>
-                          {m.email} ({m.tier})
+                          {m.email || 'Unknown'} ({m.tier || 'No tier'})
                         </Tag>
                       ))}
                     </InlineStack>
@@ -374,14 +375,14 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
             ) : operations.length > 0 ? (
               <ResourceList
                 resourceName={{ singular: 'operation', plural: 'operations' }}
-                items={operations}
+                items={operations.filter(op => op && op.id != null)}
                 renderItem={(op) => (
                   <ResourceItem id={String(op.id)} onClick={() => {}}>
                     <InlineStack align="space-between" blockAlign="center">
                       <BlockStack gap="100">
                         <InlineStack gap="200" blockAlign="center">
                           <Text as="h3" variant="bodyMd" fontWeight="semibold">
-                            {op.name}
+                            {op.name || 'Untitled'}
                           </Text>
                           {getStatusBadge(op.status)}
                           {op.tier_filter && (

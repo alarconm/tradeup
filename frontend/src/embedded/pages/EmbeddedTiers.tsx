@@ -240,11 +240,11 @@ export function EmbeddedTiers({ shop }: TiersProps) {
             {tiers && tiers.length > 0 ? (
               <ResourceList
                 resourceName={{ singular: 'tier', plural: 'tiers' }}
-                items={tiers}
+                items={tiers.filter(t => t && t.id != null)}
                 renderItem={(tier) => (
                   <ResourceItem
                     id={String(tier.id)}
-                    accessibilityLabel={tier.name}
+                    accessibilityLabel={tier.name || 'Tier'}
                     onClick={() => openModal(tier)}
                     media={
                       <Avatar
