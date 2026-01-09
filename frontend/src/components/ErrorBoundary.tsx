@@ -112,6 +112,22 @@ export class ErrorBoundary extends Component<Props, State> {
                     <Text as="p" variant="bodySm" tone="subdued">
                       {error?.message || 'An unknown error occurred'}
                     </Text>
+                    {this.state.errorInfo?.componentStack && (
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodySm" fontWeight="semibold">
+                          Component Stack:
+                        </Text>
+                        <Box
+                          background="bg-surface"
+                          padding="200"
+                          borderRadius="100"
+                        >
+                          <pre style={{ fontSize: '10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                            {this.state.errorInfo.componentStack.split('\n').slice(0, 5).join('\n')}
+                          </pre>
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
 
                   <BlockStack gap="200">
