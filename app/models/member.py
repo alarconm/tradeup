@@ -53,9 +53,20 @@ class MembershipTier(db.Model):
         return f'<MembershipTier {self.name}>'
 
     def to_dict(self):
+        # Default tier colors based on name
+        tier_colors = {
+            'silver': '#9CA3AF',
+            'gold': '#F59E0B',
+            'platinum': '#6366F1',
+            'bronze': '#CD7F32',
+            'diamond': '#3B82F6',
+        }
+        default_color = tier_colors.get((self.name or '').lower(), '#6B7280')
+
         return {
             'id': self.id,
             'name': self.name,
+            'color': default_color,  # Frontend-compatible color field
             'monthly_price': float(self.monthly_price),
             'yearly_price': float(self.yearly_price) if self.yearly_price else None,
             'bonus_rate': float(self.bonus_rate),
@@ -65,7 +76,8 @@ class MembershipTier(db.Model):
             'benefits': self.benefits,
             'is_active': self.is_active,
             'display_order': self.display_order,
-            'shopify_selling_plan_id': self.shopify_selling_plan_id
+            'shopify_selling_plan_id': self.shopify_selling_plan_id,
+            'active': self.is_active  # Alias for frontend compatibility
         }
 
 
@@ -138,6 +150,20 @@ class Member(db.Model):
         return f'<Member {self.member_number}>'
 
     def to_dict(self, include_stats=False, include_subscription=False, include_referrals=False):
+        # Split name into first/last for frontend compatibility
+        name_parts = (self.name or '').split(' ', 1) if self.name else ['', '']
+        first_name = name_parts[0] if name_parts else ''
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+        # Get last trade-in date from related batches
+        last_trade_in = None
+        if self.trade_in_batches:
+            latest_batch = self.trade_in_batches.order_by(
+                db.desc('created_at')
+            ).first()
+            if latest_batch:
+                last_trade_in = latest_batch.created_at
+
         data = {
             'id': self.id,
             'member_number': self.member_number,
@@ -146,18 +172,26 @@ class Member(db.Model):
             'partner_customer_id': self.partner_customer_id,
             'email': self.email,
             'name': self.name,
+            # Frontend-compatible name fields
+            'first_name': first_name,
+            'last_name': last_name,
             'phone': self.phone,
             'tier': self.tier.to_dict() if self.tier else None,
             'status': self.status,
             'membership_start_date': self.membership_start_date.isoformat() if self.membership_start_date else None,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Frontend-compatible stats fields at root level
+            'trade_in_count': self.total_trade_ins or 0,
+            'total_trade_in_value': float(self.total_trade_value or 0),
+            'total_credits_issued': float(self.total_bonus_earned or 0),
+            'last_trade_in_at': last_trade_in.isoformat() if last_trade_in else None
         }
 
         if include_stats:
             data['stats'] = {
-                'total_bonus_earned': float(self.total_bonus_earned),
-                'total_trade_ins': self.total_trade_ins,
-                'total_trade_value': float(self.total_trade_value)
+                'total_bonus_earned': float(self.total_bonus_earned or 0),
+                'total_trade_ins': self.total_trade_ins or 0,
+                'total_trade_value': float(self.total_trade_value or 0)
             }
 
         if include_subscription:
