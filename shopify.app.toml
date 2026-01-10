@@ -63,9 +63,22 @@ api_version = "2024-10"
   topics = [ "app_purchases_one_time/update" ]
   uri = "/webhook/shopify-billing/purchases"
 
+  # GDPR Mandatory Compliance Webhooks (Required for App Store)
+  [[webhooks.subscriptions]]
+  topics = [ "customers/data_request" ]
+  uri = "/webhook/customers/data_request"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/redact" ]
+  uri = "/webhook/customers/redact"
+
+  [[webhooks.subscriptions]]
+  topics = [ "shop/redact" ]
+  uri = "/webhook/shop/redact"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products"
+scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products,read_store_credit_accounts,write_store_credit_accounts"
 
 [auth]
 redirect_urls = [
