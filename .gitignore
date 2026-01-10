@@ -74,3 +74,4 @@ yarn-error.log
 # Frontend dist - INCLUDE for deployment (exception to dist/ rule)
 !frontend/dist/
 !frontend/dist/**
+nul
