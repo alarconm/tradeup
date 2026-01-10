@@ -21,6 +21,7 @@ members_bp = Blueprint('members', __name__)
 @require_shopify_auth_debug
 def debug_endpoint():
     """Debug endpoint to test auth and DB connectivity."""
+    import os
     try:
         tenant_id = g.tenant_id
         tenant = g.tenant
@@ -31,6 +32,16 @@ def debug_endpoint():
         # Test tier query
         tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id).count()
 
+        # Test access token access (this might fail due to encryption)
+        access_token_status = 'unknown'
+        access_token_error = None
+        try:
+            has_token = bool(tenant.shopify_access_token)
+            access_token_status = 'present' if has_token else 'missing'
+        except Exception as e:
+            access_token_status = 'error'
+            access_token_error = str(e)
+
         return jsonify({
             'status': 'ok',
             'tenant_id': tenant_id,
@@ -39,7 +50,11 @@ def debug_endpoint():
             'member_count': member_count,
             'tier_count': tier_count,
             'tenant_active': tenant.is_active,
-            'subscription_plan': tenant.subscription_plan
+            'subscription_plan': tenant.subscription_plan,
+            'access_token_status': access_token_status,
+            'access_token_error': access_token_error,
+            'env_flask_env': os.getenv('FLASK_ENV'),
+            'env_has_encryption_key': bool(os.getenv('ENCRYPTION_KEY'))
         })
     except Exception as e:
         import traceback
