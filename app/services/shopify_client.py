@@ -626,6 +626,98 @@ class ShopifyClient:
         except Exception:
             return None
 
+    def create_customer(
+        self,
+        email: str,
+        first_name: str = None,
+        last_name: str = None,
+        phone: str = None,
+        tags: List[str] = None,
+        note: str = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new customer in Shopify.
+
+        Args:
+            email: Customer email (required)
+            first_name: Customer first name
+            last_name: Customer last name
+            phone: Customer phone number
+            tags: List of tags to add to customer
+            note: Internal note about customer
+
+        Returns:
+            Dict with customer data including id, email, etc.
+
+        Raises:
+            Exception: If customer creation fails
+        """
+        query = """
+        mutation customerCreate($input: CustomerInput!) {
+            customerCreate(input: $input) {
+                customer {
+                    id
+                    email
+                    firstName
+                    lastName
+                    displayName
+                    phone
+                    tags
+                    createdAt
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+
+        input_data = {
+            'email': email
+        }
+
+        if first_name:
+            input_data['firstName'] = first_name
+        if last_name:
+            input_data['lastName'] = last_name
+        if phone:
+            input_data['phone'] = phone
+        if tags:
+            input_data['tags'] = tags
+        if note:
+            input_data['note'] = note
+
+        result = self._execute_query(query, {'input': input_data})
+
+        mutation_result = result.get('customerCreate', {})
+        user_errors = mutation_result.get('userErrors', [])
+
+        if user_errors:
+            error_messages = [f"{e.get('field', 'unknown')}: {e.get('message', 'Unknown error')}" for e in user_errors]
+            raise Exception(f"Failed to create customer: {'; '.join(error_messages)}")
+
+        customer = mutation_result.get('customer')
+        if not customer:
+            raise Exception("Customer creation returned no customer data")
+
+        # Extract numeric ID from GID
+        gid = customer.get('id', '')
+        numeric_id = gid.split('/')[-1] if gid else None
+
+        return {
+            'id': numeric_id,
+            'gid': gid,
+            'email': customer.get('email'),
+            'firstName': customer.get('firstName'),
+            'lastName': customer.get('lastName'),
+            'displayName': customer.get('displayName'),
+            'name': customer.get('displayName') or f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip(),
+            'phone': customer.get('phone'),
+            'tags': customer.get('tags', []),
+            'createdAt': customer.get('createdAt')
+        }
+
     def get_collections(self) -> List[Dict[str, Any]]:
         """
         Get all collections from Shopify.

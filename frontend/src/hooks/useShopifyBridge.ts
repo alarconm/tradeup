@@ -280,6 +280,8 @@ function xhrFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const xhr = new XMLHttpRequest();
     const method = options.method || 'GET';
 
+    console.log(`[TradeUp API] ${method} ${url}`);
+
     xhr.open(method, url, true);
 
     // Set headers
@@ -288,10 +290,11 @@ function xhrFetch(url: string, options: RequestInit = {}): Promise<Response> {
       xhr.setRequestHeader(key, headers[key]);
     });
 
-    // Set timeout (10 seconds)
-    xhr.timeout = 10000;
+    // Set timeout (30 seconds for API calls)
+    xhr.timeout = 30000;
 
     xhr.onload = () => {
+      console.log(`[TradeUp API] ${method} ${url} -> ${xhr.status}`);
       const response = new Response(xhr.responseText, {
         status: xhr.status,
         statusText: xhr.statusText,
@@ -310,11 +313,13 @@ function xhrFetch(url: string, options: RequestInit = {}): Promise<Response> {
     };
 
     xhr.onerror = () => {
-      reject(new Error('Network error'));
+      console.error(`[TradeUp API] ${method} ${url} -> Network error`);
+      reject(new Error(`Network error. Please check your connection and try again.`));
     };
 
     xhr.ontimeout = () => {
-      reject(new Error('Request timeout'));
+      console.error(`[TradeUp API] ${method} ${url} -> Timeout after 30s`);
+      reject(new Error(`Request timed out. The server may be busy - please try again.`));
     };
 
     // Send request

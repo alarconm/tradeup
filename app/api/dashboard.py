@@ -93,8 +93,8 @@ def get_dashboard_stats():
         )
         total_credits_issued = float(total_credits_result or 0)
 
-        # Tier count for usage
-        tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id).count()
+        # Tier count for usage (only active tiers)
+        tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id, is_active=True).count()
 
         # Build subscription object
         max_members = tenant.max_members if tenant else 100

@@ -164,6 +164,143 @@ def enroll_shopify_customer():
         return jsonify({'error': f'Enrollment failed: {str(e)}'}), 500
 
 
+@members_bp.route('/create-shopify-customer', methods=['POST'])
+@require_shopify_auth
+def create_shopify_customer():
+    """
+    Create a new customer in Shopify.
+
+    JSON body:
+        email: Customer email (required)
+        first_name: First name (optional)
+        last_name: Last name (optional)
+        phone: Phone number (optional)
+
+    Returns the created Shopify customer data.
+    """
+    tenant_id = g.tenant_id
+    data = request.json or {}
+
+    email = data.get('email', '').strip()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    # Validate email format
+    if '@' not in email or '.' not in email:
+        return jsonify({'error': 'Invalid email format'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+
+        # Check if customer already exists
+        existing = client.get_customer_by_email(email)
+        if existing:
+            return jsonify({
+                'error': 'Customer with this email already exists in Shopify',
+                'existing_customer': existing
+            }), 409
+
+        # Create customer in Shopify
+        customer = client.create_customer(
+            email=email,
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name'),
+            phone=data.get('phone')
+        )
+
+        return jsonify({
+            'success': True,
+            'customer': customer,
+            'message': f'Customer created in Shopify'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to create customer: {str(e)}'}), 500
+
+
+@members_bp.route('/create-and-enroll', methods=['POST'])
+@require_shopify_auth
+def create_and_enroll_customer():
+    """
+    Create a new Shopify customer AND enroll them as a TradeUp member in one step.
+
+    JSON body:
+        email: Customer email (required)
+        first_name: First name (optional)
+        last_name: Last name (optional)
+        phone: Phone number (optional)
+        tier_id: Membership tier ID (optional, defaults to lowest tier)
+        notes: Internal notes (optional)
+
+    This is the "Create as New Customer" workflow - everything flows through Shopify.
+    """
+    tenant_id = g.tenant_id
+    data = request.json or {}
+
+    email = data.get('email', '').strip()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    # Validate email format
+    if '@' not in email or '.' not in email:
+        return jsonify({'error': 'Invalid email format'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+
+        # Check if customer already exists in Shopify
+        existing = client.get_customer_by_email(email)
+
+        if existing:
+            # Customer exists - check if already a member
+            existing_member = Member.query.filter_by(
+                tenant_id=tenant_id,
+                shopify_customer_id=existing.get('id')
+            ).first()
+
+            if existing_member:
+                return jsonify({
+                    'error': 'Customer is already enrolled as a member',
+                    'member': existing_member.to_dict(include_stats=True)
+                }), 409
+
+            # Customer exists but not a member - enroll them
+            shopify_customer_id = existing.get('id')
+        else:
+            # Create new customer in Shopify
+            customer = client.create_customer(
+                email=email,
+                first_name=data.get('first_name'),
+                last_name=data.get('last_name'),
+                phone=data.get('phone')
+            )
+            shopify_customer_id = customer.get('id')
+
+        # Now enroll as member
+        service = MembershipService(tenant_id)
+        member = service.enroll_shopify_customer(
+            shopify_customer_id=str(shopify_customer_id),
+            tier_id=data.get('tier_id'),
+            notes=data.get('notes')
+        )
+
+        return jsonify({
+            'success': True,
+            'member': member.to_dict(include_stats=True),
+            'message': f'Successfully created and enrolled as {member.member_number}',
+            'shopify_customer_id': shopify_customer_id
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to create and enroll: {str(e)}'}), 500
+
+
 # ==================== Member CRUD ====================
 
 @members_bp.route('', methods=['GET'])

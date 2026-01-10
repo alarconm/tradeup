@@ -1210,13 +1210,20 @@ interface AddMemberModalProps {
 
 interface ShopifyCustomer {
   id: string;
+  gid?: string;
   email: string;
   firstName: string;
   lastName: string;
   displayName?: string;
+  name?: string;
   phone: string | null;
-  ordersCount: number;
-  totalSpent: number | string;
+  ordersCount?: number;
+  numberOfOrders?: number;
+  totalSpent?: number | string;
+  amountSpent?: number | string;
+  storeCredit?: number;
+  is_member?: boolean;
+  member_number?: string;
 }
 
 function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
@@ -1226,7 +1233,15 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
   const [selectedTierId, setSelectedTierId] = useState<string>('');
   const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Create new customer mode
+  const [createNewMode, setCreateNewMode] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
 
   // Fetch available tiers
   const { data: tiers } = useQuery<{ id: number; name: string }[]>({
@@ -1245,9 +1260,10 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     if (!searchQuery || searchQuery.length < 2) return;
 
     setSearching(true);
+    setHasSearched(true);
     try {
       const response = await authFetch(
-        `${getApiUrl()}/admin/shopify/customers/search?q=${encodeURIComponent(searchQuery)}`,
+        `${getApiUrl()}/members/search-shopify?q=${encodeURIComponent(searchQuery)}`,
         shop
       );
       if (response.ok) {
@@ -1261,19 +1277,15 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     }
   }, [searchQuery, shop]);
 
-  // Enroll customer as member
+  // Enroll existing customer as member
   const enrollMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCustomer) throw new Error('No customer selected');
 
-      const response = await authFetch(`${getApiUrl()}/members`, shop, {
+      const response = await authFetch(`${getApiUrl()}/members/enroll`, shop, {
         method: 'POST',
         body: JSON.stringify({
           shopify_customer_id: selectedCustomer.id,
-          email: selectedCustomer.email,
-          first_name: selectedCustomer.firstName,
-          last_name: selectedCustomer.lastName,
-          phone: selectedCustomer.phone,
           tier_id: selectedTierId ? parseInt(selectedTierId) : null,
         }),
       });
@@ -1290,12 +1302,46 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     },
   });
 
+  // Create new Shopify customer AND enroll as member
+  const createAndEnrollMutation = useMutation({
+    mutationFn: async () => {
+      if (!newEmail) throw new Error('Email is required');
+
+      const response = await authFetch(`${getApiUrl()}/members/create-and-enroll`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newEmail,
+          first_name: newFirstName || undefined,
+          last_name: newLastName || undefined,
+          phone: newPhone || undefined,
+          tier_id: selectedTierId ? parseInt(selectedTierId) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create customer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+
   const handleClose = useCallback(() => {
     setSearchQuery('');
     setSelectedCustomer(null);
     setSelectedTierId('');
     setSearchResults([]);
+    setHasSearched(false);
     setSuccess(false);
+    setCreateNewMode(false);
+    setNewEmail('');
+    setNewFirstName('');
+    setNewLastName('');
+    setNewPhone('');
     onClose();
   }, [onClose]);
 
@@ -1304,14 +1350,24 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     ...(tiers?.filter(t => t && t.name).map((t) => ({ label: t.name || '', value: String(t.id) })) || []),
   ];
 
+  // Determine if we can enroll/create
+  const canCreateNew = newEmail && newEmail.includes('@') && newEmail.includes('.');
+
   return (
     <Modal
       open={open}
       onClose={handleClose}
-      title="Add Member"
+      title={createNewMode ? "Create New Customer" : "Add Member"}
       primaryAction={
         success
           ? { content: 'Done', onAction: handleClose }
+          : createNewMode
+          ? {
+              content: 'Create & Enroll',
+              onAction: () => createAndEnrollMutation.mutate(),
+              loading: createAndEnrollMutation.isPending,
+              disabled: !canCreateNew,
+            }
           : selectedCustomer
           ? {
               content: 'Enroll Member',
@@ -1323,6 +1379,19 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
       secondaryActions={
         success
           ? []
+          : createNewMode
+          ? [
+              {
+                content: 'Back to Search',
+                onAction: () => {
+                  setCreateNewMode(false);
+                  setNewEmail('');
+                  setNewFirstName('');
+                  setNewLastName('');
+                  setNewPhone('');
+                },
+              },
+            ]
           : selectedCustomer
           ? [
               {
@@ -1339,11 +1408,76 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
             <BlockStack gap="200">
               <Text as="p" variant="headingMd">Member Enrolled!</Text>
               <Text as="p">
-                {selectedCustomer?.firstName} {selectedCustomer?.lastName} has been enrolled
-                in your loyalty program.
+                {createNewMode
+                  ? `${newFirstName || ''} ${newLastName || ''} (${newEmail})`.trim()
+                  : selectedCustomer?.name || `${selectedCustomer?.firstName || ''} ${selectedCustomer?.lastName || ''}`.trim()
+                } has been enrolled in your loyalty program.
               </Text>
             </BlockStack>
           </Banner>
+        </Modal.Section>
+      ) : createNewMode ? (
+        <Modal.Section>
+          <BlockStack gap="400">
+            {createAndEnrollMutation.isError && (
+              <Banner tone="critical">
+                <p>{createAndEnrollMutation.error?.message || 'Failed to create customer'}</p>
+              </Banner>
+            )}
+
+            <Banner tone="info">
+              <Text as="p">
+                This will create a new customer in Shopify and automatically enroll them as a member.
+              </Text>
+            </Banner>
+
+            <FormLayout>
+              <TextField
+                label="Email"
+                type="email"
+                value={newEmail}
+                onChange={setNewEmail}
+                autoComplete="email"
+                placeholder="customer@example.com"
+                requiredIndicator
+                error={newEmail && !canCreateNew ? 'Please enter a valid email' : undefined}
+              />
+
+              <FormLayout.Group>
+                <TextField
+                  label="First Name"
+                  value={newFirstName}
+                  onChange={setNewFirstName}
+                  autoComplete="given-name"
+                  placeholder="John"
+                />
+                <TextField
+                  label="Last Name"
+                  value={newLastName}
+                  onChange={setNewLastName}
+                  autoComplete="family-name"
+                  placeholder="Doe"
+                />
+              </FormLayout.Group>
+
+              <TextField
+                label="Phone (optional)"
+                type="tel"
+                value={newPhone}
+                onChange={setNewPhone}
+                autoComplete="tel"
+                placeholder="+1 555-123-4567"
+              />
+
+              <Select
+                label="Starting Tier"
+                options={tierOptions}
+                value={selectedTierId}
+                onChange={setSelectedTierId}
+                helpText="Select an initial tier or leave at base level"
+              />
+            </FormLayout>
+          </BlockStack>
         </Modal.Section>
       ) : selectedCustomer ? (
         <Modal.Section>
@@ -1357,17 +1491,17 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
             <Card background="bg-surface-secondary">
               <BlockStack gap="200">
                 <Text as="h3" variant="headingSm">
-                  {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  {selectedCustomer.name || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim() || 'Unknown'}
                 </Text>
                 <Text as="p" tone="subdued">
                   {selectedCustomer.email}
                 </Text>
                 <InlineStack gap="400">
                   <Text as="span" variant="bodySm">
-                    {selectedCustomer.ordersCount} orders
+                    {selectedCustomer.numberOfOrders || selectedCustomer.ordersCount || 0} orders
                   </Text>
                   <Text as="span" variant="bodySm">
-                    ${selectedCustomer.totalSpent} spent
+                    ${selectedCustomer.amountSpent || selectedCustomer.totalSpent || 0} spent
                   </Text>
                 </InlineStack>
               </BlockStack>
@@ -1415,11 +1549,11 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                 {searchResults.map((customer) => (
                   <div
                     key={customer.id}
-                    onClick={() => setSelectedCustomer(customer)}
+                    onClick={() => !customer.is_member && setSelectedCustomer(customer)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && setSelectedCustomer(customer)}
-                    style={{ cursor: 'pointer' }}
+                    onKeyDown={(e) => e.key === 'Enter' && !customer.is_member && setSelectedCustomer(customer)}
+                    style={{ cursor: customer.is_member ? 'not-allowed' : 'pointer', opacity: customer.is_member ? 0.6 : 1 }}
                   >
                     <Box
                       padding="300"
@@ -1428,34 +1562,70 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                     >
                     <InlineStack align="space-between" blockAlign="center">
                       <BlockStack gap="100">
-                        <Text as="span" fontWeight="semibold">
-                          {customer.firstName} {customer.lastName}
-                        </Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="span" fontWeight="semibold">
+                            {customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
+                          </Text>
+                          {customer.is_member && (
+                            <Badge tone="success" size="small">{`Member ${customer.member_number || ''}`}</Badge>
+                          )}
+                        </InlineStack>
                         <Text as="span" variant="bodySm" tone="subdued">
                           {customer.email}
                         </Text>
                       </BlockStack>
                       <BlockStack gap="050" inlineAlign="end">
                         <Text as="span" variant="bodySm">
-                          {customer.ordersCount} orders
+                          {customer.numberOfOrders || customer.ordersCount || 0} orders
                         </Text>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          ${customer.totalSpent}
+                          ${customer.amountSpent || customer.totalSpent || 0}
                         </Text>
                       </BlockStack>
                     </InlineStack>
                     </Box>
                   </div>
                 ))}
+
+                <Divider />
+                <Button
+                  variant="plain"
+                  onClick={() => setCreateNewMode(true)}
+                >
+                  Or create a new customer
+                </Button>
               </BlockStack>
-            ) : searchQuery.length >= 2 && !searching ? (
-              <Text as="p" tone="subdued" alignment="center">
-                No customers found. Try a different search.
-              </Text>
+            ) : hasSearched && !searching ? (
+              <BlockStack gap="300">
+                <Banner tone="info">
+                  <Text as="p">No customers found matching "{searchQuery}"</Text>
+                </Banner>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setCreateNewMode(true);
+                    // Pre-fill email if search query looks like an email
+                    if (searchQuery.includes('@')) {
+                      setNewEmail(searchQuery);
+                    }
+                  }}
+                  fullWidth
+                >
+                  Create New Customer
+                </Button>
+              </BlockStack>
             ) : (
-              <Text as="p" tone="subdued" alignment="center">
-                Search for a Shopify customer to enroll as a member.
-              </Text>
+              <BlockStack gap="300">
+                <Text as="p" tone="subdued" alignment="center">
+                  Search for a Shopify customer to enroll as a member, or create a new customer.
+                </Text>
+                <Button
+                  variant="plain"
+                  onClick={() => setCreateNewMode(true)}
+                >
+                  Create new customer instead
+                </Button>
+              </BlockStack>
             )}
           </BlockStack>
         </Modal.Section>

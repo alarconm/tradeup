@@ -1,8 +1,13 @@
 /**
  * TradeUp Membership Tiers - Shopify Embedded Version
  *
- * Configure membership tiers with trade-in rates.
- * This is the core feature of TradeUp.
+ * Comprehensive tier configuration including:
+ * - Basic tier info (name, pricing)
+ * - Trade-in bonus rates
+ * - Purchase cashback percentages
+ * - Recurring monthly credits
+ * - Credit expiration settings
+ * - Benefits (discounts, free shipping)
  */
 import { useState, useCallback } from 'react';
 import {
@@ -17,15 +22,18 @@ import {
   Modal,
   TextField,
   FormLayout,
-  Select,
   Banner,
   Spinner,
   EmptyState,
   ResourceList,
   ResourceItem,
   Avatar,
+  Divider,
+  Collapsible,
+  Button,
+  RangeSlider,
 } from '@shopify/polaris';
-import { PlusIcon } from '@shopify/polaris-icons';
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -33,28 +41,39 @@ interface TiersProps {
   shop: string | null;
 }
 
+interface TierBenefits {
+  discount_percent?: number;
+  free_shipping_threshold?: number;
+  monthly_credit?: number;
+  features?: string[];
+}
+
 interface MembershipTier {
   id: number;
   name: string;
-  slug: string;
-  trade_in_rate: number;
-  monthly_fee: number;
-  min_spend_requirement: number | null;
-  color: string;
-  icon: string;
-  benefits: string[];
-  member_count: number;
-  is_default: boolean;
+  monthly_price: number;
+  yearly_price: number | null;
+  bonus_rate: number;
+  purchase_cashback_pct: number;
+  monthly_credit_amount: number;
+  credit_expiration_days: number | null;
+  benefits: TierBenefits;
+  display_order: number;
   is_active: boolean;
+  color?: string;
 }
 
 async function fetchTiers(shop: string | null): Promise<MembershipTier[]> {
   const response = await authFetch(
-    `${getApiUrl()}/membership/tiers`,
+    `${getApiUrl()}/members/tiers`,
     shop
   );
-  if (!response.ok) throw new Error('Failed to fetch tiers');
-  return response.json();
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || `Failed to fetch tiers (${response.status})`);
+  }
+  const data = await response.json();
+  return data.tiers || [];
 }
 
 async function createTier(
@@ -62,14 +81,17 @@ async function createTier(
   tier: Partial<MembershipTier>
 ): Promise<MembershipTier> {
   const response = await authFetch(
-    `${getApiUrl()}/membership/tiers`,
+    `${getApiUrl()}/members/tiers`,
     shop,
     {
       method: 'POST',
       body: JSON.stringify(tier),
     }
   );
-  if (!response.ok) throw new Error('Failed to create tier');
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || `Failed to create tier (${response.status})`);
+  }
   return response.json();
 }
 
@@ -79,24 +101,30 @@ async function updateTier(
   tier: Partial<MembershipTier>
 ): Promise<MembershipTier> {
   const response = await authFetch(
-    `${getApiUrl()}/membership/tiers/${tierId}`,
+    `${getApiUrl()}/members/tiers/${tierId}`,
     shop,
     {
       method: 'PUT',
       body: JSON.stringify(tier),
     }
   );
-  if (!response.ok) throw new Error('Failed to update tier');
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || `Failed to update tier (${response.status})`);
+  }
   return response.json();
 }
 
 async function deleteTier(shop: string | null, tierId: number): Promise<void> {
   const response = await authFetch(
-    `${getApiUrl()}/membership/tiers/${tierId}`,
+    `${getApiUrl()}/members/tiers/${tierId}`,
     shop,
     { method: 'DELETE' }
   );
-  if (!response.ok) throw new Error('Failed to delete tier');
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to delete tier');
+  }
 }
 
 export function EmbeddedTiers({ shop }: TiersProps) {
@@ -104,13 +132,20 @@ export function EmbeddedTiers({ shop }: TiersProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    trade_in_rate: '60',
-    monthly_fee: '0',
-    color: '#e85d27',
+    monthly_price: '0',
+    yearly_price: '',
+    bonus_rate: 5, // Stored as percentage (5 = 5%)
+    purchase_cashback_pct: 0,
+    monthly_credit_amount: '0',
+    credit_expiration_days: '',
+    discount_percent: '0',
+    free_shipping_threshold: '',
   });
 
   const { data: tiers, isLoading, error } = useQuery({
@@ -122,8 +157,12 @@ export function EmbeddedTiers({ shop }: TiersProps) {
   const createMutation = useMutation({
     mutationFn: (tier: Partial<MembershipTier>) => createTier(shop, tier),
     onSuccess: () => {
+      setMutationError(null);
       queryClient.invalidateQueries({ queryKey: ['tiers'] });
       closeModal();
+    },
+    onError: (error: Error) => {
+      setMutationError(error.message || 'Failed to create tier. Please try again.');
     },
   });
 
@@ -131,15 +170,24 @@ export function EmbeddedTiers({ shop }: TiersProps) {
     mutationFn: ({ id, tier }: { id: number; tier: Partial<MembershipTier> }) =>
       updateTier(shop, id, tier),
     onSuccess: () => {
+      setMutationError(null);
       queryClient.invalidateQueries({ queryKey: ['tiers'] });
       closeModal();
+    },
+    onError: (error: Error) => {
+      setMutationError(error.message || 'Failed to update tier. Please try again.');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteTier(shop, id),
     onSuccess: () => {
+      setMutationError(null);
       queryClient.invalidateQueries({ queryKey: ['tiers'] });
+      setDeleteConfirm(null);
+    },
+    onError: (error: Error) => {
+      setMutationError(error.message || 'Failed to delete tier. Please try again.');
       setDeleteConfirm(null);
     },
   });
@@ -149,18 +197,37 @@ export function EmbeddedTiers({ shop }: TiersProps) {
       setEditingTier(tier);
       setFormData({
         name: tier.name,
-        trade_in_rate: String(tier.trade_in_rate),
-        monthly_fee: String(tier.monthly_fee),
-        color: tier.color,
+        monthly_price: String(tier.monthly_price || 0),
+        yearly_price: tier.yearly_price ? String(tier.yearly_price) : '',
+        bonus_rate: (tier.bonus_rate || 0) * 100, // Convert from decimal to percentage
+        purchase_cashback_pct: tier.purchase_cashback_pct || 0,
+        monthly_credit_amount: String(tier.monthly_credit_amount || 0),
+        credit_expiration_days: tier.credit_expiration_days ? String(tier.credit_expiration_days) : '',
+        discount_percent: String(tier.benefits?.discount_percent || 0),
+        free_shipping_threshold: tier.benefits?.free_shipping_threshold ? String(tier.benefits.free_shipping_threshold) : '',
       });
+      // Show advanced if any advanced settings have values
+      setShowAdvanced(
+        (tier.purchase_cashback_pct || 0) > 0 ||
+        (tier.monthly_credit_amount || 0) > 0 ||
+        !!tier.credit_expiration_days ||
+        (tier.benefits?.discount_percent || 0) > 0 ||
+        !!tier.benefits?.free_shipping_threshold
+      );
     } else {
       setEditingTier(null);
       setFormData({
         name: '',
-        trade_in_rate: '60',
-        monthly_fee: '0',
-        color: '#e85d27',
+        monthly_price: '0',
+        yearly_price: '',
+        bonus_rate: 5,
+        purchase_cashback_pct: 0,
+        monthly_credit_amount: '0',
+        credit_expiration_days: '',
+        discount_percent: '0',
+        free_shipping_threshold: '',
       });
+      setShowAdvanced(false);
     }
     setModalOpen(true);
   }, []);
@@ -168,14 +235,23 @@ export function EmbeddedTiers({ shop }: TiersProps) {
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setEditingTier(null);
+    setShowAdvanced(false);
+    setMutationError(null);
   }, []);
 
   const handleSubmit = useCallback(() => {
-    const tierData = {
+    const tierData: Partial<MembershipTier> = {
       name: formData.name,
-      trade_in_rate: parseFloat(formData.trade_in_rate),
-      monthly_fee: parseFloat(formData.monthly_fee),
-      color: formData.color,
+      monthly_price: parseFloat(formData.monthly_price) || 0,
+      yearly_price: formData.yearly_price ? parseFloat(formData.yearly_price) : null,
+      bonus_rate: formData.bonus_rate / 100, // Convert percentage to decimal
+      purchase_cashback_pct: formData.purchase_cashback_pct || 0,
+      monthly_credit_amount: parseFloat(formData.monthly_credit_amount) || 0,
+      credit_expiration_days: formData.credit_expiration_days ? parseInt(formData.credit_expiration_days) : null,
+      benefits: {
+        discount_percent: parseFloat(formData.discount_percent) || 0,
+        free_shipping_threshold: formData.free_shipping_threshold ? parseFloat(formData.free_shipping_threshold) : undefined,
+      },
     };
 
     if (editingTier) {
@@ -207,19 +283,10 @@ export function EmbeddedTiers({ shop }: TiersProps) {
     );
   }
 
-  const colorOptions = [
-    { label: 'Orange', value: '#e85d27' },
-    { label: 'Bronze', value: '#cd7f32' },
-    { label: 'Silver', value: '#c0c0c0' },
-    { label: 'Gold', value: '#ffd700' },
-    { label: 'Platinum', value: '#e5e4e2' },
-    { label: 'Diamond', value: '#b9f2ff' },
-  ];
-
   return (
     <Page
       title="Membership Tiers"
-      subtitle="Configure the trade-in rates for each membership level"
+      subtitle="Configure tier benefits, pricing, and trade-in bonuses"
       primaryAction={{
         content: 'Add Tier',
         icon: PlusIcon,
@@ -231,6 +298,14 @@ export function EmbeddedTiers({ shop }: TiersProps) {
           <Layout.Section>
             <Banner tone="critical">
               <p>Failed to load tiers. Please try refreshing the page.</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {mutationError && (
+          <Layout.Section>
+            <Banner tone="critical" onDismiss={() => setMutationError(null)}>
+              <p>{mutationError}</p>
             </Banner>
           </Layout.Section>
         )}
@@ -266,30 +341,38 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                       },
                     ]}
                   >
-                    <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack align="space-between" blockAlign="center" wrap={false}>
                       <BlockStack gap="100">
                         <InlineStack gap="200" blockAlign="center">
                           <Text as="h3" variant="bodyMd" fontWeight="bold">
                             {tier.name}
                           </Text>
-                          {tier.is_default && (
-                            <Badge tone="info">Default</Badge>
+                          {!tier.is_active && (
+                            <Badge tone="warning">Inactive</Badge>
                           )}
                         </InlineStack>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          {tier.member_count} members
-                        </Text>
-                      </BlockStack>
-                      <BlockStack gap="100" inlineAlign="end">
-                        <Badge tone="success">
-                          {String(`${tier.trade_in_rate ?? 0}% trade-in rate`)}
-                        </Badge>
-                        {tier.monthly_fee > 0 && (
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            ${tier.monthly_fee}/month
+                        <InlineStack gap="300" wrap>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            ${(tier.monthly_price || 0).toFixed(2)}/mo
                           </Text>
-                        )}
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Bonus: {((tier.bonus_rate || 0) * 100).toFixed(0)}%
+                          </Text>
+                          {(tier.purchase_cashback_pct || 0) > 0 && (
+                            <Text as="span" variant="bodySm" tone="success">
+                              Cashback: {tier.purchase_cashback_pct}%
+                            </Text>
+                          )}
+                          {(tier.monthly_credit_amount || 0) > 0 && (
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              Monthly: ${tier.monthly_credit_amount}
+                            </Text>
+                          )}
+                        </InlineStack>
                       </BlockStack>
+                      <Badge tone="success">
+                        {`${((tier.bonus_rate || 0) * 100).toFixed(0)}% trade-in bonus`}
+                      </Badge>
                     </InlineStack>
                   </ResourceItem>
                 )}
@@ -304,7 +387,7 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>
-                  Membership tiers define the trade-in rates customers receive.
+                  Membership tiers define the trade-in bonuses and benefits customers receive.
                   Higher tiers can offer better rates to reward loyal customers.
                 </p>
               </EmptyState>
@@ -316,15 +399,20 @@ export function EmbeddedTiers({ shop }: TiersProps) {
           <Card>
             <BlockStack gap="400">
               <Text as="h3" variant="headingMd">How Tiers Work</Text>
-              <Text as="p" variant="bodySm">
-                Each tier has a trade-in rate (percentage of market value).
-                When customers bring items to trade in, they receive store
-                credit based on their tier's rate.
-              </Text>
-              <Text as="p" variant="bodySm">
-                <strong>Example:</strong> A Gold tier member with a 70% rate
-                trading in a $100 card receives $70 in store credit.
-              </Text>
+              <BlockStack gap="200">
+                <Text as="p" variant="bodySm">
+                  <strong>Trade-in Bonus:</strong> Extra credit given on top of trade-in value.
+                  A 10% bonus on a $100 trade-in = $10 extra credit.
+                </Text>
+                <Text as="p" variant="bodySm">
+                  <strong>Purchase Cashback:</strong> Store credit earned on every purchase.
+                  2% cashback on a $50 order = $1 credit.
+                </Text>
+                <Text as="p" variant="bodySm">
+                  <strong>Monthly Credit:</strong> Auto-issued store credit on the 1st of each month
+                  for active members.
+                </Text>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.Section>
@@ -339,6 +427,7 @@ export function EmbeddedTiers({ shop }: TiersProps) {
           content: editingTier ? 'Save' : 'Create',
           onAction: handleSubmit,
           loading: createMutation.isPending || updateMutation.isPending,
+          disabled: !formData.name.trim(),
         }}
         secondaryActions={[{ content: 'Cancel', onAction: closeModal }]}
       >
@@ -348,37 +437,136 @@ export function EmbeddedTiers({ shop }: TiersProps) {
               label="Tier Name"
               value={formData.name}
               onChange={(value) => setFormData({ ...formData, name: value })}
-              placeholder="e.g., Gold, Premium, VIP"
+              placeholder="e.g., Gold, Platinum, VIP"
               autoComplete="off"
+              helpText="Choose a memorable name for this tier"
             />
-            <TextField
-              label="Trade-In Rate (%)"
-              type="number"
-              value={formData.trade_in_rate}
-              onChange={(value) =>
-                setFormData({ ...formData, trade_in_rate: value })
-              }
-              suffix="%"
-              helpText="Percentage of market value customers receive as store credit"
-              autoComplete="off"
-            />
-            <TextField
-              label="Monthly Fee"
-              type="number"
-              value={formData.monthly_fee}
-              onChange={(value) =>
-                setFormData({ ...formData, monthly_fee: value })
-              }
-              prefix="$"
-              helpText="Leave at $0 for free tiers"
-              autoComplete="off"
-            />
-            <Select
-              label="Color"
-              options={colorOptions}
-              value={formData.color}
-              onChange={(value) => setFormData({ ...formData, color: value })}
-            />
+
+            <InlineStack gap="400" wrap={false}>
+              <Box minWidth="45%">
+                <TextField
+                  label="Monthly Price"
+                  type="number"
+                  value={formData.monthly_price}
+                  onChange={(value) => setFormData({ ...formData, monthly_price: value })}
+                  prefix="$"
+                  helpText="Set to $0 for free tiers"
+                  autoComplete="off"
+                />
+              </Box>
+              <Box minWidth="45%">
+                <TextField
+                  label="Yearly Price (optional)"
+                  type="number"
+                  value={formData.yearly_price}
+                  onChange={(value) => setFormData({ ...formData, yearly_price: value })}
+                  prefix="$"
+                  placeholder="Optional"
+                  helpText="Discounted annual option"
+                  autoComplete="off"
+                />
+              </Box>
+            </InlineStack>
+
+            <BlockStack gap="200">
+              <Text as="p" variant="bodyMd" fontWeight="semibold">
+                Trade-in Bonus Rate
+              </Text>
+              <RangeSlider
+                label=""
+                value={formData.bonus_rate}
+                onChange={(value) => setFormData({ ...formData, bonus_rate: value as number })}
+                min={0}
+                max={30}
+                step={1}
+                output
+                suffix={<Text as="span" variant="bodyMd">{formData.bonus_rate}%</Text>}
+              />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Extra credit given on top of trade-in value (e.g., 10% bonus on $100 trade = $10 extra)
+              </Text>
+            </BlockStack>
+
+            <Divider />
+
+            {/* Advanced Settings Toggle */}
+            <Button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              icon={showAdvanced ? ChevronUpIcon : ChevronDownIcon}
+              variant="plain"
+              fullWidth
+              textAlign="left"
+            >
+              {showAdvanced ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
+            </Button>
+
+            <Collapsible
+              open={showAdvanced}
+              id="advanced-settings"
+              transition={{ duration: '200ms', timingFunction: 'ease-in-out' }}
+            >
+              <BlockStack gap="400">
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd" fontWeight="semibold">
+                    Purchase Cashback %
+                  </Text>
+                  <RangeSlider
+                    label=""
+                    value={formData.purchase_cashback_pct}
+                    onChange={(value) => setFormData({ ...formData, purchase_cashback_pct: value as number })}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    output
+                    suffix={<Text as="span" variant="bodyMd">{formData.purchase_cashback_pct}%</Text>}
+                  />
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Store credit earned on every purchase (e.g., 2% = $2 back per $100)
+                  </Text>
+                </BlockStack>
+
+                <TextField
+                  label="Recurring Monthly Credit"
+                  type="number"
+                  value={formData.monthly_credit_amount}
+                  onChange={(value) => setFormData({ ...formData, monthly_credit_amount: value })}
+                  prefix="$"
+                  helpText="Auto-issued store credit on 1st of each month"
+                  autoComplete="off"
+                />
+
+                <TextField
+                  label="Credit Expiration (Days)"
+                  type="number"
+                  value={formData.credit_expiration_days}
+                  onChange={(value) => setFormData({ ...formData, credit_expiration_days: value })}
+                  placeholder="Never expires"
+                  helpText="Days until issued credit expires (leave blank for no expiration)"
+                  autoComplete="off"
+                />
+
+                <TextField
+                  label="Store Discount (%)"
+                  type="number"
+                  value={formData.discount_percent}
+                  onChange={(value) => setFormData({ ...formData, discount_percent: value })}
+                  suffix="%"
+                  helpText="Automatic discount on all purchases for tier members"
+                  autoComplete="off"
+                />
+
+                <TextField
+                  label="Free Shipping Threshold"
+                  type="number"
+                  value={formData.free_shipping_threshold}
+                  onChange={(value) => setFormData({ ...formData, free_shipping_threshold: value })}
+                  prefix="$"
+                  placeholder="No free shipping"
+                  helpText="Order minimum for free shipping (0 = always free, blank = no benefit)"
+                  autoComplete="off"
+                />
+              </BlockStack>
+            </Collapsible>
           </FormLayout>
         </Modal.Section>
       </Modal>
@@ -400,8 +588,8 @@ export function EmbeddedTiers({ shop }: TiersProps) {
       >
         <Modal.Section>
           <Text as="p">
-            Are you sure you want to delete this tier? Members in this tier
-            will need to be reassigned.
+            Are you sure you want to delete this tier? This action cannot be undone.
+            Members currently in this tier will need to be reassigned.
           </Text>
         </Modal.Section>
       </Modal>
