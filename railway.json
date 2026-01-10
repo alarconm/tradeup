@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "sh -c 'echo \"[Deploy] Starting TradeUp v2.0.5...\" && echo \"[Deploy] Running database migrations...\" && flask db upgrade && echo \"[Deploy] Migrations complete!\" && gunicorn -c gunicorn.conf.py run:app'",
+    "startCommand": "gunicorn -c gunicorn.conf.py run:app",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
