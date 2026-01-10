@@ -3,7 +3,6 @@ Member and MembershipTier models.
 """
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import text
 from ..extensions import db
 
 
@@ -156,15 +155,6 @@ class Member(db.Model):
         first_name = name_parts[0] if name_parts else ''
         last_name = name_parts[1] if len(name_parts) > 1 else ''
 
-        # Get last trade-in date from related batches
-        last_trade_in = None
-        if self.trade_in_batches:
-            latest_batch = self.trade_in_batches.order_by(
-                text('created_at DESC')
-            ).first()
-            if latest_batch:
-                last_trade_in = latest_batch.created_at
-
         data = {
             'id': self.id,
             'member_number': self.member_number,
@@ -185,7 +175,7 @@ class Member(db.Model):
             'trade_in_count': self.total_trade_ins or 0,
             'total_trade_in_value': float(self.total_trade_value or 0),
             'total_credits_issued': float(self.total_bonus_earned or 0),
-            'last_trade_in_at': last_trade_in.isoformat() if last_trade_in else None
+            'last_trade_in_at': None  # TODO: Calculate from trade_in_batches if needed
         }
 
         if include_stats:
