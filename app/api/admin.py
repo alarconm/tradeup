@@ -405,6 +405,8 @@ def fix_schema():
         ("tier_configurations", "icon", "VARCHAR(50) DEFAULT 'star'"),
         ("tier_configurations", "badge_text", "VARCHAR(50)"),
         ("tier_configurations", "features", "TEXT"),
+        # Member credit balances - missing columns
+        ("member_credit_balances", "total_expired", "NUMERIC(10,2) DEFAULT 0"),
     ]
 
     results = []
