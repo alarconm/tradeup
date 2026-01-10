@@ -31,7 +31,7 @@ def search_shopify_customers():
     import os
     import traceback
 
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     query = request.args.get('q', '').strip()
 
     if not query or len(query) < 2:
@@ -86,7 +86,7 @@ def enroll_shopify_customer():
 
     Customer name/email/phone are pulled from Shopify automatically.
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     data = request.json or {}
 
     shopify_customer_id = data.get('shopify_customer_id')
@@ -119,7 +119,7 @@ def enroll_shopify_customer():
 @require_shopify_auth
 def list_members():
     """List all members for the tenant."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))  # Default to tenant 1 for MVP
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
@@ -155,7 +155,7 @@ def get_member(member_id):
 @require_shopify_auth
 def get_member_by_number(member_number):
     """Get member by member number (TU1001)."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
     # Normalize member number - support both TU and legacy QF prefixes
     upper_num = member_number.upper()
@@ -176,7 +176,7 @@ def get_member_by_number(member_number):
 @require_shopify_auth
 def create_member():
     """Create a new member."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     data = request.json
 
     # Validate required fields
@@ -236,7 +236,7 @@ def list_tiers():
 
     Auto-seeds default tiers if none exist.
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
     tiers = MembershipTier.query.filter_by(
         tenant_id=tenant_id,
@@ -290,7 +290,7 @@ def create_tier():
 @require_shopify_auth
 def get_tier(tier_id):
     """Get a single membership tier."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
     tier = MembershipTier.query.filter_by(
         id=tier_id,
@@ -304,7 +304,7 @@ def get_tier(tier_id):
 @require_shopify_auth
 def update_tier(tier_id):
     """Update a membership tier."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     data = request.json
 
     tier = MembershipTier.query.filter_by(
@@ -346,7 +346,7 @@ def delete_tier(tier_id):
     Soft delete - sets is_active=False rather than removing.
     Cannot delete tier if members are using it.
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
     tier = MembershipTier.query.filter_by(
         id=tier_id,
@@ -375,7 +375,7 @@ def reorder_tiers():
     JSON body:
         tier_ids: List of tier IDs in desired order
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     data = request.json
 
     tier_ids = data.get('tier_ids', [])
@@ -419,7 +419,7 @@ def preview_tier_email():
     Returns:
         Counts of members per tier
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     data = request.json
 
     tier_names = data.get('tier_names', [])
@@ -477,7 +477,7 @@ def send_tier_email():
     Returns:
         Send results (sent count, failed count, etc.)
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
     staff_email = request.headers.get('X-Staff-Email', 'admin')
     data = request.json
 
