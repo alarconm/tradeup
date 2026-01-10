@@ -119,28 +119,40 @@ def enroll_shopify_customer():
 @require_shopify_auth
 def list_members():
     """List all members for the tenant."""
-    tenant_id = g.tenant_id  # Use tenant_id from auth middleware
+    try:
+        tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-    status = request.args.get('status')
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        status = request.args.get('status')
 
-    query = Member.query.filter_by(tenant_id=tenant_id)
+        query = Member.query.filter_by(tenant_id=tenant_id)
 
-    if status:
-        query = query.filter_by(status=status)
+        if status:
+            query = query.filter_by(status=status)
 
-    pagination = query.order_by(Member.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+        pagination = query.order_by(Member.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
-    return jsonify({
-        'members': [m.to_dict(include_stats=True) for m in pagination.items],
-        'total': pagination.total,
-        'page': page,
-        'per_page': per_page,
-        'pages': pagination.pages
-    })
+        return jsonify({
+            'members': [m.to_dict(include_stats=True) for m in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
+    except Exception as e:
+        import traceback
+        print(f"[Members] Error listing members: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'members': [],
+            'total': 0,
+            'page': 1,
+            'per_page': 50,
+            'error': str(e)
+        }), 200
 
 
 @members_bp.route('/<int:member_id>', methods=['GET'])
