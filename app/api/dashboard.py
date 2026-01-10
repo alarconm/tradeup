@@ -6,13 +6,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Member, MembershipTier, TradeInBatch, TradeInItem, StoreCreditLedger, Tenant
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
 @dashboard_bp.route('/stats', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_dashboard_stats():
     """
     Get dashboard statistics overview.
@@ -156,7 +156,7 @@ def get_dashboard_stats():
 
 
 @dashboard_bp.route('/trade-in-report', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_trade_in_report():
     """Get trade-in performance report."""
     tenant_id = g.tenant_id
@@ -195,7 +195,7 @@ def get_trade_in_report():
 
 
 @dashboard_bp.route('/top-members', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_top_members():
     """Get top members by trade-in value."""
     tenant_id = g.tenant_id
@@ -215,7 +215,7 @@ def get_top_members():
 
 
 @dashboard_bp.route('/recent-activity', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_recent_activity():
     """Get recent trade-ins and credit transactions."""
     tenant_id = g.tenant_id
@@ -248,7 +248,7 @@ def get_recent_activity():
 
 
 @dashboard_bp.route('/activity', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_activity():
     """
     Get recent activity feed for dashboard.

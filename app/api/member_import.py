@@ -10,13 +10,13 @@ from datetime import datetime
 from ..extensions import db
 from ..models.member import Member, MembershipTier
 from ..models.tenant import Tenant
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 
 member_import_bp = Blueprint('member_import', __name__)
 
 
 @member_import_bp.route('/template', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_csv_template():
     """
     Get the CSV template for member import.
@@ -44,7 +44,7 @@ def get_csv_template():
 
 
 @member_import_bp.route('/preview', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def preview_import():
     """
     Preview a CSV file before importing.
@@ -158,7 +158,7 @@ def preview_import():
 
 
 @member_import_bp.route('/import', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def import_members():
     """
     Import members from a CSV file.
@@ -284,7 +284,7 @@ def import_members():
 
 
 @member_import_bp.route('/export', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def export_members():
     """
     Export members to CSV.

@@ -9,7 +9,7 @@ Provides access to Shopify store data for use in promotion configuration:
 """
 from flask import Blueprint, request, jsonify, g
 from ..services.shopify_client import ShopifyClient
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 
 shopify_data_bp = Blueprint('shopify_data', __name__)
 
@@ -31,7 +31,7 @@ def get_shopify_client_for_tenant():
 
 
 @shopify_data_bp.route('/collections', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_collections():
     """
     List all Shopify collections.
@@ -54,7 +54,7 @@ def list_collections():
 
 
 @shopify_data_bp.route('/vendors', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_vendors():
     """
     List all unique vendors/brands in the store.
@@ -77,7 +77,7 @@ def list_vendors():
 
 
 @shopify_data_bp.route('/product-types', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_product_types():
     """
     List all unique product types in the store.
@@ -100,7 +100,7 @@ def list_product_types():
 
 
 @shopify_data_bp.route('/tags', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_tags():
     """
     List product tags from the store's products.
@@ -125,7 +125,7 @@ def list_tags():
 
 
 @shopify_data_bp.route('/customer-tags', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_customer_tags():
     """
     List customer tags from the store's customers.
@@ -150,7 +150,7 @@ def list_customer_tags():
 
 
 @shopify_data_bp.route('/segments', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_segments():
     """
     List customer segments from Shopify.

@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from ..extensions import db
 from ..middleware.shopify_auth import require_shopify_auth
-from ..middleware.shop_auth import require_shop_auth
 from ..services.scheduled_tasks import scheduled_tasks_service
 from ..services.store_credit_service import StoreCreditService
 from ..models.member import Member, MembershipTier
@@ -138,7 +137,7 @@ def get_referral_stats():
 # They use require_shop_auth which accepts internal API keys
 
 @scheduled_tasks_bp.route('/monthly-credits/eligible-batch', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def get_eligible_batch():
     """
     Get a batch of members eligible for monthly credits.
@@ -204,7 +203,7 @@ def get_eligible_batch():
 
 
 @scheduled_tasks_bp.route('/monthly-credits/issue', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def issue_single_credit():
     """
     Issue monthly credit to a single member.
@@ -286,7 +285,7 @@ def issue_single_credit():
 
 
 @scheduled_tasks_bp.route('/expiration/process-batch', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def process_expiration_batch():
     """
     Process a batch of expired credits.

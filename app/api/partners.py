@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import PartnerIntegration, PartnerSyncLog
 from ..services.partner_sync_service import PartnerSyncService
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 
 partners_bp = Blueprint('partners', __name__)
 
@@ -14,7 +14,7 @@ partners_bp = Blueprint('partners', __name__)
 # ==================== Partner Integration CRUD ====================
 
 @partners_bp.route('', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_integrations():
     """List all partner integrations for the tenant."""
     tenant_id = g.tenant_id
@@ -29,7 +29,7 @@ def list_integrations():
 
 
 @partners_bp.route('/<int:integration_id>', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_integration(integration_id):
     """Get partner integration details."""
     integration = PartnerIntegration.query.get_or_404(integration_id)
@@ -37,7 +37,7 @@ def get_integration(integration_id):
 
 
 @partners_bp.route('', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def create_integration():
     """Create a new partner integration."""
     tenant_id = g.tenant_id
@@ -77,7 +77,7 @@ def create_integration():
 
 
 @partners_bp.route('/<int:integration_id>', methods=['PUT'])
-@require_shop_auth
+@require_shopify_auth
 def update_integration(integration_id):
     """Update a partner integration."""
     integration = PartnerIntegration.query.get_or_404(integration_id)
@@ -108,7 +108,7 @@ def update_integration(integration_id):
 
 
 @partners_bp.route('/<int:integration_id>', methods=['DELETE'])
-@require_shop_auth
+@require_shopify_auth
 def delete_integration(integration_id):
     """Delete a partner integration."""
     integration = PartnerIntegration.query.get_or_404(integration_id)
@@ -122,7 +122,7 @@ def delete_integration(integration_id):
 # ==================== Sync Operations ====================
 
 @partners_bp.route('/<int:integration_id>/test', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def test_integration(integration_id):
     """Test connectivity to a partner integration."""
     integration = PartnerIntegration.query.get_or_404(integration_id)
@@ -150,7 +150,7 @@ def test_integration(integration_id):
 
 
 @partners_bp.route('/sync-logs', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_sync_logs():
     """List sync logs with filters."""
     tenant_id = g.tenant_id
@@ -174,7 +174,7 @@ def list_sync_logs():
 
 
 @partners_bp.route('/retry-failed', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def retry_failed_syncs():
     """Retry all failed syncs."""
     tenant_id = g.tenant_id
@@ -195,7 +195,7 @@ def retry_failed_syncs():
 # ==================== ORB Sports Cards Preset ====================
 
 @partners_bp.route('/presets/orb-sports-cards', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def create_orb_integration():
     """
     Create an ORB Sports Cards integration with default settings.

@@ -5,14 +5,14 @@ Provides endpoints for managing email templates and sending notifications.
 """
 from flask import Blueprint, request, jsonify
 from ..services.email_service import email_service
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 from ..models.tenant import Tenant
 
 email_bp = Blueprint('email', __name__)
 
 
 @email_bp.route('/templates', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_templates():
     """Get all available email templates for the tenant."""
     tenant_id = request.tenant_id
@@ -35,7 +35,7 @@ def get_templates():
 
 
 @email_bp.route('/templates/<template_id>', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_template(template_id):
     """Get a specific email template."""
     tenant_id = request.tenant_id
@@ -51,7 +51,7 @@ def get_template(template_id):
 
 
 @email_bp.route('/preview', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def preview_template():
     """
     Preview a rendered template with sample data.
@@ -117,7 +117,7 @@ def preview_template():
 
 
 @email_bp.route('/send-test', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def send_test_email():
     """
     Send a test email to verify configuration.
@@ -203,7 +203,7 @@ def send_test_email():
 
 
 @email_bp.route('/settings', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def get_email_settings():
     """Get email notification settings for the tenant."""
     tenant_id = request.tenant_id
@@ -231,7 +231,7 @@ def get_email_settings():
 
 
 @email_bp.route('/settings', methods=['PUT'])
-@require_shop_auth
+@require_shopify_auth
 def update_email_settings():
     """Update email notification settings."""
     tenant_id = request.tenant_id

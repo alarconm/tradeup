@@ -4,7 +4,7 @@ For running promotional store credit events like Trade Night.
 """
 from datetime import datetime
 from flask import Blueprint, request, jsonify, g
-from ..middleware.shop_auth import require_shop_auth
+from ..middleware.shopify_auth import require_shopify_auth
 from ..services.store_credit_events import StoreCreditEventsService
 
 store_credit_events_bp = Blueprint('store_credit_events', __name__)
@@ -19,7 +19,7 @@ def get_service_for_tenant():
 
 
 @store_credit_events_bp.route('/preview', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def preview_event():
     """
     Preview a store credit event.
@@ -62,7 +62,7 @@ def preview_event():
 
 
 @store_credit_events_bp.route('/run', methods=['POST'])
-@require_shop_auth
+@require_shopify_auth
 def run_event():
     """
     Run a store credit event (apply credits).
@@ -116,7 +116,7 @@ def run_event():
 
 
 @store_credit_events_bp.route('/sources', methods=['GET'])
-@require_shop_auth
+@require_shopify_auth
 def list_sources():
     """
     List available order sources for a date range.
