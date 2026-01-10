@@ -10,9 +10,45 @@ from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import Member, MembershipTier
 from ..services.membership_service import MembershipService
-from ..middleware.shopify_auth import require_shopify_auth
+from ..middleware.shopify_auth import require_shopify_auth, require_shopify_auth_debug
 
 members_bp = Blueprint('members', __name__)
+
+
+# ==================== Debug Endpoint ====================
+
+@members_bp.route('/debug', methods=['GET'])
+@require_shopify_auth_debug
+def debug_endpoint():
+    """Debug endpoint to test auth and DB connectivity."""
+    try:
+        tenant_id = g.tenant_id
+        tenant = g.tenant
+
+        # Test member count query
+        member_count = Member.query.filter_by(tenant_id=tenant_id).count()
+
+        # Test tier query
+        tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id).count()
+
+        return jsonify({
+            'status': 'ok',
+            'tenant_id': tenant_id,
+            'shop': g.shop,
+            'auth_method': g.auth_method,
+            'member_count': member_count,
+            'tier_count': tier_count,
+            'tenant_active': tenant.is_active,
+            'subscription_plan': tenant.subscription_plan
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        }), 500
 
 
 # ==================== Shopify Customer Search & Enroll ====================

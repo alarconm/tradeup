@@ -259,6 +259,85 @@ def require_shopify_auth(f):
     return decorated_function
 
 
+def require_shopify_auth_debug(f):
+    """
+    Debug version of require_shopify_auth that catches and reports errors.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            # Same logic as require_shopify_auth
+            shop = None
+            staff_id = None
+            authenticated_via = None
+
+            # Try session token first
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ', 1)[1]
+                payload = decode_session_token(token)
+                if payload:
+                    shop = get_shop_from_token(payload)
+                    staff_id = get_staff_id_from_token(payload)
+                    authenticated_via = 'session_token'
+
+            # Fallback: shop query param
+            if not shop:
+                shop = request.args.get('shop')
+                if shop:
+                    authenticated_via = 'query_param'
+
+            # Fallback: X-Shop-Domain header
+            if not shop:
+                shop = request.headers.get('X-Shop-Domain')
+                if shop:
+                    authenticated_via = 'header'
+
+            if not shop:
+                return jsonify({
+                    'error': 'Authentication required',
+                    'message': 'Missing shop domain or session token',
+                    'code': 'AUTH_REQUIRED'
+                }), 401
+
+            # Look up tenant
+            tenant = Tenant.query.filter_by(shopify_domain=shop).first()
+
+            if not tenant:
+                return jsonify({
+                    'error': 'Shop not found',
+                    'message': f'Shop {shop} not found in database',
+                    'code': 'SHOP_NOT_FOUND'
+                }), 404
+
+            if not tenant.is_active:
+                return jsonify({
+                    'error': 'Shop inactive',
+                    'code': 'SHOP_INACTIVE'
+                }), 403
+
+            # Set context
+            g.tenant = tenant
+            g.tenant_id = tenant.id
+            g.shop = shop
+            g.staff_id = staff_id
+            g.auth_method = authenticated_via
+
+            return f(*args, **kwargs)
+
+        except Exception as e:
+            import traceback
+            print(f"[Auth Debug] Error in decorator: {e}")
+            traceback.print_exc()
+            return jsonify({
+                'error': 'Auth error',
+                'message': str(e),
+                'type': type(e).__name__
+            }), 500
+
+    return decorated_function
+
+
 def require_active_subscription(f):
     """
     Decorator to require an active Shopify billing subscription.
