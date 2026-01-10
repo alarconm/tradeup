@@ -35,6 +35,24 @@ interface TagsResponse {
   note?: string;
 }
 
+interface CustomerTagsResponse {
+  customer_tags: string[];
+  count: number;
+}
+
+interface Segment {
+  id: string;
+  name: string;
+  query: string;
+  creationDate?: string;
+  lastEditDate?: string;
+}
+
+interface SegmentsResponse {
+  segments: Segment[];
+  count: number;
+}
+
 /**
  * Fetch collections from Shopify store.
  */
@@ -75,7 +93,7 @@ async function fetchProductTypes(shop: string | null): Promise<ProductTypesRespo
 }
 
 /**
- * Fetch common product tags.
+ * Fetch product tags from Shopify store.
  */
 async function fetchTags(shop: string | null): Promise<TagsResponse> {
   if (!shop) throw new Error('Shop not connected');
@@ -83,6 +101,32 @@ async function fetchTags(shop: string | null): Promise<TagsResponse> {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch tags' }));
     throw new Error(error.error || 'Failed to fetch tags');
+  }
+  return response.json();
+}
+
+/**
+ * Fetch customer tags from Shopify store.
+ */
+async function fetchCustomerTags(shop: string | null): Promise<CustomerTagsResponse> {
+  if (!shop) throw new Error('Shop not connected');
+  const response = await authFetch(`${getApiUrl()}/shopify-data/customer-tags`, shop);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch customer tags' }));
+    throw new Error(error.error || 'Failed to fetch customer tags');
+  }
+  return response.json();
+}
+
+/**
+ * Fetch customer segments from Shopify store.
+ */
+async function fetchSegments(shop: string | null): Promise<SegmentsResponse> {
+  if (!shop) throw new Error('Shop not connected');
+  const response = await authFetch(`${getApiUrl()}/shopify-data/segments`, shop);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch segments' }));
+    throw new Error(error.error || 'Failed to fetch segments');
   }
   return response.json();
 }
@@ -130,13 +174,41 @@ export function useProductTypes(shop: string | null) {
 }
 
 /**
- * Hook to fetch common product tags.
+ * Hook to fetch product tags.
  * Returns tags as options for multi-select pickers.
  */
 export function useTags(shop: string | null) {
   return useQuery({
     queryKey: ['shopify-tags', shop],
     queryFn: () => fetchTags(shop),
+    enabled: !!shop,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch customer tags.
+ * Returns customer tags as options for multi-select pickers.
+ */
+export function useCustomerTags(shop: string | null) {
+  return useQuery({
+    queryKey: ['shopify-customer-tags', shop],
+    queryFn: () => fetchCustomerTags(shop),
+    enabled: !!shop,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch customer segments.
+ * Returns segments for targeting promotions.
+ */
+export function useSegments(shop: string | null) {
+  return useQuery({
+    queryKey: ['shopify-segments', shop],
+    queryFn: () => fetchSegments(shop),
     enabled: !!shop,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -152,12 +224,16 @@ export function useShopifyData(shop: string | null) {
   const vendors = useVendors(shop);
   const productTypes = useProductTypes(shop);
   const tags = useTags(shop);
+  const customerTags = useCustomerTags(shop);
+  const segments = useSegments(shop);
 
   return {
     collections,
     vendors,
     productTypes,
     tags,
+    customerTags,
+    segments,
     isLoading: collections.isLoading || vendors.isLoading || productTypes.isLoading || tags.isLoading,
     isError: collections.isError || vendors.isError || productTypes.isError || tags.isError,
   };

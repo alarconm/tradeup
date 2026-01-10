@@ -159,10 +159,8 @@ def get_branding():
 @require_shop_auth
 def update_branding():
     """Update branding settings."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_branding = current_settings.get('branding', {})
@@ -203,10 +201,8 @@ def get_features():
 @require_shop_auth
 def update_features():
     """Update feature flags."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_features = current_settings.get('features', {})
@@ -251,10 +247,8 @@ def update_cashback_settings():
         rounding_mode: down | up | nearest
         min_cashback_amount: float
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     # Validate method if provided
     if 'method' in data and data['method'] not in CASHBACK_METHODS:
@@ -302,10 +296,8 @@ def update_subscription_settings():
         trial_days: int
         grace_period_days: int
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_subs = current_settings.get('subscriptions', {})
@@ -347,10 +339,8 @@ def update_auto_enrollment_settings():
         min_order_value: float - Minimum order to trigger
         excluded_tags: list - Customer tags to exclude
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_enrollment = current_settings.get('auto_enrollment', {})
@@ -395,10 +385,8 @@ def update_notification_settings():
         from_name: str - Sender name
         from_email: str - Sender email (must be verified)
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_notifications = current_settings.get('notifications', {})
@@ -442,10 +430,8 @@ def update_trade_in_settings():
         default_category: str - Default category
         require_photos: bool - Require photo uploads
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_trade_ins = current_settings.get('trade_ins', {})
@@ -486,10 +472,8 @@ def update_general_settings():
         currency: str - Currency code (USD, CAD, EUR, etc.)
         timezone: str - Timezone identifier
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant = g.tenant  # Use tenant from auth decorator
     data = request.json
-
-    tenant = Tenant.query.get_or_404(tenant_id)
 
     current_settings = tenant.settings or {}
     current_general = current_settings.get('general', {})

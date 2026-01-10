@@ -27,13 +27,25 @@ class TradeInService:
             self._store_credit_service = store_credit_service
         return self._store_credit_service
 
-    # Category choices matching ORB Sports Cards
+    # Category choices for TCGs and collectibles
     CATEGORIES = {
-        'sports': {'icon': '🏈', 'name': 'Sports'},
         'pokemon': {'icon': '⚡', 'name': 'Pokemon'},
-        'magic': {'icon': '🔮', 'name': 'Magic'},
-        'riftbound': {'icon': '🌀', 'name': 'Riftbound'},
-        'tcg_other': {'icon': '🎴', 'name': 'TCG Other'},
+        'magic': {'icon': '🔮', 'name': 'Magic: The Gathering'},
+        'yugioh': {'icon': '🃏', 'name': 'Yu-Gi-Oh!'},
+        'sports': {'icon': '🏈', 'name': 'Sports Cards'},
+        'baseball': {'icon': '⚾', 'name': 'Baseball Cards'},
+        'basketball': {'icon': '🏀', 'name': 'Basketball Cards'},
+        'football': {'icon': '🏈', 'name': 'Football Cards'},
+        'hockey': {'icon': '🏒', 'name': 'Hockey Cards'},
+        'one_piece': {'icon': '🏴‍☠️', 'name': 'One Piece'},
+        'disney_lorcana': {'icon': '✨', 'name': 'Disney Lorcana'},
+        'flesh_blood': {'icon': '⚔️', 'name': 'Flesh and Blood'},
+        'digimon': {'icon': '🦖', 'name': 'Digimon'},
+        'weiss': {'icon': '🎭', 'name': 'Weiss Schwarz'},
+        'tcg_other': {'icon': '🎴', 'name': 'Other TCG'},
+        'videogames': {'icon': '🎮', 'name': 'Video Games'},
+        'comics': {'icon': '📚', 'name': 'Comics'},
+        'figures': {'icon': '🎨', 'name': 'Figures & Toys'},
         'other': {'icon': '📦', 'name': 'Other'},
     }
 

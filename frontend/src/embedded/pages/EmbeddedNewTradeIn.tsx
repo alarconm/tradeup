@@ -81,13 +81,15 @@ interface ShopifyCustomer {
   totalSpent: number | string;
 }
 
-// Default categories if none are configured
+// Default categories if none are configured (TCGs and collectibles)
 const DEFAULT_CATEGORIES: TradeInCategory[] = [
-  { id: 'sports', name: 'Sports', icon: '🏈' },
   { id: 'pokemon', name: 'Pokemon', icon: '⚡' },
-  { id: 'magic', name: 'Magic', icon: '🔮' },
-  { id: 'riftbound', name: 'Riftbound', icon: '🌀' },
-  { id: 'tcg_other', name: 'TCG Other', icon: '🎴' },
+  { id: 'magic', name: 'Magic: The Gathering', icon: '🔮' },
+  { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: '🃏' },
+  { id: 'sports', name: 'Sports Cards', icon: '🏈' },
+  { id: 'one_piece', name: 'One Piece', icon: '🏴‍☠️' },
+  { id: 'disney_lorcana', name: 'Disney Lorcana', icon: '✨' },
+  { id: 'tcg_other', name: 'Other TCG', icon: '🎴' },
   { id: 'other', name: 'Other', icon: '📦' },
 ];
 
@@ -131,6 +133,30 @@ async function addTradeInItems(
     body: JSON.stringify({ items }),
   });
   if (!response.ok) throw new Error('Failed to add items');
+}
+
+interface CompleteBatchResult {
+  success: boolean;
+  batch_reference: string;
+  trade_value: number;
+  bonus?: {
+    eligible: boolean;
+    bonus_amount: number;
+    bonus_percent?: number;
+    tier_name?: string;
+  };
+}
+
+async function completeBatch(shop: string | null, batchId: number): Promise<CompleteBatchResult> {
+  const response = await authFetch(`${getApiUrl()}/trade-ins/${batchId}/complete`, shop, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to complete batch' }));
+    throw new Error(error.error || 'Failed to complete batch');
+  }
+  return response.json();
 }
 
 export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
@@ -289,7 +315,10 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
     setEnrollError('');
   }, []);
 
-  // Create trade-in mutation
+  // Success state for showing completion result
+  const [completionResult, setCompletionResult] = useState<CompleteBatchResult | null>(null);
+
+  // Create trade-in mutation - now auto-completes and issues store credit
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!selectedMember) throw new Error('Please select a member');
@@ -318,10 +347,13 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
         }))
       );
 
-      return batch;
+      // Auto-complete batch to issue store credit immediately
+      const result = await completeBatch(shop, batch.id);
+      return result;
     },
-    onSuccess: () => {
-      navigate('/app/trade-ins');
+    onSuccess: (result) => {
+      setCompletionResult(result);
+      queryClient.invalidateQueries({ queryKey: ['trade-ins'] });
     },
     onError: (err: Error) => {
       setError(err.message);
@@ -410,7 +442,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
       subtitle="Create a new trade-in batch for a member"
       backAction={{ content: 'Trade-Ins', url: '/app/trade-ins' }}
       primaryAction={{
-        content: `Create Trade-In ${formatCurrency(totalTradeValue)}`,
+        content: `Complete Trade-In & Issue ${formatCurrency(totalTradeValue)}`,
         onAction: handleSubmit,
         loading: createMutation.isPending,
         disabled: !selectedMember || totalTradeValue <= 0,
@@ -673,7 +705,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
               loading={createMutation.isPending}
               disabled={!selectedMember || totalTradeValue <= 0}
             >
-              Create Trade-In {formatCurrency(totalTradeValue)}
+              Complete Trade-In & Issue {formatCurrency(totalTradeValue)}
             </Button>
           </InlineStack>
         </Layout.Section>
@@ -799,6 +831,73 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
               ) : null}
             </BlockStack>
           )}
+        </Modal.Section>
+      </Modal>
+
+      {/* Success Modal - Shows after trade-in is completed */}
+      <Modal
+        open={!!completionResult}
+        onClose={() => navigate('/app/trade-ins')}
+        title="Trade-In Complete!"
+        primaryAction={{
+          content: 'View Trade-Ins',
+          onAction: () => navigate('/app/trade-ins'),
+        }}
+        secondaryActions={[
+          {
+            content: 'Create Another',
+            onAction: () => {
+              setCompletionResult(null);
+              setSelectedMember(null);
+              setItems([{ id: '1', product_title: '', trade_value: '', market_value: '', notes: '' }]);
+              setBatchNotes('');
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Banner tone="success">
+              <p>Trade-in {completionResult?.batch_reference} has been completed and store credit has been issued.</p>
+            </Banner>
+
+            <Card>
+              <BlockStack gap="300">
+                <InlineStack align="space-between">
+                  <Text as="span" tone="subdued">Trade Value</Text>
+                  <Text as="span" fontWeight="semibold">{formatCurrency(completionResult?.trade_value || 0)}</Text>
+                </InlineStack>
+
+                {completionResult?.bonus?.eligible && (completionResult?.bonus?.bonus_amount || 0) > 0 && (
+                  <>
+                    <Divider />
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">
+                        Tier Bonus ({completionResult?.bonus?.tier_name} +{completionResult?.bonus?.bonus_percent}%)
+                      </Text>
+                      <Badge tone="success">{String(`+${formatCurrency(completionResult?.bonus?.bonus_amount || 0)}`)}</Badge>
+                    </InlineStack>
+                  </>
+                )}
+
+                <Divider />
+
+                <InlineStack align="space-between">
+                  <Text as="span" fontWeight="bold">Total Store Credit Issued</Text>
+                  <Text as="span" fontWeight="bold" tone="success">
+                    {formatCurrency(
+                      (completionResult?.trade_value || 0) +
+                      (completionResult?.bonus?.bonus_amount || 0)
+                    )}
+                  </Text>
+                </InlineStack>
+              </BlockStack>
+            </Card>
+
+            <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+              The member's store credit balance has been updated in Shopify.
+            </Text>
+          </BlockStack>
         </Modal.Section>
       </Modal>
     </Page>

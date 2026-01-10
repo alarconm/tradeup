@@ -149,16 +149,71 @@ def create_batch():
 @trade_ins_bp.route('/categories', methods=['GET'])
 @require_shop_auth
 def get_categories():
-    """Get available trade-in categories."""
+    """
+    Get available trade-in categories.
+
+    Returns a mix of:
+    1. Default templates (Pokemon, Magic, Sports, etc.)
+    2. Store's Shopify collections (if available)
+
+    Query params:
+        - include_collections: If 'true', fetch collections from Shopify
+    """
+    # Default category templates for TCGs and collectibles
+    default_templates = [
+        {'id': 'pokemon', 'icon': '⚡', 'name': 'Pokemon', 'is_template': True},
+        {'id': 'magic', 'icon': '🔮', 'name': 'Magic: The Gathering', 'is_template': True},
+        {'id': 'yugioh', 'icon': '🃏', 'name': 'Yu-Gi-Oh!', 'is_template': True},
+        {'id': 'sports', 'icon': '🏈', 'name': 'Sports Cards', 'is_template': True},
+        {'id': 'baseball', 'icon': '⚾', 'name': 'Baseball Cards', 'is_template': True},
+        {'id': 'basketball', 'icon': '🏀', 'name': 'Basketball Cards', 'is_template': True},
+        {'id': 'football', 'icon': '🏈', 'name': 'Football Cards', 'is_template': True},
+        {'id': 'hockey', 'icon': '🏒', 'name': 'Hockey Cards', 'is_template': True},
+        {'id': 'one_piece', 'icon': '🏴‍☠️', 'name': 'One Piece', 'is_template': True},
+        {'id': 'disney_lorcana', 'icon': '✨', 'name': 'Disney Lorcana', 'is_template': True},
+        {'id': 'flesh_blood', 'icon': '⚔️', 'name': 'Flesh and Blood', 'is_template': True},
+        {'id': 'digimon', 'icon': '🦖', 'name': 'Digimon', 'is_template': True},
+        {'id': 'weiss', 'icon': '🎭', 'name': 'Weiss Schwarz', 'is_template': True},
+        {'id': 'tcg_other', 'icon': '🎴', 'name': 'Other TCG', 'is_template': True},
+        {'id': 'videogames', 'icon': '🎮', 'name': 'Video Games', 'is_template': True},
+        {'id': 'comics', 'icon': '📚', 'name': 'Comics', 'is_template': True},
+        {'id': 'figures', 'icon': '🎨', 'name': 'Figures & Toys', 'is_template': True},
+        {'id': 'other', 'icon': '📦', 'name': 'Other', 'is_template': True},
+    ]
+
+    categories = list(default_templates)
+
+    # Try to fetch Shopify collections
+    include_collections = request.args.get('include_collections', 'true').lower() == 'true'
+    if include_collections:
+        try:
+            from ..services.shopify_client import ShopifyClient
+            tenant = g.tenant
+            if tenant and tenant.shopify_domain and tenant.shopify_access_token:
+                client = ShopifyClient(g.tenant_id)
+                collections = client.get_collections()
+
+                # Add collections that aren't already in templates
+                template_names_lower = {t['name'].lower() for t in default_templates}
+                for coll in collections:
+                    if coll and coll.get('title'):
+                        # Skip if name matches a template
+                        if coll['title'].lower() not in template_names_lower:
+                            categories.append({
+                                'id': f"collection_{coll['id']}",
+                                'icon': '📁',
+                                'name': coll['title'],
+                                'is_template': False,
+                                'collection_id': coll['id']
+                            })
+        except Exception as e:
+            # Log but don't fail - just return templates
+            print(f"[TradeIns] Failed to fetch collections: {e}")
+
     return jsonify({
-        'categories': [
-            {'id': 'sports', 'icon': '🏈', 'name': 'Sports'},
-            {'id': 'pokemon', 'icon': '⚡', 'name': 'Pokemon'},
-            {'id': 'magic', 'icon': '🔮', 'name': 'Magic'},
-            {'id': 'riftbound', 'icon': '🌀', 'name': 'Riftbound'},
-            {'id': 'tcg_other', 'icon': '🎴', 'name': 'TCG Other'},
-            {'id': 'other', 'icon': '📦', 'name': 'Other'},
-        ]
+        'categories': categories,
+        'templates_count': len(default_templates),
+        'has_collections': len(categories) > len(default_templates)
     })
 
 

@@ -17,7 +17,17 @@ shopify_data_bp = Blueprint('shopify_data', __name__)
 def get_shopify_client_for_tenant():
     """Create Shopify client for the current tenant."""
     tenant_id = g.tenant_id
-    return ShopifyClient(tenant_id)
+    tenant = g.tenant
+
+    # Check if tenant has Shopify credentials
+    if not tenant or not tenant.shopify_domain or not tenant.shopify_access_token:
+        return None
+
+    try:
+        return ShopifyClient(tenant_id)
+    except Exception as e:
+        print(f'[ShopifyData] Failed to create client: {e}')
+        return None
 
 
 @shopify_data_bp.route('/collections', methods=['GET'])
@@ -93,29 +103,70 @@ def list_product_types():
 @require_shop_auth
 def list_tags():
     """
-    List commonly used product tags in the store.
+    List product tags from the store's products.
 
-    Note: Shopify doesn't provide a direct API to list all tags.
-    This returns a curated list of common/useful tags.
+    Fetches actual tags from products in the Shopify store.
 
     Returns:
         List of tag names
     """
-    # Common e-commerce tags that are typically used
-    # In a real implementation, you could query recent products and extract tags
-    common_tags = [
-        'sale',
-        'new',
-        'featured',
-        'bestseller',
-        'preorder',
-        'exclusive',
-        'limited',
-        'clearance',
-    ]
+    client = get_shopify_client_for_tenant()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
 
-    return jsonify({
-        'tags': common_tags,
-        'count': len(common_tags),
-        'note': 'This is a list of common tags. Actual tags depend on your products.'
-    })
+    try:
+        tags = client.get_product_tags()
+        return jsonify({
+            'tags': tags,
+            'count': len(tags)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@shopify_data_bp.route('/customer-tags', methods=['GET'])
+@require_shop_auth
+def list_customer_tags():
+    """
+    List customer tags from the store's customers.
+
+    Fetches actual tags from customers in the Shopify store.
+
+    Returns:
+        List of tag names
+    """
+    client = get_shopify_client_for_tenant()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    try:
+        tags = client.get_customer_tags()
+        return jsonify({
+            'customer_tags': tags,
+            'count': len(tags)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@shopify_data_bp.route('/segments', methods=['GET'])
+@require_shop_auth
+def list_segments():
+    """
+    List customer segments from Shopify.
+
+    Returns:
+        List of segments with id, name, query
+    """
+    client = get_shopify_client_for_tenant()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    try:
+        segments = client.get_segments()
+        return jsonify({
+            'segments': segments,
+            'count': len(segments)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

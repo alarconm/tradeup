@@ -120,7 +120,9 @@ async function updateSettings(
   section: string,
   data: Record<string, unknown>
 ): Promise<{ success: boolean }> {
-  const endpoint = section === 'root' ? '' : `/${section}`;
+  // Convert underscores to hyphens for URL (auto_enrollment -> auto-enrollment)
+  const urlSection = section.replace(/_/g, '-');
+  const endpoint = section === 'root' ? '' : `/${urlSection}`;
   const response = await authFetch(`${getApiUrl()}/settings${endpoint}`, shop, {
     method: 'PATCH',
     body: JSON.stringify(data),
