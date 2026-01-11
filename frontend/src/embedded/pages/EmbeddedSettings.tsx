@@ -5,6 +5,7 @@
  * Uses the nested settings API structure.
  */
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Page,
   Layout,
@@ -426,6 +427,7 @@ async function runExpiration(shop: string | null): Promise<RunTaskResponse> {
 }
 
 export function EmbeddedSettings({ shop }: SettingsProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [hasChanges, setHasChanges] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, unknown>>>({});
@@ -1581,13 +1583,39 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 products to join a tier directly through your Shopify checkout.
               </Text>
 
+              {/* Product Setup Wizard - Recommended for first-time setup */}
+              <Box
+                padding="400"
+                background="bg-surface-secondary"
+                borderRadius="200"
+              >
+                <InlineStack align="space-between" blockAlign="center">
+                  <BlockStack gap="100">
+                    <Text as="h3" variant="headingSm">
+                      Product Setup Wizard
+                    </Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Guided setup with templates, previews, and customization options
+                    </Text>
+                  </BlockStack>
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate('/app/products/wizard')}
+                  >
+                    Launch Wizard
+                  </Button>
+                </InlineStack>
+              </Box>
+
+              <Divider />
+
               <InlineStack align="space-between" blockAlign="center">
                 <BlockStack gap="100">
                   <Text as="h3" variant="headingSm">
-                    Sync Tier Products
+                    Quick Sync (Advanced)
                   </Text>
                   <Text as="p" variant="bodySm" tone="subdued">
-                    Creates products with Monthly/Yearly variants for each tier
+                    Automatically creates products with default settings for each tier
                   </Text>
                 </BlockStack>
                 <Button

@@ -247,6 +247,9 @@ def register_blueprints(app: Flask) -> None:
     # Tenant Settings
     from .api.settings import settings_bp
 
+    # Product Setup Wizard
+    from .api.product_wizard import product_wizard_bp
+
     # Billing (Shopify Billing API - replaces Stripe)
     from .api.billing import billing_bp
 
@@ -314,6 +317,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Tenant Settings routes
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
+
+    # Product Setup Wizard routes
+    app.register_blueprint(product_wizard_bp, url_prefix='/api/products/wizard')
 
     # Billing API routes (Shopify Billing)
     app.register_blueprint(billing_bp, url_prefix='/api/billing')

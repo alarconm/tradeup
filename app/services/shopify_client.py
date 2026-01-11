@@ -1659,6 +1659,65 @@ class ShopifyClient:
             'tags': product.get('tags', [])
         }
 
+    def update_product_status(
+        self,
+        product_id: str,
+        status: str = 'ACTIVE'
+    ) -> Dict[str, Any]:
+        """
+        Update a product's status (ACTIVE, DRAFT, or ARCHIVED).
+
+        Used for publishing draft products or archiving old ones.
+
+        Args:
+            product_id: Shopify product GID (gid://shopify/Product/123)
+            status: New status - ACTIVE, DRAFT, or ARCHIVED
+
+        Returns:
+            Dict with updated product info
+        """
+        mutation = """
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product {
+                    id
+                    title
+                    handle
+                    status
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+
+        variables = {
+            'input': {
+                'id': product_id,
+                'status': status
+            }
+        }
+
+        result = self._execute_query(mutation, variables)
+
+        mutation_result = result.get('productUpdate', {})
+        user_errors = mutation_result.get('userErrors', [])
+
+        if user_errors:
+            raise Exception(f"Shopify errors: {user_errors}")
+
+        product = mutation_result.get('product', {})
+
+        return {
+            'success': True,
+            'id': product.get('id'),
+            'title': product.get('title'),
+            'handle': product.get('handle'),
+            'status': product.get('status'),
+        }
+
     def create_tradeup_membership_products(
         self,
         tiers: List[Dict[str, Any]],

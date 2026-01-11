@@ -45,6 +45,10 @@ interface DashboardStats {
       tiers: { current: number; limit: number; percentage: number };
     };
   };
+  // Product wizard status
+  membership_products_count?: number;
+  membership_products_draft?: boolean;
+  product_wizard_in_progress?: boolean;
 }
 
 interface RecentActivity {
@@ -187,6 +191,43 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
             >
               <p>
                 Start your free trial to unlock all TradeUp features.
+              </p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* Draft Products Warning Banner */}
+        {stats?.membership_products_draft && (
+          <Layout.Section>
+            <Banner
+              title="Membership Products in Draft Mode"
+              action={{
+                content: 'Complete Setup',
+                onAction: () => navigate('/app/products/wizard'),
+              }}
+              tone="warning"
+            >
+              <p>
+                Your {stats.membership_products_count || 0} membership product{(stats.membership_products_count || 0) !== 1 ? 's are' : ' is'} not visible to customers yet.
+                Publish them when you're ready to start selling memberships.
+              </p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* Product Wizard In Progress Banner */}
+        {stats?.product_wizard_in_progress && !stats?.membership_products_draft && (
+          <Layout.Section>
+            <Banner
+              title="Product Setup Incomplete"
+              action={{
+                content: 'Resume Setup',
+                onAction: () => navigate('/app/products/wizard'),
+              }}
+              tone="info"
+            >
+              <p>
+                You have an unfinished product setup. Continue where you left off.
               </p>
             </Banner>
           </Layout.Section>

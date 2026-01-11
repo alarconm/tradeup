@@ -126,6 +126,15 @@ def get_dashboard_stats():
         general_settings = tenant_settings.get('general', {})
         timezone = general_settings.get('timezone', 'America/Los_Angeles')
 
+        # Check membership products status
+        products_state = tenant_settings.get('membership_products', {})
+        has_products = bool(products_state.get('products'))
+        products_draft = products_state.get('draft_mode', False) if has_products else False
+
+        # Check if wizard is in progress
+        wizard_state = tenant_settings.get('product_wizard', {})
+        wizard_in_progress = wizard_state.get('draft_in_progress', False)
+
         return jsonify({
             'total_members': total_members,
             'active_members': active_members,
@@ -134,7 +143,11 @@ def get_dashboard_stats():
             'total_trade_in_value': total_trade_in_value,
             'total_credits_issued': total_credits_issued,
             'subscription': subscription,
-            'timezone': timezone
+            'timezone': timezone,
+            # Product wizard status for dashboard warnings
+            'membership_products_count': len(products_state.get('products', [])),
+            'membership_products_draft': products_draft,
+            'product_wizard_in_progress': wizard_in_progress,
         })
     except Exception as e:
         import traceback
@@ -158,6 +171,9 @@ def get_dashboard_stats():
                 }
             },
             'timezone': 'America/Los_Angeles',
+            'membership_products_count': 0,
+            'membership_products_draft': False,
+            'product_wizard_in_progress': False,
             'error': str(e)
         }), 200
 
