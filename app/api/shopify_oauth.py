@@ -212,6 +212,10 @@ def callback():
     # Create or update tenant
     tenant = Tenant.query.filter_by(shopify_domain=shop).first()
 
+    # Extract timezone and currency from shop info
+    shop_timezone = shop_info.get('iana_timezone', 'America/Los_Angeles')
+    shop_currency = shop_info.get('currency', 'USD')
+
     if not tenant:
         # Create new tenant
         shop_name = shop_info.get('name', shop.replace('.myshopify.com', ''))
@@ -224,11 +228,24 @@ def callback():
             shopify_access_token=access_token,
             subscription_plan='starter',
             subscription_status='pending',
+            settings={
+                'general': {
+                    'timezone': shop_timezone,
+                    'currency': shop_currency,
+                }
+            },
         )
         db.session.add(tenant)
     else:
         # Update existing tenant
         tenant.shopify_access_token = access_token
+        # Update settings with current shop timezone/currency
+        current_settings = tenant.settings or {}
+        general_settings = current_settings.get('general', {})
+        general_settings['timezone'] = shop_timezone
+        general_settings['currency'] = shop_currency
+        current_settings['general'] = general_settings
+        tenant.settings = current_settings
 
     db.session.commit()
 

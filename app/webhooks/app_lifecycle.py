@@ -96,17 +96,26 @@ def handle_shop_updated():
         # Update tenant info
         tenant.shop_name = shop_data.get('name', tenant.shop_name)
         tenant.shopify_domain = new_domain
-        tenant.currency = shop_data.get('currency', tenant.currency)
-        tenant.timezone = shop_data.get('iana_timezone', tenant.timezone)
-        tenant.email = shop_data.get('email', tenant.email)
         tenant.updated_at = datetime.utcnow()
+
+        # Store currency and timezone in settings (JSON field)
+        current_settings = tenant.settings or {}
+        general_settings = current_settings.get('general', {})
+
+        if 'currency' in shop_data:
+            general_settings['currency'] = shop_data['currency']
+        if 'iana_timezone' in shop_data:
+            general_settings['timezone'] = shop_data['iana_timezone']
+
+        current_settings['general'] = general_settings
+        tenant.settings = current_settings
 
         db.session.commit()
 
         return jsonify({
             'success': True,
             'shop': new_domain,
-            'updated_fields': ['shop_name', 'domain', 'currency', 'timezone', 'email']
+            'updated_fields': ['shop_name', 'domain', 'currency', 'timezone']
         })
 
     except Exception as e:

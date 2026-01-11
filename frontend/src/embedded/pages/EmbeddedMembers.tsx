@@ -93,6 +93,21 @@ async function fetchTiers(shop: string | null): Promise<TiersResponse> {
   return response.json();
 }
 
+interface SettingsResponse {
+  settings: {
+    general: {
+      timezone: string;
+      currency: string;
+    };
+  };
+}
+
+async function fetchSettings(shop: string | null): Promise<SettingsResponse> {
+  const response = await authFetch(`${getApiUrl()}/settings`, shop);
+  if (!response.ok) throw new Error('Failed to fetch settings');
+  return response.json();
+}
+
 async function fetchMembers(
   shop: string | null,
   page: number,
@@ -148,6 +163,17 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     enabled: !!shop,
     staleTime: 60000, // Tiers don't change often
   });
+
+  // Fetch settings for timezone
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings', shop],
+    queryFn: () => fetchSettings(shop),
+    enabled: !!shop,
+    staleTime: 300000, // Settings don't change often (5 min cache)
+  });
+
+  // Get timezone from settings, fallback to America/Los_Angeles
+  const storeTimezone = settingsData?.settings?.general?.timezone || 'America/Los_Angeles';
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -213,15 +239,15 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     }).format(amount || 0);
   };
 
-  const formatDate = (dateStr: string | null) => {
+  const formatDate = useCallback((dateStr: string | null) => {
     if (!dateStr) return 'Never';
     return new Date(dateStr).toLocaleDateString('en-US', {
-      timeZone: 'America/Los_Angeles',
+      timeZone: storeTimezone,
       month: 'numeric',
       day: 'numeric',
       year: 'numeric',
     });
-  };
+  }, [storeTimezone]);
 
   // Build tier filter choices from backend data
   // IMPORTANT: Check t exists first to prevent "Cannot read properties of undefined" errors

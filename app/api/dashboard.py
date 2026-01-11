@@ -121,6 +121,11 @@ def get_dashboard_stats():
             }
         }
 
+        # Get timezone from tenant settings (synced from Shopify)
+        tenant_settings = tenant.settings or {} if tenant else {}
+        general_settings = tenant_settings.get('general', {})
+        timezone = general_settings.get('timezone', 'America/Los_Angeles')
+
         return jsonify({
             'total_members': total_members,
             'active_members': active_members,
@@ -128,7 +133,8 @@ def get_dashboard_stats():
             'completed_trade_ins': completed_trade_ins,
             'total_trade_in_value': total_trade_in_value,
             'total_credits_issued': total_credits_issued,
-            'subscription': subscription
+            'subscription': subscription,
+            'timezone': timezone
         })
     except Exception as e:
         import traceback
@@ -151,6 +157,7 @@ def get_dashboard_stats():
                     'tiers': {'current': 0, 'limit': 3, 'percentage': 0}
                 }
             },
+            'timezone': 'America/Los_Angeles',
             'error': str(e)
         }), 200
 
