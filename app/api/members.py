@@ -441,7 +441,7 @@ def delete_member(member_id):
     Use with caution - typically for cleaning up test data or
     members that were created incorrectly (e.g., not linked to Shopify).
     """
-    from sqlalchemy import text
+    from sqlalchemy import text, inspect
     tenant_id = g.tenant_id
 
     # Use raw SQL to get member data to avoid triggering relationship loading
@@ -457,49 +457,59 @@ def delete_member(member_id):
     member_name = result.name or result.email
 
     try:
+        # Get list of existing tables to avoid errors on non-existent tables
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+
         # Delete related records first (to avoid foreign key issues)
         # Use raw SQL to avoid loading relationships on models
 
         # Delete store credit records
-        db.session.execute(
-            text("DELETE FROM store_credit_ledger WHERE member_id = :mid"),
-            {'mid': member_id}
-        )
-        db.session.execute(
-            text("DELETE FROM member_credit_balances WHERE member_id = :mid"),
-            {'mid': member_id}
-        )
+        if 'store_credit_ledger' in existing_tables:
+            db.session.execute(
+                text("DELETE FROM store_credit_ledger WHERE member_id = :mid"),
+                {'mid': member_id}
+            )
+        if 'member_credit_balances' in existing_tables:
+            db.session.execute(
+                text("DELETE FROM member_credit_balances WHERE member_id = :mid"),
+                {'mid': member_id}
+            )
 
         # Delete tier history records
-        db.session.execute(
-            text("DELETE FROM tier_change_logs WHERE member_id = :mid"),
-            {'mid': member_id}
-        )
-        db.session.execute(
-            text("DELETE FROM member_promo_usages WHERE member_id = :mid"),
-            {'mid': member_id}
-        )
+        if 'tier_change_logs' in existing_tables:
+            db.session.execute(
+                text("DELETE FROM tier_change_logs WHERE member_id = :mid"),
+                {'mid': member_id}
+            )
+        if 'member_promo_usages' in existing_tables:
+            db.session.execute(
+                text("DELETE FROM member_promo_usages WHERE member_id = :mid"),
+                {'mid': member_id}
+            )
 
         # Delete referral records (if table exists)
-        try:
+        if 'referrals' in existing_tables:
             db.session.execute(
                 text("DELETE FROM referrals WHERE referrer_id = :mid OR referee_id = :mid"),
                 {'mid': member_id}
             )
-        except Exception:
-            pass  # Table may not exist
 
         # Unlink trade-in batches (set member_id to NULL instead of deleting)
-        db.session.execute(
-            text("UPDATE trade_in_batches SET member_id = NULL WHERE member_id = :mid"),
-            {'mid': member_id}
-        )
+        if 'trade_in_batches' in existing_tables:
+            db.session.execute(
+                text("UPDATE trade_in_batches SET member_id = NULL WHERE member_id = :mid"),
+                {'mid': member_id}
+            )
 
-        # Clear referred_by references from other members
-        db.session.execute(
-            text("UPDATE members SET referred_by_id = NULL WHERE referred_by_id = :mid"),
-            {'mid': member_id}
-        )
+        # Clear referred_by references from other members (if column exists)
+        # Check if referred_by_id column exists in members table
+        members_columns = {col['name'] for col in inspector.get_columns('members')}
+        if 'referred_by_id' in members_columns:
+            db.session.execute(
+                text("UPDATE members SET referred_by_id = NULL WHERE referred_by_id = :mid"),
+                {'mid': member_id}
+            )
 
         # Delete the member
         db.session.execute(
