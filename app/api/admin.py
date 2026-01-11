@@ -467,9 +467,9 @@ def fix_credits():
 
     Call with: POST /api/admin/fix-credits?key=tradeup-schema-fix-2026
     """
-    from sqlalchemy import func, text
+    from sqlalchemy import func
     from decimal import Decimal
-    from ..models.store_credit import StoreCreditLedger
+    from ..models.promotions import StoreCreditLedger
 
     # Simple security key check
     key = request.args.get('key')
