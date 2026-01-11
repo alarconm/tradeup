@@ -468,6 +468,30 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         </section>
         '''
 
+    # Build tiers section
+    tiers_section_html = ''
+    if tiers_html:
+        tiers_section_html = f'''
+        <section class="tradeup-section">
+            <h2>Membership Tiers</h2>
+            <div class="tradeup-tiers-grid">
+                {tiers_html}
+            </div>
+        </section>
+        '''
+
+    # Build rewards section
+    rewards_section_html = ''
+    if rewards_html:
+        rewards_section_html = f'''
+        <section class="tradeup-section">
+            <h2>Rewards Catalog</h2>
+            <div class="tradeup-rewards-grid">
+                {rewards_html}
+            </div>
+        </section>
+        '''
+
     # Complete HTML page
     html = f'''<!DOCTYPE html>
 <html>
@@ -960,24 +984,10 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         </section>
 
         <!-- Tier Benefits Section -->
-        {f'''
-        <section class="tradeup-section">
-            <h2>Membership Tiers</h2>
-            <div class="tradeup-tiers-grid">
-                {tiers_html}
-            </div>
-        </section>
-        ''' if tiers_html else ''}
+        {tiers_section_html}
 
         <!-- Rewards Catalog Section -->
-        {f'''
-        <section class="tradeup-section">
-            <h2>Rewards Catalog</h2>
-            <div class="tradeup-rewards-grid">
-                {rewards_html}
-            </div>
-        </section>
-        ''' if rewards_html else ''}
+        {rewards_section_html}
 
         <!-- Referral Section -->
         {referral_html}
