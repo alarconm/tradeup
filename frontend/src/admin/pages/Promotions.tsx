@@ -84,6 +84,7 @@ export default function Promotions() {
     active: true,
   })
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData() }, [filter])
   useEffect(() => { loadFilterOptions() }, [])
 
@@ -92,11 +93,11 @@ export default function Promotions() {
       setLoading(true)
       const [promoData, catData] = await Promise.all([
         getPromotions({ active_only: filter === 'active' }),
-        getTradeInCategories(true),
+        getTradeInCategories(),
       ])
       setPromotions(promoData.promotions)
       setCategories(catData.categories)
-    } catch (err) {
+    } catch {
       setError('Failed to load promotions')
     } finally {
       setLoading(false)
@@ -194,7 +195,7 @@ export default function Promotions() {
       }
       setShowModal(false)
       loadData()
-    } catch (err) {
+    } catch {
       setError('Failed to save promotion')
     }
   }
@@ -204,7 +205,7 @@ export default function Promotions() {
     try {
       await deletePromotion(id)
       loadData()
-    } catch (err) {
+    } catch {
       setError('Failed to delete promotion')
     }
   }

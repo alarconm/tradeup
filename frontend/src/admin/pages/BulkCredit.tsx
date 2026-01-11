@@ -3,7 +3,7 @@
  * Shopify Polaris-inspired design
  */
 import { useState, useEffect } from 'react'
-import { Plus, Zap, CheckCircle, DollarSign, Users, X, Loader2 } from 'lucide-react'
+import { Plus, Zap, CheckCircle, DollarSign, X, Loader2 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { radius, typography, spacing } from '../styles/tokens'
 import {
@@ -44,7 +44,7 @@ export default function BulkCredit() {
       setLoading(true)
       const data = await getBulkCreditOperations()
       setOperations(data.operations)
-    } catch (err) {
+    } catch {
       setError('Failed to load operations')
     } finally {
       setLoading(false)
@@ -63,7 +63,7 @@ export default function BulkCredit() {
       const preview = await previewBulkCredit(operation.id)
       setPreviewData({ operation, ...preview })
       setShowModal(false)
-    } catch (err) {
+    } catch {
       setError('Failed to create operation')
     }
   }
@@ -75,7 +75,7 @@ export default function BulkCredit() {
       await executeBulkCredit(previewData.operation.id)
       setPreviewData(null)
       loadOperations()
-    } catch (err) {
+    } catch {
       setError('Failed to execute bulk credit')
     } finally {
       setExecuting(false)

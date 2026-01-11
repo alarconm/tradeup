@@ -1,0 +1,72 @@
+# TradeUp Checkout UI Extension
+# Displays points balance, earnings, and rewards at checkout
+# https://shopify.dev/docs/api/checkout-ui-extensions
+
+api_version = "2025-01"
+
+[[extensions]]
+uid = "tradeup-checkout-points-display"
+type = "ui_extension"
+name = "TradeUp Points"
+handle = "tradeup-checkout-points"
+
+  # Order summary block - shows points earnings preview
+  [[extensions.targeting]]
+  target = "purchase.checkout.block.render"
+  module = "./src/Checkout.jsx"
+
+  # Dynamic render for additional placements
+  [[extensions.targeting]]
+  target = "purchase.checkout.cart-line-list.render-after"
+  module = "./src/Checkout.jsx"
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "points_per_dollar"
+  type = "number_integer"
+  name = "Points per dollar spent"
+  description = "Base points earned per dollar (default: 1)"
+
+  [[extensions.settings.fields]]
+  key = "show_tier_badge"
+  type = "boolean"
+  name = "Show tier badge"
+  description = "Display customer's loyalty tier badge"
+
+  [[extensions.settings.fields]]
+  key = "show_reward_progress"
+  type = "boolean"
+  name = "Show reward progress"
+  description = "Display progress bar to next reward"
+
+  [[extensions.settings.fields]]
+  key = "next_reward_threshold"
+  type = "number_integer"
+  name = "Points for next reward"
+  description = "Points needed for the next reward (default: 500)"
+
+  [[extensions.settings.fields]]
+  key = "next_reward_value"
+  type = "single_line_text_field"
+  name = "Next reward value"
+  description = "Value of the next reward (e.g., '$5 off')"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "points_balance"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "tier"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "tier_earning_multiplier"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "lifetime_points"

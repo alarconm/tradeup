@@ -17,19 +17,14 @@ import {
   Badge,
   Box,
   Banner,
-  MediaCard,
-  VideoThumbnail,
   Icon,
   Divider,
   List,
-  Tooltip,
 } from '@shopify/polaris';
 import {
   CheckCircleIcon,
   MinusCircleIcon,
   ExternalIcon,
-  ViewIcon,
-  PlusCircleIcon,
 } from '@shopify/polaris-icons';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

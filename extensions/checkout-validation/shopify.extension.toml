@@ -1,0 +1,60 @@
+# TradeUp Checkout Validation Extension
+# Validates points redemption and tier-restricted products at checkout
+# https://shopify.dev/docs/api/functions/reference/cart-checkout-validation
+
+api_version = "2025-01"
+
+[[extensions]]
+
+type = "function"
+name = "TradeUp Checkout Validation"
+handle = "tradeup-checkout-validation"
+
+[[extensions.targeting]]
+target = "purchase.validation.run"
+input_query = "src/input.graphql"
+export = "run"
+
+[extensions.build]
+command = "npm exec -- shopify app function build"
+path = "dist/function.wasm"
+watch = ["src/**/*.js", "src/input.graphql"]
+
+[extensions.ui]
+enable_create = false
+
+# Extension capabilities
+[extensions.capabilities]
+network_access = false
+
+# Configuration settings for the function
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "enable_points_validation"
+  type = "boolean"
+  name = "Enable Points Validation"
+  description = "Validate customer has enough points for redemption"
+
+  [[extensions.settings.fields]]
+  key = "enable_tier_validation"
+  type = "boolean"
+  name = "Enable Tier Validation"
+  description = "Validate tier requirements for restricted products"
+
+  [[extensions.settings.fields]]
+  key = "redemption_cart_attribute"
+  type = "single_line_text_field"
+  name = "Redemption Cart Attribute Key"
+  description = "Cart attribute key that indicates points redemption (e.g., 'tradeup_points_redeem')"
+
+  [[extensions.settings.fields]]
+  key = "tier_metafield_key"
+  type = "single_line_text_field"
+  name = "Tier Metafield Key"
+  description = "Customer metafield key for tier name (e.g., 'tier')"
+
+  [[extensions.settings.fields]]
+  key = "points_metafield_key"
+  type = "single_line_text_field"
+  name = "Points Metafield Key"
+  description = "Customer metafield key for points balance (e.g., 'points_balance')"

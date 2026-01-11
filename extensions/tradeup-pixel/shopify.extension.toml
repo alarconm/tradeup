@@ -1,0 +1,38 @@
+# TradeUp Loyalty Analytics Web Pixel
+# https://shopify.dev/docs/api/web-pixels-api
+# Tracks loyalty program events for ROI measurement
+
+api_version = "2025-01"
+
+[[extensions]]
+type = "web_pixel_extension"
+name = "TradeUp Analytics"
+handle = "tradeup-analytics"
+
+runtime_context = "strict"
+
+# Customer privacy settings
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "endpoint_url"
+  type = "single_line_text_field"
+  name = "Analytics Endpoint"
+  description = "Backend URL for analytics events (default: https://app.cardflowlabs.com/api/analytics/pixel)"
+
+  [[extensions.settings.fields]]
+  key = "enable_checkout_tracking"
+  type = "boolean"
+  name = "Track Checkout Events"
+  description = "Track points earned from checkout completions"
+
+  [[extensions.settings.fields]]
+  key = "enable_page_tracking"
+  type = "boolean"
+  name = "Track Page Views"
+  description = "Track when customers view rewards and tier information"
+
+  [[extensions.settings.fields]]
+  key = "debug_mode"
+  type = "boolean"
+  name = "Debug Mode"
+  description = "Enable console logging for troubleshooting"

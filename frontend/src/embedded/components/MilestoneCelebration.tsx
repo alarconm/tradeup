@@ -13,7 +13,7 @@ import {
   InlineStack,
   Box,
 } from '@shopify/polaris';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface Milestone {
   id: string;
@@ -46,6 +46,7 @@ export function MilestoneCelebration({ milestone, onDismiss }: MilestoneCelebrat
 
   useEffect(() => {
     if (milestone) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowConfetti(true);
       // Auto-dismiss confetti after animation
       const timer = setTimeout(() => setShowConfetti(false), 3000);
@@ -101,8 +102,36 @@ export function MilestoneCelebration({ milestone, onDismiss }: MilestoneCelebrat
   );
 }
 
+// Confetti colors
+const confettiColors = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Teal
+  '#45B7D1', // Blue
+  '#96CEB4', // Green
+  '#FFEAA7', // Yellow
+  '#DDA0DD', // Plum
+  '#98D8C8', // Mint
+  '#F7DC6F', // Gold
+  '#BB8FCE', // Purple
+  '#85C1E9', // Light blue
+];
+
+// Generate confetti particles data (outside render)
+function generateConfettiData(count: number) {
+  return Array.from({ length: count }).map(() => ({
+    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+    left: Math.random() * 100,
+    isCircle: Math.random() > 0.5,
+    duration: 2 + Math.random() * 2,
+    delay: Math.random() * 0.5,
+  }));
+}
+
 // Simple CSS confetti effect
 function ConfettiEffect() {
+  // Pre-compute random values on mount
+  const particles = useMemo(() => generateConfettiData(50), []);
+
   return (
     <div
       style={{
@@ -115,19 +144,19 @@ function ConfettiEffect() {
         pointerEvents: 'none',
       }}
     >
-      {Array.from({ length: 50 }).map((_, i) => (
+      {particles.map((particle, i) => (
         <div
           key={i}
           style={{
             position: 'absolute',
             width: '10px',
             height: '10px',
-            backgroundColor: getRandomColor(),
-            left: `${Math.random() * 100}%`,
+            backgroundColor: particle.color,
+            left: `${particle.left}%`,
             top: '-10px',
-            borderRadius: Math.random() > 0.5 ? '50%' : '0',
-            animation: `confetti-fall ${2 + Math.random() * 2}s ease-out forwards`,
-            animationDelay: `${Math.random() * 0.5}s`,
+            borderRadius: particle.isCircle ? '50%' : '0',
+            animation: `confetti-fall ${particle.duration}s ease-out forwards`,
+            animationDelay: `${particle.delay}s`,
           }}
         />
       ))}
@@ -147,23 +176,8 @@ function ConfettiEffect() {
   );
 }
 
-function getRandomColor() {
-  const colors = [
-    '#FF6B6B', // Red
-    '#4ECDC4', // Teal
-    '#45B7D1', // Blue
-    '#96CEB4', // Green
-    '#FFEAA7', // Yellow
-    '#DDA0DD', // Plum
-    '#98D8C8', // Mint
-    '#F7DC6F', // Gold
-    '#BB8FCE', // Purple
-    '#85C1E9', // Light blue
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
-}
-
 // Hook for managing milestone celebrations
+// eslint-disable-next-line react-refresh/only-export-components
 export function useMilestoneCelebration() {
   const [currentMilestone, setCurrentMilestone] = useState<Milestone | null>(null);
   const [queue, setQueue] = useState<Milestone[]>([]);

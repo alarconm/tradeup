@@ -1,0 +1,138 @@
+{
+  "cart": {
+    "attribute": {
+      "key": "tradeup_points_redeem",
+      "value": "500"
+    },
+    "attributes": [
+      {
+        "key": "tradeup_points_redeem",
+        "value": "500"
+      },
+      {
+        "key": "tradeup_reward_code",
+        "value": "credit_5"
+      }
+    ],
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/123",
+          "product": {
+            "id": "gid://shopify/Product/456",
+            "title": "Pokemon Booster Box",
+            "tierRestriction": null,
+            "minPointsRequired": null,
+            "tags": []
+          }
+        },
+        "cost": {
+          "totalAmount": {
+            "amount": "149.99",
+            "currencyCode": "USD"
+          }
+        }
+      },
+      {
+        "id": "gid://shopify/CartLine/2",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/789",
+          "product": {
+            "id": "gid://shopify/Product/012",
+            "title": "Exclusive Gold Member Box",
+            "tierRestriction": {
+              "value": "{\"required_tier\": \"Gold\", \"min_level\": 3}"
+            },
+            "minPointsRequired": null,
+            "tags": ["tier:gold", "members-only"]
+          }
+        },
+        "cost": {
+          "totalAmount": {
+            "amount": "299.99",
+            "currencyCode": "USD"
+          }
+        }
+      },
+      {
+        "id": "gid://shopify/CartLine/3",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/345",
+          "product": {
+            "id": "gid://shopify/Product/678",
+            "title": "VIP Access Pack",
+            "tierRestriction": null,
+            "minPointsRequired": {
+              "value": "1000"
+            },
+            "tags": ["min-points:1000", "tradeup-members-only"]
+          }
+        },
+        "cost": {
+          "totalAmount": {
+            "amount": "49.99",
+            "currencyCode": "USD"
+          }
+        }
+      }
+    ],
+    "discountCodes": [
+      {
+        "code": "TU-REWARD123",
+        "applicable": true
+      }
+    ],
+    "cost": {
+      "subtotalAmount": {
+        "amount": "499.97",
+        "currencyCode": "USD"
+      },
+      "totalAmount": {
+        "amount": "499.97",
+        "currencyCode": "USD"
+      }
+    }
+  },
+  "buyerIdentity": {
+    "customer": {
+      "id": "gid://shopify/Customer/12345",
+      "email": "customer@example.com",
+      "pointsBalance": {
+        "value": "750"
+      },
+      "tier": {
+        "value": "Silver"
+      },
+      "tierLevel": {
+        "value": "2"
+      },
+      "lifetimePoints": {
+        "value": "2500"
+      },
+      "memberStatus": {
+        "value": "active"
+      },
+      "redemptionsThisMonth": {
+        "value": "1"
+      },
+      "maxRedemptionsPerMonth": {
+        "value": "5"
+      }
+    }
+  },
+  "localization": {
+    "country": {
+      "isoCode": "US"
+    },
+    "language": {
+      "isoCode": "EN"
+    }
+  }
+}

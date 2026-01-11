@@ -22,6 +22,7 @@ handle = "tradeup-rewards"
 
 [extensions.capabilities]
 api_access = true
+network_access = true
 
 [extensions.settings]
   [[extensions.settings.fields]]
@@ -29,3 +30,33 @@ api_access = true
   type = "boolean"
   name = "Show trade-in history"
   description = "Display trade-in history in the customer account"
+
+  [[extensions.settings.fields]]
+  key = "show_points_balance"
+  type = "boolean"
+  name = "Show points balance"
+  description = "Display loyalty points balance and history"
+
+  [[extensions.settings.fields]]
+  key = "show_rewards_catalog"
+  type = "boolean"
+  name = "Show rewards catalog"
+  description = "Allow customers to browse and redeem rewards"
+
+  [[extensions.settings.fields]]
+  key = "show_referral_program"
+  type = "boolean"
+  name = "Show referral program"
+  description = "Display referral code and sharing options"
+
+  [[extensions.settings.fields]]
+  key = "show_tier_progress"
+  type = "boolean"
+  name = "Show tier progress"
+  description = "Display progress bar to next membership tier"
+
+  [[extensions.settings.fields]]
+  key = "default_tab"
+  type = "single_line_text_field"
+  name = "Default tab"
+  description = "Which tab to show first (overview, history, rewards, referrals)"

@@ -37,6 +37,7 @@ export default function Dashboard() {
     getBonusHistory(5, 0)
       .then(res => setBonusHistory(res.transactions))
       .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!member) {

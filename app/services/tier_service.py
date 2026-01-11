@@ -148,11 +148,20 @@ class TierService:
             except Exception as sync_err:
                 current_app.logger.warning(f'Metafield sync failed: {sync_err}')
 
-            # Trigger Shopify Flow event for tier change
+            # Trigger Shopify Flow events for tier change
             if previous_tier_name != tier.name:  # Only if tier actually changed
                 try:
                     from .flow_service import FlowService
                     flow_svc = FlowService(self.tenant_id, self.shopify_client)
+
+                    # Get bonus rates for the Flow payload
+                    old_bonus = 0
+                    if previous_tier_id:
+                        old_tier = MembershipTier.query.get(previous_tier_id)
+                        old_bonus = float(old_tier.bonus_rate) if old_tier else 0
+                    new_bonus = float(tier.bonus_rate)
+
+                    # Send the general tier_changed trigger
                     flow_svc.trigger_tier_changed(
                         member_id=member.id,
                         member_number=member.member_number,
@@ -163,6 +172,33 @@ class TierService:
                         source=source_type,
                         shopify_customer_id=member.shopify_customer_id
                     )
+
+                    # Send the more specific trigger based on change type
+                    if change_type == 'upgrade':
+                        flow_svc.trigger_tier_upgraded(
+                            member_id=member.id,
+                            member_number=member.member_number,
+                            email=member.email,
+                            old_tier=previous_tier_name or 'None',
+                            new_tier=tier.name,
+                            old_tier_bonus=old_bonus,
+                            new_tier_bonus=new_bonus,
+                            source=source_type,
+                            shopify_customer_id=member.shopify_customer_id
+                        )
+                    elif change_type == 'downgrade':
+                        flow_svc.trigger_tier_downgraded(
+                            member_id=member.id,
+                            member_number=member.member_number,
+                            email=member.email,
+                            old_tier=previous_tier_name or 'None',
+                            new_tier=tier.name,
+                            old_tier_bonus=old_bonus,
+                            new_tier_bonus=new_bonus,
+                            reason=source_type,
+                            shopify_customer_id=member.shopify_customer_id
+                        )
+
                 except Exception as flow_err:
                     current_app.logger.warning(f'Flow trigger failed: {flow_err}')
 

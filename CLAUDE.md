@@ -53,7 +53,7 @@ make dev                     # Local development
 ```
 tradeup/
 ├── app/                    # Flask backend
-│   ├── api/               # 16 REST API blueprints
+│   ├── api/               # 17 REST API blueprints (incl. proxy)
 │   ├── models/            # 7 SQLAlchemy models
 │   ├── services/          # 10 business logic services
 │   ├── webhooks/          # 6 Shopify webhook handlers
@@ -100,6 +100,14 @@ tradeup/
 - `GET /api/onboarding/status` - Setup progress
 - `GET /api/onboarding/store-credit-check` - Verify store credit enabled
 - `POST /api/onboarding/templates/{key}/apply` - Apply tier template
+
+### App Proxy (Customer-Facing)
+- `GET /proxy/` - Rewards landing page (HTML)
+- `GET /proxy/balance` - Customer points balance (JSON)
+- `GET /proxy/rewards` - Available rewards catalog (JSON)
+- `GET /proxy/tiers` - Tier benefits comparison (JSON)
+
+Accessible at: `store.myshopify.com/apps/rewards`
 
 ## Shopify Extensions
 

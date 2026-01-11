@@ -1,0 +1,127 @@
+# TradeUp Checkout Validation Input Query
+# Fetches all data needed to validate points redemption and tier requirements
+# https://shopify.dev/docs/api/functions/reference/cart-checkout-validation/graphql
+
+query Input {
+  # Cart information
+  cart {
+    # Cart attributes (for points redemption intent)
+    attribute(key: "tradeup_points_redeem") {
+      key
+      value
+    }
+
+    # Additional cart attributes for redemption details
+    attributes {
+      key
+      value
+    }
+
+    # Line items with product metafields
+    lines {
+      id
+      quantity
+
+      # Get merchandise details
+      merchandise {
+        ... on ProductVariant {
+          id
+
+          product {
+            id
+            title
+
+            # Product metafields for tier restrictions
+            # Format: { "required_tier": "Gold", "min_points": 1000 }
+            tierRestriction: metafield(namespace: "tradeup", key: "tier_restriction") {
+              value
+            }
+
+            # Minimum points required to purchase
+            minPointsRequired: metafield(namespace: "tradeup", key: "min_points_required") {
+              value
+            }
+
+            # Product tags for validation rules
+            tags
+          }
+        }
+      }
+
+      # Line item cost for validation
+      cost {
+        totalAmount {
+          amount
+          currencyCode
+        }
+      }
+    }
+
+    # Discount codes applied (for reward code validation)
+    discountCodes {
+      code
+      applicable
+    }
+
+    # Cost summary
+    cost {
+      subtotalAmount {
+        amount
+        currencyCode
+      }
+      totalAmount {
+        amount
+        currencyCode
+      }
+    }
+  }
+
+  # Customer metafields for points and tier
+  buyerIdentity {
+    customer {
+      id
+      email
+
+      # TradeUp namespace metafields
+      pointsBalance: metafield(namespace: "tradeup", key: "points_balance") {
+        value
+      }
+
+      tier: metafield(namespace: "tradeup", key: "tier") {
+        value
+      }
+
+      tierLevel: metafield(namespace: "tradeup", key: "tier_level") {
+        value
+      }
+
+      lifetimePoints: metafield(namespace: "tradeup", key: "lifetime_points") {
+        value
+      }
+
+      # Member status
+      memberStatus: metafield(namespace: "tradeup", key: "member_status") {
+        value
+      }
+
+      # Redemption limits tracking
+      redemptionsThisMonth: metafield(namespace: "tradeup", key: "redemptions_this_month") {
+        value
+      }
+
+      maxRedemptionsPerMonth: metafield(namespace: "tradeup", key: "max_redemptions_per_month") {
+        value
+      }
+    }
+  }
+
+  # Localization for error messages
+  localization {
+    country {
+      isoCode
+    }
+    language {
+      isoCode
+    }
+  }
+}

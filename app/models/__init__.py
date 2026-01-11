@@ -26,6 +26,25 @@ from .promotions import (
     seed_tier_configurations,
 )
 from .referral import Referral, ReferralProgram
+from .loyalty_points import (
+    # Enums
+    PointsTransactionType,
+    PointsEarnSource,
+    EarningRuleType,
+    RewardType,
+    RewardRedemptionStatus,
+    # Models
+    PointsBalance,
+    PointsLedger,
+    EarningRule,
+    Reward,
+    RewardRedemption,
+    PointsProgramConfig,
+    # Seeders
+    seed_points_program,
+    DEFAULT_EARNING_RULES,
+    DEFAULT_REWARDS,
+)
 
 __all__ = [
     'Tenant',
@@ -57,4 +76,19 @@ __all__ = [
     # Referrals
     'Referral',
     'ReferralProgram',
+    # Points-based Loyalty System
+    'PointsTransactionType',
+    'PointsEarnSource',
+    'EarningRuleType',
+    'RewardType',
+    'RewardRedemptionStatus',
+    'PointsBalance',
+    'PointsLedger',
+    'EarningRule',
+    'Reward',
+    'RewardRedemption',
+    'PointsProgramConfig',
+    'seed_points_program',
+    'DEFAULT_EARNING_RULES',
+    'DEFAULT_REWARDS',
 ]

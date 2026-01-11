@@ -98,7 +98,7 @@ export function CustomerReferral({
       await navigator.clipboard.writeText(data.referral_code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       // Fallback for older browsers
       const input = document.createElement('input');
       input.value = data.referral_code;

@@ -21,13 +21,12 @@ import {
   Spinner,
   Banner,
   Box,
-  ProgressBar,
   Button,
   Modal,
   TextField,
   Select,
 } from '@shopify/polaris';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface ReferralsProps {
@@ -91,7 +90,6 @@ async function fetchReferralConfig(shop: string | null): Promise<ReferralConfig>
 }
 
 export function EmbeddedReferrals({ shop }: ReferralsProps) {
-  const queryClient = useQueryClient();
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({

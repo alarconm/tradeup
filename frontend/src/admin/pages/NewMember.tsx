@@ -33,12 +33,6 @@ import { debounce } from '../utils/debounce'
 
 type PaymentMethod = 'store_credit' | 'card' | 'cash'
 
-// Extended Shopify customer search result
-interface SearchResult {
-  customer: ShopifyCustomer | null
-  isNew: boolean
-}
-
 export default function NewMember() {
   const navigate = useNavigate()
   const { colors, shadows } = useTheme()

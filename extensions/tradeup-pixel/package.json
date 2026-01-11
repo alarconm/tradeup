@@ -1,0 +1,18 @@
+{
+  "name": "tradeup-pixel",
+  "version": "1.0.0",
+  "description": "TradeUp loyalty analytics web pixel for Shopify",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "shopify app build --path ../../",
+    "dev": "shopify app dev --path ../../"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@shopify/web-pixels-extension": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

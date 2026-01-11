@@ -5,9 +5,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, User, Mail, Phone, Calendar, CreditCard, TrendingUp,
+  ArrowLeft, Mail, Phone, Calendar, CreditCard, TrendingUp,
   Package, DollarSign, Award, Edit2, Loader2, AlertCircle, Check,
-  ChevronRight, Clock, Tag
+  ChevronRight
 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { radius, typography, spacing } from '../styles/tokens'
@@ -65,6 +65,7 @@ export default function MemberDetail() {
 
   useEffect(() => {
     if (memberId) loadMemberData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
 
   const loadMemberData = async () => {
@@ -92,7 +93,7 @@ export default function MemberDetail() {
         setCreditHistory(creditData.transactions)
         setCreditBalance(creditData.balance)
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load member details')
     } finally {
       setLoading(false)
@@ -106,7 +107,7 @@ export default function MemberDetail() {
       await updateMemberTier(member.id, selectedTierId)
       await loadMemberData()
       setEditingTier(false)
-    } catch (err) {
+    } catch {
       setError('Failed to update tier')
     } finally {
       setSaving(false)
@@ -119,7 +120,7 @@ export default function MemberDetail() {
       setSaving(true)
       await updateMember(member.id, { status: newStatus as Member['status'] })
       await loadMemberData()
-    } catch (err) {
+    } catch {
       setError('Failed to update status')
     } finally {
       setSaving(false)

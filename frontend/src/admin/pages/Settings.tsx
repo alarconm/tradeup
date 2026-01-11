@@ -11,7 +11,6 @@ import {
   Loader2,
   AlertCircle,
   Check,
-  Upload,
   Image as ImageIcon,
   Type,
   Droplets,

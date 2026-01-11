@@ -58,10 +58,6 @@ interface EmptyStateConfig {
 export function ActionableEmptyState({ type, shop }: ActionableEmptyStateProps) {
   const navigate = useNavigate();
 
-  const getShopDomain = () => {
-    return shop?.replace('.myshopify.com', '') || '';
-  };
-
   const configs: Record<EmptyStateType, EmptyStateConfig> = {
     members: {
       heading: 'Start Building Your Loyalty Community',
@@ -262,7 +258,7 @@ export function QuickActionCard({
 }
 
 // Getting started section with multiple quick actions
-export function GettingStartedSection({ shop }: { shop: string | null }) {
+export function GettingStartedSection() {
   const navigate = useNavigate();
 
   return (

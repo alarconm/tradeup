@@ -69,12 +69,6 @@ interface ProductDraft {
   customized: boolean;
 }
 
-interface TemplateImage {
-  id: string;
-  url: string;
-  name: string;
-}
-
 // API functions
 async function fetchWizardStatus(shop: string | null): Promise<WizardStatus> {
   const response = await authFetch(`${getApiUrl()}/products/wizard/status`, shop);
@@ -221,7 +215,7 @@ export function EmbeddedProductWizard({ shop }: EmbeddedProductWizardProps) {
     },
   });
 
-  // Load saved draft on mount
+  // Load saved draft on mount - setState is intentional for restoring persisted state
   useEffect(() => {
     if (draftData?.has_draft) {
       setStep(draftData.step || 1);
@@ -241,6 +235,7 @@ export function EmbeddedProductWizard({ shop }: EmbeddedProductWizardProps) {
         publish_as_active: publishActive,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   // Handle template selection

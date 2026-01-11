@@ -1,0 +1,21 @@
+{
+  "name": "tradeup-checkout-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TradeUp loyalty points display for Shopify Checkout",
+  "scripts": {
+    "build": "shopify app build --path=.",
+    "dev": "shopify app dev --path=."
+  },
+  "dependencies": {
+    "@shopify/ui-extensions": "^2024.10.0",
+    "@shopify/ui-extensions-react": "^2024.10.0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@shopify/cli": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

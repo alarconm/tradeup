@@ -592,9 +592,7 @@ export async function getTradeInBatch(batchId: number): Promise<TradeInBatch> {
   return adminFetch(`/api/trade-ins/${batchId}`);
 }
 
-export async function getTradeInCategories(
-  _includeAll?: boolean
-): Promise<{ categories: TradeInCategory[] }> {
+export async function getTradeInCategories(): Promise<{ categories: TradeInCategory[] }> {
   return adminFetch('/api/trade-ins/categories');
 }
 

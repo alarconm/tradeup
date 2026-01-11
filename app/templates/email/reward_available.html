@@ -1,0 +1,233 @@
+<!--
+TradeUp Email Template: Reward Available
+Shopify Email compatible - uses Liquid syntax
+
+Variables:
+- shop.name, shop.url, customer.first_name
+- tradeup.points_balance - Current points
+- tradeup.reward_name - Name of available reward
+- tradeup.reward_points - Points needed for reward
+- tradeup.reward_value - Dollar value if applicable
+- tradeup.rewards_count - Number of rewards available
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You Can Redeem a Reward!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header .emoji {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .reward-card {
+            background: linear-gradient(135deg, #fff5f5 0%, #fff0f5 100%);
+            border: 2px solid #f5576c;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px;
+            text-align: center;
+        }
+        .reward-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f5576c;
+            margin: 0 0 10px;
+        }
+        .reward-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: #1a1a1a;
+            margin: 10px 0;
+        }
+        .reward-cost {
+            font-size: 16px;
+            color: #666;
+        }
+        .points-status {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed #f5576c;
+        }
+        .status-item {
+            text-align: center;
+        }
+        .status-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f5576c;
+        }
+        .status-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .ready-badge {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        .content {
+            padding: 0 30px 30px;
+        }
+        .content p {
+            margin: 0 0 15px;
+            color: #444;
+        }
+        .more-rewards {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .more-rewards h3 {
+            margin: 0 0 15px;
+            font-size: 16px;
+            color: #333;
+        }
+        .reward-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .reward-list-item:last-child {
+            border-bottom: none;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+        }
+        .cta-section {
+            text-align: center;
+            padding: 20px 30px 40px;
+        }
+        .footer {
+            background: #f5f5f5;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+        .footer a {
+            color: #f5576c;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="emoji">&#127881;</div>
+            <h1>You Can Redeem a Reward!</h1>
+        </div>
+
+        <div class="reward-card">
+            <p class="reward-name">{{ tradeup.reward_name | default: 'Store Credit' }}</p>
+            {% if tradeup.reward_value %}
+            <p class="reward-value">${{ tradeup.reward_value }}</p>
+            {% endif %}
+            <p class="reward-cost">{{ tradeup.reward_points | default: 500 }} points</p>
+
+            <div class="points-status">
+                <div class="status-item">
+                    <div class="status-value">{{ tradeup.points_balance }}</div>
+                    <div class="status-label">Your Points</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">{{ tradeup.reward_points | default: 500 }}</div>
+                    <div class="status-label">Required</div>
+                </div>
+            </div>
+
+            <span class="ready-badge">Ready to Redeem!</span>
+        </div>
+
+        <div class="content">
+            <p>Hi {{ customer.first_name | default: 'there' }},</p>
+
+            <p>
+                Great news! You've earned enough points to redeem
+                <strong>{{ tradeup.reward_name | default: 'a reward' }}</strong>.
+                Don't let your points sit there - treat yourself!
+            </p>
+
+            {% if tradeup.rewards_count > 1 %}
+            <div class="more-rewards">
+                <h3>You can also redeem:</h3>
+                {% for reward in tradeup.available_rewards limit:3 %}
+                <div class="reward-list-item">
+                    <span>{{ reward.name }}</span>
+                    <span>{{ reward.points }} pts</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <p>
+                Visit your rewards dashboard to browse all available rewards
+                and redeem your points instantly.
+            </p>
+        </div>
+
+        <div class="cta-section">
+            <a href="{{ shop.url }}/account" class="cta-button">Redeem Now</a>
+        </div>
+
+        <div class="footer">
+            <p>
+                You're receiving this email because you're a member of {{ shop.name }}'s rewards program.
+            </p>
+            <p>
+                <a href="{{ shop.url }}">Visit Store</a> |
+                <a href="{{ shop.url }}/account">My Account</a>
+            </p>
+            <p style="margin-top: 15px;">
+                {{ shop.name }}<br>
+                {{ shop.email }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

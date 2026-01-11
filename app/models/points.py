@@ -1,5 +1,9 @@
 """
 Points transaction model for TradeUp rewards.
+
+NOTE: The comprehensive points system models (EarningRule, Reward, RewardRedemption, etc.)
+are in loyalty_points.py. This file keeps the original PointsTransaction and StoreCreditTransaction
+for backward compatibility and simple use cases.
 """
 from datetime import datetime
 from ..extensions import db

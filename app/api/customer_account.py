@@ -11,11 +11,13 @@ These endpoints are authenticated via Shopify customer token,
 not the admin API token.
 """
 from flask import Blueprint, request, jsonify, current_app
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+from sqlalchemy import func
 from ..extensions import db
-from ..models import Member, TradeInBatch, MembershipTier, StoreCreditLedger
+from ..models import Member, TradeInBatch, MembershipTier, StoreCreditLedger, PointsTransaction
 from ..models.referral import Referral, ReferralProgram
+from ..models.loyalty_points import Reward, RewardRedemption
 from ..services.shopify_client import ShopifyClient
 
 customer_account_bp = Blueprint('customer_account', __name__)
@@ -422,9 +424,95 @@ def get_extension_data():
             }
         }
 
+    # ========== POINTS DATA ==========
+    # Get points balance from PointsTransaction
+    points_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    # Get points earned this month
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    earned_this_month = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.transaction_type == 'earn',
+        PointsTransaction.created_at >= thirty_days_ago,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    # Get recent points activity
+    recent_points_activity = PointsTransaction.query.filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).order_by(
+        PointsTransaction.created_at.desc()
+    ).limit(10).all()
+
+    # Get available rewards count
+    now = datetime.utcnow()
+    available_rewards_count = Reward.query.filter(
+        Reward.tenant_id == member.tenant_id,
+        Reward.is_active == True,
+        Reward.points_cost <= int(points_balance),
+        (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
+        (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
+        (Reward.stock_quantity.is_(None) | (Reward.stock_quantity > 0))
+    ).count()
+
+    # Calculate tier progress (points to next tier)
+    all_tiers = MembershipTier.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).order_by(MembershipTier.display_order).all()
+
+    next_tier = None
+    points_to_next_tier = 0
+    tier_progress = 0
+
+    if tier and all_tiers:
+        current_tier_index = next((i for i, t in enumerate(all_tiers) if t.id == tier.id), -1)
+        if current_tier_index >= 0 and current_tier_index < len(all_tiers) - 1:
+            next_tier = all_tiers[current_tier_index + 1]
+            # For simplicity, assume tier thresholds based on monthly price * 100 points
+            # In production, you'd have explicit tier thresholds in the model
+            next_tier_threshold = int((next_tier.monthly_price or 0) * 100)
+            current_tier_threshold = int((tier.monthly_price or 0) * 100)
+            if next_tier_threshold > current_tier_threshold:
+                points_to_next_tier = max(0, next_tier_threshold - int(member.lifetime_points_earned or 0))
+                tier_progress = min(1.0, (member.lifetime_points_earned or 0) / next_tier_threshold) if next_tier_threshold > 0 else 0
+
+    points_data = {
+        'balance': int(points_balance),
+        'earned_this_month': int(earned_this_month),
+        'available_rewards': available_rewards_count,
+        'lifetime_earned': member.lifetime_points_earned or 0,
+        'lifetime_spent': member.lifetime_points_spent or 0,
+    }
+
+    recent_activity = [{
+        'type': t.transaction_type,
+        'points': t.points,
+        'description': t.description,
+        'source': t.source,
+        'date': t.created_at.isoformat() if t.created_at else None
+    } for t in recent_points_activity]
+
+    tier_progress_data = None
+    if next_tier:
+        tier_progress_data = {
+            'next_tier_name': next_tier.name,
+            'points_to_next_tier': points_to_next_tier,
+            'progress': tier_progress,
+        }
+
     return jsonify({
         'is_member': True,
         'member': {
+            'id': member.id,
             'member_number': member.member_number,
             'name': member.name,
             'tier': tier_info,
@@ -436,6 +524,9 @@ def get_extension_data():
             'total_bonus_earned': float(member.total_bonus_earned or 0),
             'store_credit_balance': float(store_credit_balance)
         },
+        'points': points_data,
+        'recent_activity': recent_activity,
+        'tier_progress': tier_progress_data,
         'recent_trade_ins': [{
             'batch_reference': batch.batch_reference,
             'status': batch.status,
@@ -669,3 +760,273 @@ def get_referral_extension_data():
             'description': program.description or f"Share your code and you both get ${program.referrer_reward_amount} credit!"
         }
     })
+
+
+# ==================== Customer Rewards Endpoints ====================
+
+@customer_account_bp.route('/extension/rewards', methods=['POST'])
+def get_extension_rewards():
+    """
+    Get available rewards for Customer Account Extension.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        List of rewards the customer can redeem
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'rewards': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Get points balance
+    points_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    # Get active rewards
+    now = datetime.utcnow()
+    rewards = Reward.query.filter(
+        Reward.tenant_id == member.tenant_id,
+        Reward.is_active == True,
+        (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
+        (Reward.ends_at.is_(None) | (Reward.ends_at >= now))
+    ).order_by(Reward.points_cost.asc()).all()
+
+    # Filter and annotate rewards
+    result_rewards = []
+    for reward in rewards:
+        # Check tier restriction
+        tier_ids = reward.tier_ids if hasattr(reward, 'tier_ids') and reward.tier_ids else None
+        if tier_ids and member.tier_id not in tier_ids:
+            continue
+
+        # Check stock
+        in_stock = reward.stock_quantity is None or reward.stock_quantity > 0
+
+        # Check member's usage limit
+        uses_remaining = None
+        if reward.max_uses_per_member:
+            member_redemptions = RewardRedemption.query.filter_by(
+                reward_id=reward.id,
+                member_id=member.id
+            ).count()
+            uses_remaining = max(0, reward.max_uses_per_member - member_redemptions)
+
+        can_redeem = (
+            int(points_balance) >= reward.points_cost and
+            in_stock and
+            (uses_remaining is None or uses_remaining > 0)
+        )
+
+        result_rewards.append({
+            'id': reward.id,
+            'name': reward.name,
+            'description': reward.description,
+            'points_cost': reward.points_cost,
+            'reward_type': reward.reward_type,
+            'reward_value': float(reward.reward_value) if hasattr(reward, 'reward_value') and reward.reward_value else None,
+            'image_url': reward.image_url,
+            'can_redeem': can_redeem,
+            'in_stock': in_stock,
+            'uses_remaining': uses_remaining,
+            'points_needed': max(0, reward.points_cost - int(points_balance))
+        })
+
+    return jsonify({
+        'is_member': True,
+        'points_balance': int(points_balance),
+        'rewards': result_rewards
+    })
+
+
+@customer_account_bp.route('/extension/rewards/<int:reward_id>/redeem', methods=['POST'])
+def redeem_extension_reward(reward_id):
+    """
+    Redeem a reward from Customer Account Extension.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        Redemption details including discount code if applicable
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({'error': 'Not enrolled in rewards program'}), 404
+
+    # Get reward
+    reward = Reward.query.filter_by(
+        id=reward_id,
+        tenant_id=member.tenant_id
+    ).first()
+
+    if not reward:
+        return jsonify({'error': 'Reward not found'}), 404
+
+    # Validate reward is active and within date range
+    now = datetime.utcnow()
+    if not reward.is_active:
+        return jsonify({'error': 'This reward is no longer available'}), 400
+
+    if reward.starts_at and reward.starts_at > now:
+        return jsonify({'error': 'This reward is not yet available'}), 400
+
+    if reward.ends_at and reward.ends_at < now:
+        return jsonify({'error': 'This reward has expired'}), 400
+
+    # Check tier restriction
+    tier_ids = reward.tier_ids if hasattr(reward, 'tier_ids') and reward.tier_ids else None
+    if tier_ids and member.tier_id not in tier_ids:
+        return jsonify({'error': 'This reward is not available for your membership tier'}), 403
+
+    # Check stock
+    if reward.stock_quantity is not None and reward.stock_quantity <= 0:
+        return jsonify({'error': 'This reward is out of stock'}), 400
+
+    # Check member's usage limit
+    if reward.max_uses_per_member:
+        member_redemptions = RewardRedemption.query.filter_by(
+            reward_id=reward_id,
+            member_id=member.id
+        ).count()
+        if member_redemptions >= reward.max_uses_per_member:
+            return jsonify({'error': 'You have reached the maximum redemptions for this reward'}), 400
+
+    # Check points balance
+    points_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    if int(points_balance) < reward.points_cost:
+        return jsonify({
+            'error': 'Insufficient points',
+            'points_balance': int(points_balance),
+            'points_needed': reward.points_cost
+        }), 400
+
+    try:
+        # Generate discount code if applicable
+        import secrets
+        import string
+        discount_code = None
+        if reward.reward_type in ['discount', 'store_credit', 'free_shipping']:
+            prefix = reward.discount_code_prefix if hasattr(reward, 'discount_code_prefix') and reward.discount_code_prefix else 'REWARD'
+            random_part = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+            discount_code = f"{prefix}-{random_part}"
+
+        # Create points deduction transaction
+        points_transaction = PointsTransaction(
+            tenant_id=member.tenant_id,
+            member_id=member.id,
+            points=-reward.points_cost,
+            transaction_type='redeem',
+            source='reward',
+            reference_id=str(reward_id),
+            reference_type='reward_redemption',
+            description=f"Redeemed: {reward.name}"
+        )
+        db.session.add(points_transaction)
+
+        # Generate redemption code
+        redemption_code = f"RD-{datetime.utcnow().strftime('%Y%m%d')}-{secrets.token_hex(4).upper()}"
+
+        # Create redemption record
+        redemption = RewardRedemption(
+            tenant_id=member.tenant_id,
+            member_id=member.id,
+            reward_id=reward_id,
+            redemption_code=redemption_code,
+            points_spent=reward.points_cost,
+            status='completed' if reward.reward_type != 'product' else 'pending',
+            reward_type=reward.reward_type,
+            reward_name=reward.name,
+            reward_value=reward.credit_value if hasattr(reward, 'credit_value') else None,
+            voucher_code=discount_code,
+            voucher_expires_at=datetime.utcnow() + timedelta(days=reward.voucher_valid_days or 30),
+            notes=data.get('notes'),
+            created_by='customer'
+        )
+        db.session.add(redemption)
+
+        # Update stock if applicable
+        if reward.stock_quantity is not None:
+            reward.stock_quantity -= 1
+            reward.redeemed_quantity = (reward.redeemed_quantity or 0) + 1
+
+        # Update member points on the Member model
+        member.points_balance = (member.points_balance or 0) - reward.points_cost
+        member.lifetime_points_spent = (member.lifetime_points_spent or 0) + reward.points_cost
+
+        db.session.commit()
+
+        # Calculate new balance
+        new_balance = db.session.query(
+            func.coalesce(func.sum(PointsTransaction.points), 0)
+        ).filter(
+            PointsTransaction.member_id == member.id,
+            PointsTransaction.reversed_at.is_(None)
+        ).scalar()
+
+        response = {
+            'success': True,
+            'redemption': {
+                'id': redemption.id,
+                'redemption_code': redemption_code,
+                'reward_name': reward.name,
+                'reward_type': reward.reward_type,
+                'points_spent': reward.points_cost,
+                'status': redemption.status,
+                'redeemed_at': redemption.created_at.isoformat()
+            },
+            'new_balance': int(new_balance),
+            'message': f'Successfully redeemed "{reward.name}"'
+        }
+
+        # Include discount code if generated
+        if discount_code:
+            response['redemption']['discount_code'] = discount_code
+            if reward.reward_type == 'discount':
+                response['redemption']['discount_value'] = float(reward.discount_amount or reward.discount_percent or 0)
+                response['redemption']['discount_type'] = 'percent' if reward.discount_percent else 'fixed'
+            elif reward.reward_type == 'store_credit':
+                response['redemption']['credit_amount'] = float(reward.credit_value) if reward.credit_value else None
+
+        return jsonify(response), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error redeeming reward: {e}")
+        return jsonify({'error': f'Failed to redeem reward: {str(e)}'}), 500

@@ -23,7 +23,6 @@ import { useState } from 'react';
 interface CustomerJourneyPreviewProps {
   open: boolean;
   onClose: () => void;
-  shop: string | null;
   tierName?: string;
   tradeInBonus?: number;
   storeCreditBalance?: number;
@@ -32,7 +31,6 @@ interface CustomerJourneyPreviewProps {
 export function CustomerJourneyPreview({
   open,
   onClose,
-  shop,
   tierName = 'Gold',
   tradeInBonus = 15,
   storeCreditBalance = 75.00,
@@ -65,7 +63,7 @@ export function CustomerJourneyPreview({
 
           <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
             <Box paddingBlockStart="400">
-              {selectedTab === 0 && <SignupFlowPreview tierName={tierName} />}
+              {selectedTab === 0 && <SignupFlowPreview />}
               {selectedTab === 1 && (
                 <AccountPagePreview
                   tierName={tierName}
@@ -84,7 +82,7 @@ export function CustomerJourneyPreview({
 }
 
 // Signup flow preview
-function SignupFlowPreview({ tierName }: { tierName: string }) {
+function SignupFlowPreview() {
   return (
     <BlockStack gap="400">
       <Text as="h3" variant="headingMd">What customers see when joining</Text>

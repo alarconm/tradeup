@@ -1,0 +1,92 @@
+# TradeUp Post-Purchase UI Extension
+# Displays points earned, reward unlocks, and referral prompts after checkout
+# https://shopify.dev/docs/api/checkout-ui-extensions/extension-points#post-purchase
+
+api_version = "2025-01"
+
+[[extensions]]
+uid = "tradeup-post-purchase-rewards"
+type = "ui_extension"
+name = "TradeUp Post-Purchase Rewards"
+handle = "tradeup-post-purchase"
+
+  [[extensions.targeting]]
+  target = "purchase.thank-you.block.render"
+  module = "./src/index.jsx"
+
+  [[extensions.targeting]]
+  target = "purchase.thank-you.customer-information.render-after"
+  module = "./src/index.jsx"
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "points_per_dollar"
+  type = "number_integer"
+  name = "Points per dollar spent"
+  description = "Base points earned per dollar (default: 1)"
+
+  [[extensions.settings.fields]]
+  key = "show_celebration"
+  type = "boolean"
+  name = "Show celebration animation"
+  description = "Display celebration banner for points earned"
+
+  [[extensions.settings.fields]]
+  key = "show_referral_prompt"
+  type = "boolean"
+  name = "Show referral prompt"
+  description = "Prompt customers to refer friends for bonus points"
+
+  [[extensions.settings.fields]]
+  key = "referral_bonus_points"
+  type = "number_integer"
+  name = "Referral bonus points"
+  description = "Points awarded for successful referrals (default: 500)"
+
+  [[extensions.settings.fields]]
+  key = "next_reward_threshold"
+  type = "number_integer"
+  name = "Points for next reward"
+  description = "Points needed for the next reward (default: 500)"
+
+  [[extensions.settings.fields]]
+  key = "next_reward_value"
+  type = "single_line_text_field"
+  name = "Next reward value"
+  description = "Value of the next reward (e.g., '$5 off')"
+
+  [[extensions.settings.fields]]
+  key = "show_new_balance"
+  type = "boolean"
+  name = "Show new points balance"
+  description = "Display updated points balance after purchase"
+
+  [[extensions.settings.fields]]
+  key = "show_reward_progress"
+  type = "boolean"
+  name = "Show reward progress"
+  description = "Display progress bar to next reward"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "points_balance"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "tier"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "tier_earning_multiplier"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "lifetime_points"
+
+[[extensions.metafields]]
+namespace = "tradeup"
+key = "referral_code"

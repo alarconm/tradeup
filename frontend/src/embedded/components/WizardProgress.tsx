@@ -90,6 +90,7 @@ export function WizardProgress({ steps, currentStep, onStepClick }: WizardProgre
 }
 
 // Default wizard steps for the product setup wizard
+// eslint-disable-next-line react-refresh/only-export-components
 export const PRODUCT_WIZARD_STEPS: WizardStep[] = [
   { key: 'welcome', label: 'Welcome' },
   { key: 'template', label: 'Choose Template' },

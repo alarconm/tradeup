@@ -378,6 +378,20 @@ def register_blueprints(app: Flask) -> None:
     from .api.flow import flow_bp
     app.register_blueprint(flow_bp, url_prefix='/flow')
 
+    # Points and Rewards (Loyalty System)
+    from .api.points import points_bp
+    from .api.rewards import rewards_bp
+    app.register_blueprint(points_bp, url_prefix='/api/points')
+    app.register_blueprint(rewards_bp, url_prefix='/api/rewards')
+
+    # App Proxy (customer-facing rewards page at /apps/rewards)
+    from .api.proxy import proxy_bp
+    app.register_blueprint(proxy_bp, url_prefix='/proxy')
+
+    # Customer Segments (Shopify Email + Flow integration)
+    from .api.segments import segments_bp
+    app.register_blueprint(segments_bp, url_prefix='/api/segments')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers."""

@@ -21,10 +21,7 @@ import {
   Spinner,
   Box,
   ProgressBar,
-  Icon,
-  EmptyState,
 } from '@shopify/polaris';
-import { CheckIcon, AlertCircleIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 

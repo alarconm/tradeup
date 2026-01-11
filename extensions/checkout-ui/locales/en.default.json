@@ -1,0 +1,19 @@
+{
+  "loyalty_rewards": "TradeUp Rewards",
+  "current_balance": "Your Points Balance",
+  "points": "points",
+  "earning_rate": "earning rate",
+  "earning_this_order": "You'll earn with this order",
+  "includes_bonus": "Includes +{{bonus}} bonus ({{multiplier}}x)",
+  "next_reward": "Progress to Next Reward",
+  "points_to_reward": "{{points}} more points to unlock {{reward}}",
+  "almost_there": "Almost there! Just {{points}} points away",
+  "halfway_there": "Great progress! {{points}} points to go",
+  "reward_unlocked": "Reward Unlocked!",
+  "reward_available": "You can redeem {{reward}} on your next purchase",
+  "join_program": "Earn Rewards on Every Purchase",
+  "join_description": "Complete this order to earn {{points}} points toward free rewards!",
+  "auto_enroll": "You'll be automatically enrolled in our rewards program",
+  "earn_points_compact": "Earn +{{points}} points",
+  "bonus": "bonus"
+}

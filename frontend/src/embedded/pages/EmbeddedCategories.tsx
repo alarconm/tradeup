@@ -22,10 +22,9 @@ import {
   Modal,
   ResourceList,
   ResourceItem,
-  Avatar,
   InlineGrid,
 } from '@shopify/polaris';
-import { PlusIcon, EditIcon, DeleteIcon } from '@shopify/polaris-icons';
+import { PlusIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 

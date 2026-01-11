@@ -29,7 +29,6 @@ import {
   Tag,
   Autocomplete,
   Icon,
-  LegacyStack,
 } from '@shopify/polaris';
 import { PlusIcon, DeleteIcon, EditIcon, SearchIcon, PlayIcon, RefreshIcon } from '@shopify/polaris-icons';
 import { TitleBar } from '@shopify/app-bridge-react';
@@ -285,19 +284,14 @@ async function runCreditEvent(
   return response.json();
 }
 
-async function fetchEventTemplates(shop: string | null): Promise<{
-  templates: Array<{
-    id: string;
-    name: string;
-    description: string;
-    default_sources: string[];
-    default_credit_percent: number;
-    duration_hours: number;
-  }>;
-}> {
-  const response = await authFetch(`${getApiUrl()}/store_credit_events/templates`, shop);
-  if (!response.ok) throw new Error('Failed to fetch templates');
-  return response.json();
+// Helper to get default dates outside render
+function getDefaultDates() {
+  const now = new Date();
+  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    starts_at: now.toISOString().slice(0, 16),
+    ends_at: nextWeek.toISOString().slice(0, 16),
+  };
 }
 
 export function EmbeddedPromotions({ shop }: PromotionsProps) {
@@ -323,8 +317,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   });
   const [availableSources, setAvailableSources] = useState<OrderSource[]>([]);
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Form state - use lazy initialization to avoid impure function calls during render
+  const [formData, setFormData] = useState(() => {
+    const defaultDates = getDefaultDates();
+    return {
     name: '',
     description: '',
     code: '',
@@ -332,8 +328,8 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     bonus_percent: 10,
     bonus_flat: 0,
     multiplier: 1,
-    starts_at: new Date().toISOString().slice(0, 16),
-    ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    starts_at: defaultDates.starts_at,
+    ends_at: defaultDates.ends_at,
     daily_start_time: '',
     daily_end_time: '',
     active_days: [] as string[],
@@ -349,6 +345,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     max_uses: '',
     active: true,
     credit_expiration_days: '',
+  };
   });
 
   // Search input states for autocomplete pickers

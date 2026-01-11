@@ -1,0 +1,994 @@
+"""
+Shopify App Proxy endpoints for TradeUp.
+
+Handles requests from store.myshopify.com/apps/rewards
+Provides customer-facing rewards page and API endpoints.
+
+App proxy documentation: https://shopify.dev/docs/apps/build/online-store/display-dynamic-store-data/app-proxies
+"""
+import hashlib
+import hmac
+import os
+from datetime import datetime
+from decimal import Decimal
+from flask import Blueprint, request, jsonify, current_app, Response
+from sqlalchemy import func
+from ..extensions import db
+from ..models import Member, MembershipTier
+from ..models.tenant import Tenant
+from ..models.loyalty_points import Reward, RewardRedemption
+from ..models import PointsTransaction
+from ..models.referral import ReferralProgram
+
+proxy_bp = Blueprint('proxy', __name__)
+
+
+def verify_proxy_signature():
+    """
+    Verify the Shopify proxy request signature.
+
+    Shopify signs all app proxy requests with the app's API secret.
+    https://shopify.dev/docs/apps/build/online-store/display-dynamic-store-data/app-proxies#calculate-a-digital-signature
+
+    Returns:
+        Tuple of (is_valid, shop_domain)
+    """
+    signature = request.args.get('signature', '')
+
+    # Build the query string without signature
+    query_params = []
+    for key in sorted(request.args.keys()):
+        if key != 'signature':
+            value = request.args.get(key)
+            query_params.append(f'{key}={value}')
+
+    query_string = '&'.join(query_params)
+
+    # Calculate expected signature
+    api_secret = os.getenv('SHOPIFY_API_SECRET', '')
+    expected_signature = hmac.new(
+        api_secret.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    is_valid = hmac.compare_digest(signature, expected_signature)
+    shop = request.args.get('shop', '')
+
+    return is_valid, shop
+
+
+def get_tenant_from_shop(shop_domain: str):
+    """Get tenant from shop domain."""
+    if not shop_domain:
+        return None
+    return Tenant.query.filter_by(shop_domain=shop_domain).first()
+
+
+def get_customer_member(tenant_id: int):
+    """
+    Get member from logged_in_customer_id parameter.
+    Shopify passes this for logged-in customers.
+    """
+    customer_id = request.args.get('logged_in_customer_id')
+    if not customer_id:
+        return None
+
+    return Member.query.filter_by(
+        tenant_id=tenant_id,
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+
+# ==============================================================================
+# PROXY ENDPOINTS
+# ==============================================================================
+
+@proxy_bp.route('/', methods=['GET'])
+@proxy_bp.route('', methods=['GET'])
+def rewards_page():
+    """
+    Main rewards landing page.
+    Accessible at: store.myshopify.com/apps/rewards
+
+    Renders a beautiful HTML page with:
+    - Customer points balance (if logged in)
+    - How to earn points
+    - Available rewards catalog
+    - Tier benefits comparison
+    - Referral program info
+    """
+    # Verify signature in production
+    if os.getenv('FLASK_ENV') == 'production':
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            return Response('Invalid signature', status=401)
+    else:
+        shop = request.args.get('shop', '')
+
+    tenant = get_tenant_from_shop(shop)
+    if not tenant:
+        return Response('Store not found', status=404)
+
+    # Get customer data if logged in
+    member = get_customer_member(tenant.id)
+
+    # Get tenant configuration
+    tiers = MembershipTier.query.filter_by(
+        tenant_id=tenant.id,
+        is_active=True
+    ).order_by(MembershipTier.display_order).all()
+
+    # Get available rewards
+    now = datetime.utcnow()
+    rewards = Reward.query.filter(
+        Reward.tenant_id == tenant.id,
+        Reward.is_active == True,
+        (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
+        (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
+        (Reward.stock_quantity.is_(None) | (Reward.stock_quantity > 0))
+    ).order_by(Reward.points_cost.asc()).limit(12).all()
+
+    # Get referral program
+    referral_program = ReferralProgram.query.filter_by(
+        tenant_id=tenant.id,
+        is_active=True
+    ).first()
+
+    # Build member data for template
+    member_data = None
+    points_balance = 0
+    if member:
+        points_balance = db.session.query(
+            func.coalesce(func.sum(PointsTransaction.points), 0)
+        ).filter(
+            PointsTransaction.member_id == member.id,
+            PointsTransaction.reversed_at.is_(None)
+        ).scalar()
+
+        member_data = {
+            'name': member.name or 'Member',
+            'tier': member.tier.name if member.tier else 'Member',
+            'points': int(points_balance),
+            'member_since': member.membership_start_date.strftime('%B %Y') if member.membership_start_date else None
+        }
+
+    # Render the beautiful HTML page
+    html = render_rewards_page(
+        shop=shop,
+        tenant=tenant,
+        member=member_data,
+        points_balance=int(points_balance),
+        tiers=tiers,
+        rewards=rewards,
+        referral_program=referral_program
+    )
+
+    return Response(html, mimetype='text/html')
+
+
+@proxy_bp.route('/balance', methods=['GET'])
+def get_balance():
+    """
+    Get customer's points balance.
+    Returns JSON for AJAX requests.
+    """
+    # Verify signature in production
+    if os.getenv('FLASK_ENV') == 'production':
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            return jsonify({'error': 'Invalid signature'}), 401
+    else:
+        shop = request.args.get('shop', '')
+
+    tenant = get_tenant_from_shop(shop)
+    if not tenant:
+        return jsonify({'error': 'Store not found'}), 404
+
+    member = get_customer_member(tenant.id)
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'message': 'Please log in to view your rewards balance'
+        })
+
+    # Get points balance
+    points_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    # Get tier info
+    tier_info = None
+    if member.tier:
+        tier_info = {
+            'name': member.tier.name,
+            'earning_multiplier': float(member.tier.points_earning_multiplier or 1),
+            'discount_percent': float(member.tier.purchase_cashback_pct or 0)
+        }
+
+    return jsonify({
+        'is_member': True,
+        'points_balance': int(points_balance),
+        'tier': tier_info,
+        'member_since': member.membership_start_date.isoformat() if member.membership_start_date else None,
+        'lifetime_earned': member.lifetime_points_earned or 0,
+        'lifetime_spent': member.lifetime_points_spent or 0
+    })
+
+
+@proxy_bp.route('/rewards', methods=['GET'])
+def get_rewards():
+    """
+    Get available rewards catalog.
+    Returns JSON for AJAX requests.
+    """
+    # Verify signature in production
+    if os.getenv('FLASK_ENV') == 'production':
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            return jsonify({'error': 'Invalid signature'}), 401
+    else:
+        shop = request.args.get('shop', '')
+
+    tenant = get_tenant_from_shop(shop)
+    if not tenant:
+        return jsonify({'error': 'Store not found'}), 404
+
+    member = get_customer_member(tenant.id)
+
+    # Get points balance for eligibility check
+    points_balance = 0
+    if member:
+        points_balance = db.session.query(
+            func.coalesce(func.sum(PointsTransaction.points), 0)
+        ).filter(
+            PointsTransaction.member_id == member.id,
+            PointsTransaction.reversed_at.is_(None)
+        ).scalar()
+
+    # Get available rewards
+    now = datetime.utcnow()
+    rewards = Reward.query.filter(
+        Reward.tenant_id == tenant.id,
+        Reward.is_active == True,
+        (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
+        (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
+        (Reward.stock_quantity.is_(None) | (Reward.stock_quantity > 0))
+    ).order_by(Reward.points_cost.asc()).all()
+
+    # Build response with eligibility info
+    rewards_data = []
+    for reward in rewards:
+        # Check tier restriction
+        tier_eligible = True
+        if member and reward.tier_ids:
+            tier_eligible = member.tier_id in reward.tier_ids
+
+        can_redeem = (
+            member is not None and
+            int(points_balance) >= reward.points_cost and
+            tier_eligible
+        )
+
+        rewards_data.append({
+            'id': reward.id,
+            'name': reward.name,
+            'description': reward.description,
+            'points_cost': reward.points_cost,
+            'reward_type': reward.reward_type,
+            'image_url': reward.image_url,
+            'can_redeem': can_redeem,
+            'points_needed': max(0, reward.points_cost - int(points_balance)) if member else reward.points_cost
+        })
+
+    return jsonify({
+        'rewards': rewards_data,
+        'points_balance': int(points_balance) if member else 0,
+        'is_member': member is not None
+    })
+
+
+@proxy_bp.route('/tiers', methods=['GET'])
+def get_tiers():
+    """
+    Get tier benefits comparison.
+    Returns JSON for AJAX requests.
+    """
+    # Verify signature in production
+    if os.getenv('FLASK_ENV') == 'production':
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            return jsonify({'error': 'Invalid signature'}), 401
+    else:
+        shop = request.args.get('shop', '')
+
+    tenant = get_tenant_from_shop(shop)
+    if not tenant:
+        return jsonify({'error': 'Store not found'}), 404
+
+    member = get_customer_member(tenant.id)
+    current_tier_id = member.tier_id if member else None
+
+    # Get all active tiers
+    tiers = MembershipTier.query.filter_by(
+        tenant_id=tenant.id,
+        is_active=True
+    ).order_by(MembershipTier.display_order).all()
+
+    tiers_data = []
+    for tier in tiers:
+        tiers_data.append({
+            'id': tier.id,
+            'name': tier.name,
+            'is_current': tier.id == current_tier_id,
+            'earning_multiplier': float(tier.points_earning_multiplier or 1),
+            'discount_percent': float(tier.purchase_cashback_pct or 0),
+            'trade_in_bonus_pct': float(tier.trade_in_bonus_pct or 0),
+            'monthly_credit': float(tier.monthly_credit_amount or 0),
+            'free_shipping_threshold': float(tier.free_shipping_threshold) if tier.free_shipping_threshold else None,
+            'benefits': tier.benefits or {}
+        })
+
+    return jsonify({
+        'tiers': tiers_data,
+        'current_tier_id': current_tier_id
+    })
+
+
+# ==============================================================================
+# HTML TEMPLATE RENDERING
+# ==============================================================================
+
+def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, referral_program):
+    """
+    Render the rewards landing page HTML.
+
+    This is a beautiful, responsive page that matches the store's theme.
+    Uses Liquid-compatible styles and minimal dependencies.
+    """
+
+    # Build member section
+    member_section = ''
+    if member:
+        member_section = f'''
+        <div class="tradeup-member-card">
+            <div class="tradeup-member-header">
+                <div class="tradeup-avatar">
+                    <span>{member['name'][0].upper()}</span>
+                </div>
+                <div class="tradeup-member-info">
+                    <h3>Welcome back, {member['name']}!</h3>
+                    <p class="tradeup-tier-badge">{member['tier']}</p>
+                </div>
+            </div>
+            <div class="tradeup-points-display">
+                <div class="tradeup-points-value">{points_balance:,}</div>
+                <div class="tradeup-points-label">Points Available</div>
+            </div>
+        </div>
+        '''
+    else:
+        member_section = '''
+        <div class="tradeup-cta-card">
+            <h3>Join Our Rewards Program</h3>
+            <p>Earn points on every purchase and unlock exclusive rewards!</p>
+            <a href="/account/login" class="tradeup-btn tradeup-btn-primary">Sign In to Get Started</a>
+        </div>
+        '''
+
+    # Build tiers section
+    tiers_html = ''
+    for tier in tiers:
+        benefits_html = ''
+        if tier.benefits:
+            for key, value in tier.benefits.items():
+                if value:
+                    benefits_html += f'<li>{key.replace("_", " ").title()}: {value}</li>'
+
+        current_class = 'tradeup-tier-current' if (member and tier.name == member['tier']) else ''
+        earning_mult = getattr(tier, 'points_earning_multiplier', 1) or 1
+        cashback = getattr(tier, 'purchase_cashback_pct', 0) or 0
+        trade_bonus = getattr(tier, 'trade_in_bonus_pct', 0) or 0
+        monthly_credit = getattr(tier, 'monthly_credit_amount', 0) or 0
+
+        tiers_html += f'''
+        <div class="tradeup-tier-card {current_class}">
+            <div class="tradeup-tier-header">
+                <h4>{tier.name}</h4>
+                {f'<span class="tradeup-current-badge">Your Tier</span>' if current_class else ''}
+            </div>
+            <ul class="tradeup-tier-benefits">
+                <li><strong>{earning_mult}x</strong> points on purchases</li>
+                {f'<li><strong>{cashback}%</strong> cashback</li>' if cashback else ''}
+                {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
+                {f'<li><strong>${monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
+                {benefits_html}
+            </ul>
+        </div>
+        '''
+
+    # Build rewards section
+    rewards_html = ''
+    for reward in rewards:
+        can_redeem = member and points_balance >= reward.points_cost
+        disabled_class = '' if can_redeem else 'tradeup-reward-disabled'
+
+        reward_value = ''
+        if reward.reward_type == 'discount':
+            if hasattr(reward, 'discount_percent') and reward.discount_percent:
+                reward_value = f'{reward.discount_percent}% off'
+            elif hasattr(reward, 'discount_amount') and reward.discount_amount:
+                reward_value = f'${reward.discount_amount} off'
+        elif reward.reward_type == 'store_credit' and hasattr(reward, 'credit_value') and reward.credit_value:
+            reward_value = f'${reward.credit_value} credit'
+        elif reward.reward_type == 'free_shipping':
+            reward_value = 'Free shipping'
+
+        rewards_html += f'''
+        <div class="tradeup-reward-card {disabled_class}">
+            {f'<img src="{reward.image_url}" alt="{reward.name}" class="tradeup-reward-image" />' if reward.image_url else '<div class="tradeup-reward-placeholder"></div>'}
+            <div class="tradeup-reward-content">
+                <h4>{reward.name}</h4>
+                {f'<p class="tradeup-reward-value">{reward_value}</p>' if reward_value else ''}
+                <p class="tradeup-reward-description">{reward.description or ""}</p>
+                <div class="tradeup-reward-footer">
+                    <span class="tradeup-reward-points">{reward.points_cost:,} pts</span>
+                    {'<a href="/account" class="tradeup-btn tradeup-btn-small">Redeem</a>' if can_redeem else f'<span class="tradeup-points-needed">{max(0, reward.points_cost - points_balance):,} more pts needed</span>'}
+                </div>
+            </div>
+        </div>
+        '''
+
+    # Build referral section
+    referral_html = ''
+    if referral_program:
+        referrer_reward = getattr(referral_program, 'referrer_reward_amount', 0) or 0
+        referred_reward = getattr(referral_program, 'referred_reward_amount', 0) or 0
+        referral_html = f'''
+        <section class="tradeup-section tradeup-referral">
+            <h2>Refer a Friend</h2>
+            <div class="tradeup-referral-card">
+                <div class="tradeup-referral-rewards">
+                    <div class="tradeup-referral-you">
+                        <span class="tradeup-reward-amount">${referrer_reward:.0f}</span>
+                        <span class="tradeup-reward-desc">for you</span>
+                    </div>
+                    <div class="tradeup-referral-plus">+</div>
+                    <div class="tradeup-referral-friend">
+                        <span class="tradeup-reward-amount">${referred_reward:.0f}</span>
+                        <span class="tradeup-reward-desc">for them</span>
+                    </div>
+                </div>
+                <p>{referral_program.description or "Share your referral code with friends. When they make their first purchase, you both get rewarded!"}</p>
+                {'<a href="/account" class="tradeup-btn tradeup-btn-secondary">Get Your Referral Link</a>' if member else '<a href="/account/login" class="tradeup-btn tradeup-btn-secondary">Sign In to Refer Friends</a>'}
+            </div>
+        </section>
+        '''
+
+    # Complete HTML page
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rewards Program</title>
+    <style>
+        /* TradeUp Rewards Page Styles */
+        :root {{
+            --tradeup-primary: #6366f1;
+            --tradeup-primary-dark: #4f46e5;
+            --tradeup-secondary: #f59e0b;
+            --tradeup-success: #10b981;
+            --tradeup-text: #1f2937;
+            --tradeup-text-light: #6b7280;
+            --tradeup-bg: #f9fafb;
+            --tradeup-white: #ffffff;
+            --tradeup-border: #e5e7eb;
+            --tradeup-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --tradeup-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --tradeup-radius: 12px;
+            --tradeup-radius-lg: 16px;
+        }}
+
+        .tradeup-container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            color: var(--tradeup-text);
+        }}
+
+        /* Hero Section */
+        .tradeup-hero {{
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, var(--tradeup-primary) 0%, var(--tradeup-primary-dark) 100%);
+            border-radius: var(--tradeup-radius-lg);
+            color: white;
+            margin-bottom: 40px;
+        }}
+
+        .tradeup-hero h1 {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0 0 16px 0;
+        }}
+
+        .tradeup-hero p {{
+            font-size: 1.125rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }}
+
+        /* Member Card */
+        .tradeup-member-card {{
+            background: var(--tradeup-white);
+            border-radius: var(--tradeup-radius-lg);
+            padding: 32px;
+            box-shadow: var(--tradeup-shadow-lg);
+            margin: -80px auto 40px;
+            max-width: 500px;
+            position: relative;
+            z-index: 10;
+        }}
+
+        .tradeup-member-header {{
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+
+        .tradeup-avatar {{
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--tradeup-primary), var(--tradeup-secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }}
+
+        .tradeup-member-info h3 {{
+            margin: 0 0 4px 0;
+            font-size: 1.25rem;
+        }}
+
+        .tradeup-tier-badge {{
+            display: inline-block;
+            padding: 4px 12px;
+            background: var(--tradeup-bg);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--tradeup-primary);
+            font-weight: 500;
+            margin: 0;
+        }}
+
+        .tradeup-points-display {{
+            text-align: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: var(--tradeup-radius);
+        }}
+
+        .tradeup-points-value {{
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--tradeup-primary);
+            line-height: 1;
+        }}
+
+        .tradeup-points-label {{
+            font-size: 0.875rem;
+            color: var(--tradeup-text-light);
+            margin-top: 8px;
+        }}
+
+        /* CTA Card */
+        .tradeup-cta-card {{
+            background: var(--tradeup-white);
+            border-radius: var(--tradeup-radius-lg);
+            padding: 40px;
+            box-shadow: var(--tradeup-shadow-lg);
+            margin: -80px auto 40px;
+            max-width: 500px;
+            position: relative;
+            z-index: 10;
+            text-align: center;
+        }}
+
+        .tradeup-cta-card h3 {{
+            margin: 0 0 12px 0;
+            font-size: 1.5rem;
+        }}
+
+        .tradeup-cta-card p {{
+            color: var(--tradeup-text-light);
+            margin: 0 0 24px 0;
+        }}
+
+        /* Buttons */
+        .tradeup-btn {{
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+        }}
+
+        .tradeup-btn-primary {{
+            background: var(--tradeup-primary);
+            color: white;
+        }}
+
+        .tradeup-btn-primary:hover {{
+            background: var(--tradeup-primary-dark);
+            transform: translateY(-1px);
+        }}
+
+        .tradeup-btn-secondary {{
+            background: var(--tradeup-secondary);
+            color: white;
+        }}
+
+        .tradeup-btn-secondary:hover {{
+            background: #d97706;
+            transform: translateY(-1px);
+        }}
+
+        .tradeup-btn-small {{
+            padding: 8px 16px;
+            font-size: 0.875rem;
+        }}
+
+        /* Sections */
+        .tradeup-section {{
+            margin-bottom: 60px;
+        }}
+
+        .tradeup-section h2 {{
+            text-align: center;
+            font-size: 1.875rem;
+            margin: 0 0 32px 0;
+        }}
+
+        /* How to Earn */
+        .tradeup-earn-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+        }}
+
+        .tradeup-earn-card {{
+            background: var(--tradeup-white);
+            border-radius: var(--tradeup-radius);
+            padding: 24px;
+            text-align: center;
+            box-shadow: var(--tradeup-shadow);
+        }}
+
+        .tradeup-earn-icon {{
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }}
+
+        .tradeup-earn-card h4 {{
+            margin: 0 0 8px 0;
+            font-size: 1.125rem;
+        }}
+
+        .tradeup-earn-card p {{
+            color: var(--tradeup-text-light);
+            margin: 0;
+            font-size: 0.875rem;
+        }}
+
+        /* Tiers */
+        .tradeup-tiers-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }}
+
+        .tradeup-tier-card {{
+            background: var(--tradeup-white);
+            border-radius: var(--tradeup-radius);
+            padding: 24px;
+            box-shadow: var(--tradeup-shadow);
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }}
+
+        .tradeup-tier-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: var(--tradeup-shadow-lg);
+        }}
+
+        .tradeup-tier-current {{
+            border-color: var(--tradeup-primary);
+        }}
+
+        .tradeup-tier-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }}
+
+        .tradeup-tier-header h4 {{
+            margin: 0;
+            font-size: 1.25rem;
+        }}
+
+        .tradeup-current-badge {{
+            background: var(--tradeup-primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }}
+
+        .tradeup-tier-benefits {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }}
+
+        .tradeup-tier-benefits li {{
+            padding: 8px 0;
+            border-bottom: 1px solid var(--tradeup-border);
+            font-size: 0.875rem;
+        }}
+
+        .tradeup-tier-benefits li:last-child {{
+            border-bottom: none;
+        }}
+
+        .tradeup-tier-benefits strong {{
+            color: var(--tradeup-primary);
+        }}
+
+        /* Rewards */
+        .tradeup-rewards-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }}
+
+        .tradeup-reward-card {{
+            background: var(--tradeup-white);
+            border-radius: var(--tradeup-radius);
+            overflow: hidden;
+            box-shadow: var(--tradeup-shadow);
+            transition: all 0.2s ease;
+        }}
+
+        .tradeup-reward-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: var(--tradeup-shadow-lg);
+        }}
+
+        .tradeup-reward-disabled {{
+            opacity: 0.7;
+        }}
+
+        .tradeup-reward-image {{
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+        }}
+
+        .tradeup-reward-placeholder {{
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, var(--tradeup-primary), var(--tradeup-secondary));
+        }}
+
+        .tradeup-reward-content {{
+            padding: 20px;
+        }}
+
+        .tradeup-reward-content h4 {{
+            margin: 0 0 8px 0;
+            font-size: 1.125rem;
+        }}
+
+        .tradeup-reward-value {{
+            color: var(--tradeup-success);
+            font-weight: 600;
+            margin: 0 0 8px 0;
+        }}
+
+        .tradeup-reward-description {{
+            color: var(--tradeup-text-light);
+            font-size: 0.875rem;
+            margin: 0 0 16px 0;
+            line-height: 1.5;
+        }}
+
+        .tradeup-reward-footer {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+
+        .tradeup-reward-points {{
+            font-weight: 600;
+            color: var(--tradeup-primary);
+        }}
+
+        .tradeup-points-needed {{
+            font-size: 0.75rem;
+            color: var(--tradeup-text-light);
+        }}
+
+        /* Referral */
+        .tradeup-referral-card {{
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: var(--tradeup-radius-lg);
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }}
+
+        .tradeup-referral-rewards {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 24px;
+        }}
+
+        .tradeup-referral-you,
+        .tradeup-referral-friend {{
+            text-align: center;
+        }}
+
+        .tradeup-reward-amount {{
+            display: block;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--tradeup-text);
+        }}
+
+        .tradeup-reward-desc {{
+            font-size: 0.875rem;
+            color: var(--tradeup-text-light);
+        }}
+
+        .tradeup-referral-plus {{
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--tradeup-secondary);
+        }}
+
+        .tradeup-referral-card p {{
+            color: var(--tradeup-text);
+            margin: 0 0 24px 0;
+        }}
+
+        /* Footer */
+        .tradeup-footer {{
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tradeup-text-light);
+            font-size: 0.875rem;
+        }}
+
+        .tradeup-footer a {{
+            color: var(--tradeup-primary);
+            text-decoration: none;
+        }}
+
+        /* Responsive */
+        @media (max-width: 768px) {{
+            .tradeup-hero h1 {{
+                font-size: 1.875rem;
+            }}
+
+            .tradeup-member-card,
+            .tradeup-cta-card {{
+                margin: -60px 16px 40px;
+                padding: 24px;
+            }}
+
+            .tradeup-points-value {{
+                font-size: 2.5rem;
+            }}
+
+            .tradeup-referral-rewards {{
+                flex-direction: column;
+                gap: 16px;
+            }}
+
+            .tradeup-referral-plus {{
+                transform: rotate(90deg);
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="tradeup-container">
+        <!-- Hero Section -->
+        <section class="tradeup-hero">
+            <h1>Rewards Program</h1>
+            <p>Earn points on every purchase, unlock exclusive rewards, and enjoy member-only benefits.</p>
+        </section>
+
+        <!-- Member Card or CTA -->
+        {member_section}
+
+        <!-- How to Earn Section -->
+        <section class="tradeup-section">
+            <h2>How to Earn Points</h2>
+            <div class="tradeup-earn-grid">
+                <div class="tradeup-earn-card">
+                    <div class="tradeup-earn-icon">&#128722;</div>
+                    <h4>Shop & Earn</h4>
+                    <p>Earn 1 point for every $1 spent on purchases</p>
+                </div>
+                <div class="tradeup-earn-card">
+                    <div class="tradeup-earn-icon">&#127873;</div>
+                    <h4>Trade-Ins</h4>
+                    <p>Earn bonus points when you trade in your items</p>
+                </div>
+                <div class="tradeup-earn-card">
+                    <div class="tradeup-earn-icon">&#128101;</div>
+                    <h4>Refer Friends</h4>
+                    <p>Get rewarded when friends make their first purchase</p>
+                </div>
+                <div class="tradeup-earn-card">
+                    <div class="tradeup-earn-icon">&#127881;</div>
+                    <h4>Special Events</h4>
+                    <p>Bonus point days and exclusive member promotions</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tier Benefits Section -->
+        {f'''
+        <section class="tradeup-section">
+            <h2>Membership Tiers</h2>
+            <div class="tradeup-tiers-grid">
+                {tiers_html}
+            </div>
+        </section>
+        ''' if tiers_html else ''}
+
+        <!-- Rewards Catalog Section -->
+        {f'''
+        <section class="tradeup-section">
+            <h2>Rewards Catalog</h2>
+            <div class="tradeup-rewards-grid">
+                {rewards_html}
+            </div>
+        </section>
+        ''' if rewards_html else ''}
+
+        <!-- Referral Section -->
+        {referral_html}
+
+        <!-- Footer -->
+        <footer class="tradeup-footer">
+            <p>Powered by <a href="https://cardflowlabs.com" target="_blank" rel="noopener">TradeUp</a></p>
+        </footer>
+    </div>
+</body>
+</html>
+'''
+
+    return html

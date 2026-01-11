@@ -6,7 +6,6 @@
  */
 
 import {
-  Tooltip,
   Popover,
   ActionList,
   Button,
@@ -22,7 +21,7 @@ import {
   XIcon,
   LightbulbIcon,
 } from '@shopify/polaris-icons';
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -150,6 +149,7 @@ export function TooltipProvider({ children, shop }: TooltipProviderProps) {
 }
 
 // Hook to use tooltip context
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTooltips() {
   return useContext(TooltipContext);
 }
@@ -283,7 +283,7 @@ interface FeatureHighlightProps {
 }
 
 export function FeatureHighlight({ id, label = 'New' }: FeatureHighlightProps) {
-  const { showTooltip, dismissTooltip } = useTooltips();
+  const { showTooltip } = useTooltips();
 
   if (!showTooltip(id)) {
     return null;

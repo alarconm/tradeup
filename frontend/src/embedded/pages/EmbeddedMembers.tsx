@@ -223,6 +223,16 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     URL.revokeObjectURL(url);
   }, [data]);
 
+  const formatDate = useCallback((dateStr: string | null) => {
+    if (!dateStr) return 'Never';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      timeZone: storeTimezone,
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, [storeTimezone]);
+
   if (!shop) {
     return (
       <Page title="Members">
@@ -239,16 +249,6 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       currency: 'USD',
     }).format(amount || 0);
   };
-
-  const formatDate = useCallback((dateStr: string | null) => {
-    if (!dateStr) return 'Never';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      timeZone: storeTimezone,
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }, [storeTimezone]);
 
   // Build tier filter choices from backend data
   // IMPORTANT: Check t exists first to prevent "Cannot read properties of undefined" errors
@@ -1196,6 +1196,7 @@ function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
     if (value.length > 0) {
       previewMutation.mutate();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply template
@@ -1811,7 +1812,7 @@ function ImportCSVModal({ open, onClose, shop }: ImportCSVModalProps) {
   const [success, setSuccess] = useState<{ imported: number; skipped: number } | null>(null);
 
   const handleDropZoneDrop = useCallback(
-    (_dropFiles: File[], acceptedFiles: File[], _rejectedFiles: File[]) => {
+    (_dropFiles: File[], acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         setFile(acceptedFiles[0]);
         setPreview(null);
@@ -1895,8 +1896,6 @@ function ImportCSVModal({ open, onClose, shop }: ImportCSVModalProps) {
     setSuccess(null);
     onClose();
   }, [onClose]);
-
-  const validImageTypes = ['text/csv', 'application/vnd.ms-excel'];
 
   return (
     <Modal

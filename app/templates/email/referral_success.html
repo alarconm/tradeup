@@ -1,0 +1,299 @@
+<!--
+TradeUp Email Template: Referral Success
+Shopify Email compatible - uses Liquid syntax
+
+Variables:
+- shop.name, shop.url, customer.first_name
+- tradeup.referred_name - Name of the person who joined
+- tradeup.referrer_bonus - Bonus earned by referrer
+- tradeup.referred_bonus - Bonus given to new member
+- tradeup.referral_code - The referral code
+- tradeup.total_referrals - Total referrals to date
+- tradeup.points_balance - Current points balance
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Friend Joined!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #00c853 0%, #00bfa5 100%);
+            color: white;
+            padding: 45px 30px;
+            text-align: center;
+        }
+        .header .celebration {
+            font-size: 56px;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header .subtitle {
+            margin: 10px 0 0;
+            font-size: 18px;
+            opacity: 0.95;
+        }
+        .reward-banner {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            padding: 30px;
+            text-align: center;
+            border-bottom: 3px solid #00c853;
+        }
+        .reward-amount {
+            font-size: 48px;
+            font-weight: 800;
+            color: #00c853;
+            margin: 0;
+        }
+        .reward-label {
+            font-size: 18px;
+            color: #2e7d32;
+            margin-top: 5px;
+        }
+        .referral-details {
+            background: #fafafa;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .detail-item {
+            text-align: center;
+        }
+        .detail-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+        .detail-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content p {
+            margin: 0 0 15px;
+            color: #444;
+        }
+        .friend-joined {
+            background: #f3e5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .friend-avatar {
+            width: 60px;
+            height: 60px;
+            background: #9c27b0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 24px;
+            color: white;
+            font-weight: 700;
+        }
+        .friend-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .friend-message {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .share-more-box {
+            background: #e3f2fd;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .share-title {
+            font-weight: 600;
+            color: #1565c0;
+            margin: 0 0 15px;
+            font-size: 16px;
+        }
+        .referral-code {
+            display: inline-block;
+            background: white;
+            border: 2px dashed #1565c0;
+            padding: 15px 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1565c0;
+            border-radius: 8px;
+            letter-spacing: 2px;
+        }
+        .share-hint {
+            font-size: 14px;
+            color: #666;
+            margin-top: 15px;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00c853;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #00c853 0%, #00bfa5 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            margin: 20px 0;
+        }
+        .cta-section {
+            text-align: center;
+            padding: 10px 30px 40px;
+        }
+        .footer {
+            background: #f5f5f5;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+        .footer a {
+            color: #00c853;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="celebration">&#127881;&#129309;</div>
+            <h1>Your Friend Joined!</h1>
+            <p class="subtitle">Thanks for spreading the word</p>
+        </div>
+
+        <div class="reward-banner">
+            <p class="reward-amount">+{{ tradeup.referrer_bonus | default: 500 }}</p>
+            <p class="reward-label">points added to your account</p>
+        </div>
+
+        <div class="referral-details">
+            <div class="detail-item">
+                <div class="detail-value">{{ tradeup.referred_bonus | default: 250 }}</div>
+                <div class="detail-label">Their Bonus</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-value">{{ tradeup.total_referrals | default: 1 }}</div>
+                <div class="detail-label">Total Referrals</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-value">{{ tradeup.points_balance | default: 1500 }}</div>
+                <div class="detail-label">Your Balance</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <p>Hi {{ customer.first_name | default: 'there' }},</p>
+
+            <p>
+                Great news! Someone you referred just joined our rewards program,
+                and you've earned a bonus!
+            </p>
+
+            <div class="friend-joined">
+                <div class="friend-avatar">
+                    {{ tradeup.referred_name | slice: 0 | upcase | default: 'F' }}
+                </div>
+                <div class="friend-name">{{ tradeup.referred_name | default: 'Your Friend' }}</div>
+                <div class="friend-message">joined using your referral code</div>
+            </div>
+
+            <p>
+                As a thank you, we've added
+                <strong>{{ tradeup.referrer_bonus | default: 500 }} points</strong>
+                to your account. Your friend also received
+                {{ tradeup.referred_bonus | default: 250 }} bonus points to get started!
+            </p>
+
+            <div class="share-more-box">
+                <h3 class="share-title">Keep Sharing, Keep Earning!</h3>
+                <div class="referral-code">{{ tradeup.referral_code | default: 'FRIEND2026' }}</div>
+                <p class="share-hint">
+                    Share your code with friends to earn more rewards.
+                    There's no limit to how many friends you can refer!
+                </p>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-value">{{ tradeup.total_referrals | default: 1 }}</div>
+                    <div class="stat-label">Friends Referred</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ tradeup.total_referral_points | default: 500 }}</div>
+                    <div class="stat-label">Points Earned</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <a href="{{ shop.url }}/account" class="cta-button">View My Rewards</a>
+        </div>
+
+        <div class="footer">
+            <p>
+                You're receiving this email because you're a member of {{ shop.name }}'s rewards program.
+            </p>
+            <p>
+                <a href="{{ shop.url }}">Visit Store</a> |
+                <a href="{{ shop.url }}/account">My Account</a>
+            </p>
+            <p style="margin-top: 15px;">
+                {{ shop.name }}<br>
+                {{ shop.email }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

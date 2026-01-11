@@ -124,6 +124,11 @@ class Member(db.Model):
     total_trade_ins = db.Column(db.Integer, default=0)
     total_trade_value = db.Column(db.Numeric(12, 2), default=Decimal('0'))
 
+    # Points balance (loyalty points)
+    points_balance = db.Column(db.Integer, default=0)
+    lifetime_points_earned = db.Column(db.Integer, default=0)
+    lifetime_points_spent = db.Column(db.Integer, default=0)
+
     # Referral program
     referral_code = db.Column(db.String(20), unique=True)  # Unique code for sharing
     referred_by_id = db.Column(db.Integer, db.ForeignKey('members.id'))  # Who referred this member
@@ -175,7 +180,11 @@ class Member(db.Model):
             'trade_in_count': self.total_trade_ins or 0,
             'total_trade_in_value': float(self.total_trade_value or 0),
             'total_credits_issued': float(self.total_bonus_earned or 0),
-            'last_trade_in_at': None  # TODO: Calculate from trade_in_batches if needed
+            'last_trade_in_at': None,  # TODO: Calculate from trade_in_batches if needed
+            # Points
+            'points_balance': self.points_balance or 0,
+            'lifetime_points_earned': self.lifetime_points_earned or 0,
+            'lifetime_points_spent': self.lifetime_points_spent or 0,
         }
 
         if include_stats:

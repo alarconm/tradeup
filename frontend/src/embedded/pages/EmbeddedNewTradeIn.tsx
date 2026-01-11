@@ -17,15 +17,11 @@ import {
   Badge,
   Button,
   TextField,
-  Select,
   FormLayout,
   Banner,
-  Spinner,
   Autocomplete,
   Icon,
-  Tag,
   Divider,
-  ButtonGroup,
   ChoiceList,
   Modal,
 } from '@shopify/polaris';
@@ -33,7 +29,6 @@ import {
   SearchIcon,
   PlusIcon,
   DeleteIcon,
-  PersonIcon,
   CheckIcon,
   AlertCircleIcon,
 } from '@shopify/polaris-icons';
@@ -168,7 +163,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberOptions, setMemberOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [, setSearchPerformed] = useState(false);
 
   // Inline add member modal state
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);

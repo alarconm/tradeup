@@ -113,6 +113,7 @@ export function SetupChecklist({ shop, compact = false, onMilestoneShow }: Setup
   useEffect(() => {
     if (status?.uncelebrated_milestones && status.uncelebrated_milestones.length > 0) {
       const milestone = status.uncelebrated_milestones[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowingMilestone(milestone);
       if (onMilestoneShow) {
         onMilestoneShow(milestone);

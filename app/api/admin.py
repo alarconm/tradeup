@@ -407,6 +407,10 @@ def fix_schema():
         ("tier_configurations", "features", "TEXT"),
         # Member credit balances - missing columns
         ("member_credit_balances", "total_expired", "NUMERIC(10,2) DEFAULT 0"),
+        # Members - Points loyalty system columns
+        ("members", "points_balance", "INTEGER DEFAULT 0"),
+        ("members", "lifetime_points_earned", "INTEGER DEFAULT 0"),
+        ("members", "lifetime_points_spent", "INTEGER DEFAULT 0"),
     ]
 
     results = []
@@ -510,6 +514,50 @@ def fix_credits():
         })
     except Exception as e:
         db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@admin_bp.route('/create-points-tables', methods=['POST'])
+def create_points_tables():
+    """
+    Create the points loyalty system tables.
+
+    Call with: POST /api/admin/create-points-tables?key=tradeup-schema-fix-2026
+    """
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    try:
+        # Import all the points models to register them with SQLAlchemy
+        from ..models.loyalty_points import (
+            PointsBalance,
+            PointsLedger,
+            EarningRule,
+            Reward,
+            RewardRedemption,
+            PointsProgramConfig,
+        )
+
+        # Create all tables that don't exist yet
+        db.create_all()
+
+        return jsonify({
+            'success': True,
+            'message': 'Points system tables created successfully',
+            'tables': [
+                'points_balances',
+                'points_ledger',
+                'earning_rules',
+                'rewards',
+                'reward_redemptions',
+                'points_program_configs'
+            ]
+        })
+    except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)

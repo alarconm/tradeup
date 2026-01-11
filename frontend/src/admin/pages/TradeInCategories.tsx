@@ -57,7 +57,7 @@ export default function TradeInCategories() {
       setLoading(true)
       const data = await getTradeInCategories()
       setCategories(data.categories)
-    } catch (err) {
+    } catch {
       setError('Failed to load categories')
     } finally {
       setLoading(false)
@@ -104,7 +104,7 @@ export default function TradeInCategories() {
 
       setShowModal(false)
       loadCategories()
-    } catch (err) {
+    } catch {
       setError('Failed to save category')
     } finally {
       setSaving(false)
@@ -119,7 +119,7 @@ export default function TradeInCategories() {
     try {
       await deleteTradeInCategory(category.id)
       loadCategories()
-    } catch (err) {
+    } catch {
       setError('Failed to delete category')
     }
   }
