@@ -65,15 +65,18 @@ def get_referral_stats():
         Member.referral_count > 0
     ).order_by(Member.referral_count.desc()).limit(10).all()
 
-    # Recent referrals
+    # Recent referrals - create alias once and reuse
+    ReferrerAlias = db.aliased(Member)
     recent = db.session.query(
+        Member.id,
+        Member.member_number,
         Member.name.label('referee_name'),
         Member.email.label('referee_email'),
         Member.created_at,
-        db.aliased(Member, name='referrer').name.label('referrer_name')
+        ReferrerAlias.member_number.label('referrer_member_number')
     ).outerjoin(
-        db.aliased(Member, name='referrer'),
-        Member.referred_by_id == db.aliased(Member, name='referrer').id
+        ReferrerAlias,
+        Member.referred_by_id == ReferrerAlias.id
     ).filter(
         Member.tenant_id == tenant_id,
         Member.referred_by_id.isnot(None)
@@ -93,7 +96,14 @@ def get_referral_stats():
             'referral_code': r.referral_code,
             'referral_count': r.referral_count or 0,
             'referral_earnings': float(r.referral_earnings or 0)
-        } for r in top_referrers]
+        } for r in top_referrers],
+        'recent_referrals': [{
+            'id': r.id,
+            'member_number': r.member_number,
+            'name': r.referee_name,
+            'referred_by': r.referrer_member_number,
+            'created_at': r.created_at.isoformat() if r.created_at else None
+        } for r in recent]
     })
 
 

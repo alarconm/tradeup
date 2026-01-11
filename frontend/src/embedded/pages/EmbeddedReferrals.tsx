@@ -95,7 +95,7 @@ async function fetchReferralStats(shop: string | null): Promise<ReferralStats> {
     monthly_referrals: data.stats?.total_referrals || 0, // Backend doesn't track monthly separately
     total_credit_issued: data.stats?.total_credit_issued || 0,
     top_referrers: data.top_referrers || [],
-    recent_referrals: [], // Not provided by current backend
+    recent_referrals: data.recent_referrals || [],
   };
 }
 

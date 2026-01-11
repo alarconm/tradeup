@@ -3,7 +3,7 @@ Billing API endpoints for TradeUp.
 Handles subscription management via Shopify Billing API.
 """
 import os
-from flask import Blueprint, request, jsonify, url_for
+from flask import Blueprint, request, jsonify, url_for, g
 from ..services.shopify_billing import (
     ShopifyBillingService,
     get_plan_config,
@@ -12,24 +12,9 @@ from ..services.shopify_billing import (
 )
 from ..models import Tenant
 from ..extensions import db
+from ..middleware.shopify_auth import require_shopify_auth
 
 billing_bp = Blueprint('billing', __name__)
-
-
-def get_tenant_from_request():
-    """Get tenant from request (via session, shop domain, or API key)."""
-    # First try shop domain (embedded app sends this)
-    shop = request.headers.get('X-Shop-Domain') or request.args.get('shop')
-    if shop:
-        # Normalize shop domain
-        shop = shop.replace('https://', '').replace('http://', '').rstrip('/')
-        return Tenant.query.filter_by(shopify_domain=shop).first()
-
-    # Fallback to tenant_id for backwards compatibility
-    tenant_id = request.args.get('tenant_id') or request.headers.get('X-Tenant-ID')
-    if tenant_id:
-        return Tenant.query.get(int(tenant_id))
-    return None
 
 
 @billing_bp.route('/plans', methods=['GET'])
@@ -59,6 +44,7 @@ def list_plans():
 
 
 @billing_bp.route('/subscribe', methods=['POST'])
+@require_shopify_auth
 def create_subscription():
     """
     Create a new subscription for the tenant.
@@ -69,9 +55,7 @@ def create_subscription():
     Returns:
         Confirmation URL to redirect merchant for approval
     """
-    tenant = get_tenant_from_request()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
+    tenant = g.tenant
 
     data = request.get_json() or {}
     plan_key = data.get('plan', 'starter')
@@ -191,6 +175,7 @@ def billing_callback():
 
 
 @billing_bp.route('/status', methods=['GET'])
+@require_shopify_auth
 def subscription_status():
     """
     Get current subscription status for tenant.
@@ -198,9 +183,7 @@ def subscription_status():
     Returns:
         Current plan, status, and usage
     """
-    tenant = get_tenant_from_request()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
+    tenant = g.tenant
 
     # Get member count for usage tracking
     from ..models import Member
@@ -233,6 +216,7 @@ def subscription_status():
 
 
 @billing_bp.route('/upgrade', methods=['POST'])
+@require_shopify_auth
 def upgrade_subscription():
     """
     Upgrade or downgrade subscription plan.
@@ -240,9 +224,7 @@ def upgrade_subscription():
     Request body:
         plan: New plan key
     """
-    tenant = get_tenant_from_request()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
+    tenant = g.tenant
 
     if not tenant.subscription_active:
         return jsonify({'error': 'No active subscription to upgrade'}), 400
@@ -293,13 +275,12 @@ def upgrade_subscription():
 
 
 @billing_bp.route('/cancel', methods=['POST'])
+@require_shopify_auth
 def cancel_subscription():
     """
     Cancel the current subscription.
     """
-    tenant = get_tenant_from_request()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
+    tenant = g.tenant
 
     if not tenant.subscription_active:
         return jsonify({'error': 'No active subscription'}), 400
