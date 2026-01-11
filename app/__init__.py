@@ -229,6 +229,7 @@ def register_blueprints(app: Flask) -> None:
     # Core API
     from .api.members import members_bp
     from .api.trade_ins import trade_ins_bp
+    from .api.trade_ledger import trade_ledger_bp
     from .api.dashboard import dashboard_bp
 
     # Auth and Membership
@@ -303,6 +304,7 @@ def register_blueprints(app: Flask) -> None:
     # Core API routes
     app.register_blueprint(members_bp, url_prefix='/api/members')
     app.register_blueprint(trade_ins_bp, url_prefix='/api/trade-ins')
+    app.register_blueprint(trade_ledger_bp, url_prefix='/api/trade-ledger')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 
     # Auth and Membership routes

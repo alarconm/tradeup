@@ -827,3 +827,142 @@ export async function updateNotifications(
     body: JSON.stringify({ notifications: settings }),
   });
 }
+
+// ================== Trade-In Ledger Types ==================
+
+export interface TradeLedgerEntry {
+  id: number;
+  tenant_id: number;
+  member_id: number | null;
+  member_name: string | null;
+  member_email: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  reference: string;
+  trade_date: string;
+  total_value: number;
+  cash_amount: number;
+  credit_amount: number;
+  category: string | null;
+  collection_id: string | null;
+  collection_name: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface TradeLedgerSummary {
+  total_entries: number;
+  total_value: number;
+  total_cash: number;
+  total_credit: number;
+  categories: { category: string; count: number; value: number }[];
+}
+
+// ================== Trade-In Ledger APIs ==================
+
+export async function getTradeLedgerEntries(params?: {
+  page?: number;
+  per_page?: number;
+  member_id?: number;
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+  search?: string;
+}): Promise<{
+  entries: TradeLedgerEntry[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.per_page) searchParams.set('per_page', String(params.per_page));
+  if (params?.member_id) searchParams.set('member_id', String(params.member_id));
+  if (params?.category) searchParams.set('category', params.category);
+  if (params?.start_date) searchParams.set('start_date', params.start_date);
+  if (params?.end_date) searchParams.set('end_date', params.end_date);
+  if (params?.search) searchParams.set('search', params.search);
+  return adminFetch(`/api/trade-ledger/?${searchParams}`);
+}
+
+export async function getTradeLedgerEntry(id: number): Promise<TradeLedgerEntry> {
+  return adminFetch(`/api/trade-ledger/${id}`);
+}
+
+export async function createTradeLedgerEntry(data: {
+  member_id?: number;
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  total_value: number;
+  cash_amount?: number;
+  credit_amount?: number;
+  category?: string;
+  collection_id?: string;
+  collection_name?: string;
+  notes?: string;
+  created_by?: string;
+  trade_date?: string;
+}): Promise<TradeLedgerEntry> {
+  return adminFetch('/api/trade-ledger/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTradeLedgerEntry(
+  id: number,
+  data: Partial<{
+    total_value: number;
+    cash_amount: number;
+    credit_amount: number;
+    category: string;
+    collection_id: string;
+    collection_name: string;
+    notes: string;
+    trade_date: string;
+    guest_name: string;
+    guest_email: string;
+    guest_phone: string;
+  }>
+): Promise<TradeLedgerEntry> {
+  return adminFetch(`/api/trade-ledger/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteTradeLedgerEntry(id: number): Promise<{ success: boolean; deleted_id: number }> {
+  return adminFetch(`/api/trade-ledger/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getMemberTradeLedgerEntries(memberId: number): Promise<{
+  member_id: number;
+  member_name: string;
+  entries: TradeLedgerEntry[];
+  total_entries: number;
+}> {
+  return adminFetch(`/api/trade-ledger/by-member/${memberId}`);
+}
+
+export async function getTradeLedgerSummary(params?: {
+  start_date?: string;
+  end_date?: string;
+}): Promise<TradeLedgerSummary> {
+  const searchParams = new URLSearchParams();
+  if (params?.start_date) searchParams.set('start_date', params.start_date);
+  if (params?.end_date) searchParams.set('end_date', params.end_date);
+  return adminFetch(`/api/trade-ledger/summary?${searchParams}`);
+}
+
+export async function getTradeLedgerCategories(): Promise<{ categories: string[] }> {
+  return adminFetch('/api/trade-ledger/categories');
+}

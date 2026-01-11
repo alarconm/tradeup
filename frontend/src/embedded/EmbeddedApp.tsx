@@ -14,9 +14,11 @@ import { NavMenu } from '@shopify/app-bridge-react';
 import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
 import { EmbeddedTiers } from './pages/EmbeddedTiers';
 import { EmbeddedMembers } from './pages/EmbeddedMembers';
-import { EmbeddedTradeIns } from './pages/EmbeddedTradeIns';
-import { EmbeddedNewTradeIn } from './pages/EmbeddedNewTradeIn';
-import { EmbeddedCategories } from './pages/EmbeddedCategories';
+import { EmbeddedTradeLedger } from './pages/EmbeddedTradeLedger';
+// Legacy trade-in imports (kept for reference, can be removed later)
+// import { EmbeddedTradeIns } from './pages/EmbeddedTradeIns';
+// import { EmbeddedNewTradeIn } from './pages/EmbeddedNewTradeIn';
+// import { EmbeddedCategories } from './pages/EmbeddedCategories';
 import { EmbeddedBulkCredit } from './pages/EmbeddedBulkCredit';
 import { EmbeddedPromotions } from './pages/EmbeddedPromotions';
 import { EmbeddedSettings } from './pages/EmbeddedSettings';
@@ -52,9 +54,10 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Route path="/dashboard" element={<EmbeddedDashboard shop={shop} />} />
         <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
         <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
-        <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
-        <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
-        <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
+        <Route path="/trade-ins" element={<EmbeddedTradeLedger shop={shop} />} />
+        {/* Legacy routes redirect to new ledger */}
+        <Route path="/trade-ins/new" element={<Navigate to="/app/trade-ins" replace />} />
+        <Route path="/trade-ins/categories" element={<Navigate to="/app/trade-ins" replace />} />
         <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
         <Route path="/points" element={<EmbeddedPoints shop={shop} />} />
         <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />

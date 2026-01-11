@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from ..extensions import db
-from ..models import Member, MembershipTier, TradeInBatch, TradeInItem, StoreCreditLedger, Tenant
+from ..models import Member, MembershipTier, TradeInBatch, TradeInItem, StoreCreditLedger, Tenant, TradeInLedger
 from ..middleware.shopify_auth import require_shopify_auth
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -36,48 +36,21 @@ def get_dashboard_stats():
             status='active'
         ).count()
 
-        # Trade-in counts by status
-        pending_trade_ins = (
-            TradeInBatch.query
-            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
-            .filter(
-                db.or_(
-                    Member.tenant_id == tenant_id,
-                    TradeInBatch.member_id.is_(None)
-                ),
-                TradeInBatch.status.in_(['pending', 'pending_review'])
-            )
-            .count()
-        )
+        # Trade-in ledger stats (simplified)
+        ledger_stats = db.session.query(
+            func.count(TradeInLedger.id).label('total_count'),
+            func.coalesce(func.sum(TradeInLedger.total_value), 0).label('total_value'),
+            func.coalesce(func.sum(TradeInLedger.cash_amount), 0).label('total_cash'),
+            func.coalesce(func.sum(TradeInLedger.credit_amount), 0).label('total_credit'),
+        ).filter(TradeInLedger.tenant_id == tenant_id).first()
 
-        completed_trade_ins = (
-            TradeInBatch.query
-            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
-            .filter(
-                db.or_(
-                    Member.tenant_id == tenant_id,
-                    TradeInBatch.member_id.is_(None)
-                ),
-                TradeInBatch.status == 'completed'
-            )
-            .count()
-        )
-
-        # Total trade-in value (all time)
-        total_value_result = (
-            db.session.query(
-                func.coalesce(func.sum(TradeInBatch.total_trade_value), 0)
-            )
-            .join(Member, TradeInBatch.member_id == Member.id, isouter=True)
-            .filter(
-                db.or_(
-                    Member.tenant_id == tenant_id,
-                    TradeInBatch.member_id.is_(None)
-                )
-            )
-            .scalar()
-        )
-        total_trade_in_value = float(total_value_result or 0)
+        # Use ledger counts for dashboard
+        total_trade_ins = ledger_stats.total_count if ledger_stats else 0
+        pending_trade_ins = 0  # No pending status in ledger - all entries are complete
+        completed_trade_ins = total_trade_ins
+        total_trade_in_value = float(ledger_stats.total_value if ledger_stats else 0)
+        total_cash_paid = float(ledger_stats.total_cash if ledger_stats else 0)
+        total_credit_paid = float(ledger_stats.total_credit if ledger_stats else 0)
 
         # Total credits issued (all time, positive amounts only)
         total_credits_result = (
@@ -138,9 +111,12 @@ def get_dashboard_stats():
         return jsonify({
             'total_members': total_members,
             'active_members': active_members,
+            'total_trade_ins': total_trade_ins,  # Total ledger entries
             'pending_trade_ins': pending_trade_ins,
             'completed_trade_ins': completed_trade_ins,
             'total_trade_in_value': total_trade_in_value,
+            'total_cash_paid': total_cash_paid,  # Trade-ins paid in cash
+            'total_credit_paid': total_credit_paid,  # Trade-ins paid as credit
             'total_credits_issued': total_credits_issued,
             'subscription': subscription,
             'timezone': timezone,
@@ -157,9 +133,12 @@ def get_dashboard_stats():
         return jsonify({
             'total_members': 0,
             'active_members': 0,
+            'total_trade_ins': 0,
             'pending_trade_ins': 0,
             'completed_trade_ins': 0,
             'total_trade_in_value': 0,
+            'total_cash_paid': 0,
+            'total_credit_paid': 0,
             'total_credits_issued': 0,
             'subscription': {
                 'plan': 'starter',
