@@ -556,6 +556,7 @@ function MemberDetailModal({
   const [creditDescription, setCreditDescription] = useState('');
   const [creditExpiration, setCreditExpiration] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [showCreditHistory, setShowCreditHistory] = useState(false);
   const queryClient = useQueryClient();
 
@@ -681,6 +682,25 @@ function MemberDetailModal({
     },
   });
 
+  // Delete member mutation
+  const deleteMemberMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/${member?.id}`, shop, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete member');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setDeleteConfirmOpen(false);
+      onClose();
+    },
+  });
+
   if (!member) return null;
 
   const tierOptions = [
@@ -709,6 +729,11 @@ function MemberDetailModal({
             onAction: () => setCancelConfirmOpen(true),
             destructive: true,
             disabled: member.status === 'cancelled',
+          },
+          {
+            content: 'Delete Member',
+            onAction: () => setDeleteConfirmOpen(true),
+            destructive: true,
           },
         ]}
       >
@@ -1031,6 +1056,46 @@ function MemberDetailModal({
               <Text as="p">
                 {member.first_name} {member.last_name} will no longer receive member benefits.
                 Their existing store credit will remain available.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      </Modal>
+
+      {/* Delete Member Confirmation Modal */}
+      <Modal
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete Member"
+        primaryAction={{
+          content: 'Delete Permanently',
+          onAction: () => deleteMemberMutation.mutate(),
+          loading: deleteMemberMutation.isPending,
+          destructive: true,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: () => setDeleteConfirmOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          {deleteMemberMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{deleteMemberMutation.error?.message || 'Failed to delete member'}</p>
+              </Banner>
+            </Box>
+          )}
+          <Banner tone="critical">
+            <BlockStack gap="200">
+              <Text as="p" fontWeight="semibold">
+                Are you sure you want to permanently delete this member?
+              </Text>
+              <Text as="p">
+                This will remove {member.first_name} {member.last_name} ({member.email}) from TradeUp
+                and delete all their credit history. This action cannot be undone.
+              </Text>
+              <Text as="p">
+                Note: This does NOT delete the customer from Shopify - only from TradeUp.
               </Text>
             </BlockStack>
           </Banner>

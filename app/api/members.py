@@ -429,6 +429,43 @@ def update_member(member_id):
     return jsonify(member.to_dict())
 
 
+@members_bp.route('/<int:member_id>', methods=['DELETE'])
+@require_shopify_auth
+def delete_member(member_id):
+    """
+    Delete a member from the TradeUp program.
+
+    This is a hard delete - removes the member record entirely.
+    Does NOT affect the Shopify customer account.
+
+    Use with caution - typically for cleaning up test data or
+    members that were created incorrectly (e.g., not linked to Shopify).
+    """
+    tenant_id = g.tenant_id
+
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first()
+    if not member:
+        return jsonify({'error': 'Member not found'}), 404
+
+    member_number = member.member_number
+    member_name = member.name or member.email
+
+    # Delete related records first (to avoid foreign key issues)
+    from ..models.promotions import StoreCreditLedger, MemberCreditBalance
+
+    StoreCreditLedger.query.filter_by(member_id=member_id).delete()
+    MemberCreditBalance.query.filter_by(member_id=member_id).delete()
+
+    # Delete the member
+    db.session.delete(member)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Member {member_number} ({member_name}) has been deleted'
+    })
+
+
 @members_bp.route('/tiers', methods=['GET'])
 @require_shopify_auth
 def list_tiers():
