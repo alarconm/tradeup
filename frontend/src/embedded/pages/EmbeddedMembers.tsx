@@ -697,6 +697,7 @@ function MemberDetailModal({
         primaryAction={{
           content: 'Issue Credit',
           onAction: () => setIssueCreditOpen(true),
+          disabled: !member.shopify_customer_id,
         }}
         secondaryActions={[
           {
@@ -713,6 +714,15 @@ function MemberDetailModal({
       >
         <Modal.Section>
           <BlockStack gap="400">
+            {!member.shopify_customer_id && (
+              <Banner tone="critical">
+                <p>
+                  <strong>Not linked to Shopify:</strong> This member is not linked to a Shopify
+                  customer account. Store credit cannot be issued until the member is linked.
+                  Delete this member and re-add them by searching for an existing Shopify customer.
+                </p>
+              </Banner>
+            )}
             <InlineStack gap="400">
               <BlockStack gap="100">
                 <Text as="span" variant="bodySm" tone="subdued">
