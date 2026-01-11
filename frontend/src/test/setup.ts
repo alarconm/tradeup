@@ -1,5 +1,27 @@
 import '@testing-library/jest-dom'
 
+// Extend Window interface for test globals
+declare global {
+  interface Window {
+    __TRADEUP_CONFIG__: {
+      shop: string;
+      host: string;
+      apiKey: string;
+      appUrl: string;
+    };
+    shopify: {
+      config: {
+        shop: string;
+        apiKey: string;
+      };
+      environment: {
+        embedded: boolean;
+      };
+      idToken: () => Promise<string>;
+    };
+  }
+}
+
 // Mock window.__TRADEUP_CONFIG__ for tests
 Object.defineProperty(window, '__TRADEUP_CONFIG__', {
   value: {

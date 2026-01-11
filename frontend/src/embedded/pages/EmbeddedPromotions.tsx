@@ -949,6 +949,23 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
         {/* Tier Benefits */}
         {activeTab === 'tiers' && (
           <Layout.Section>
+            {tiers.length === 0 ? (
+              <Card>
+                <EmptyState
+                  heading="No membership tiers configured"
+                  action={{
+                    content: 'Create Tiers',
+                    url: '/app/tiers',
+                  }}
+                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                >
+                  <p>
+                    Configure membership tiers to offer different benefit levels to your customers.
+                    Tiers can include trade-in bonuses, purchase cashback, and store discounts.
+                  </p>
+                </EmptyState>
+              </Card>
+            ) : (
             <InlineGrid columns={isMobile ? 1 : 3} gap="400">
               {tiers.filter(tier => tier && tier.tier_name).map((tier) => (
                 <Card key={tier.id}>
@@ -997,6 +1014,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 </Card>
               ))}
             </InlineGrid>
+            )}
           </Layout.Section>
         )}
 
