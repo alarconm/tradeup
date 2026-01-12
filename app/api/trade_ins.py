@@ -33,16 +33,8 @@ def list_batches():
         member_id = request.args.get('member_id', type=int)
         guest_only = request.args.get('guest_only', '').lower() == 'true'
 
-        # Use outer join to include both member and guest trade-ins
-        # Filter by tenant: either through member or by checking there's no member (guest)
-        query = TradeInBatch.query.outerjoin(
-            Member, TradeInBatch.member_id == Member.id
-        ).filter(
-            db.or_(
-                Member.tenant_id == tenant_id,
-                TradeInBatch.member_id.is_(None)  # Guest trade-ins
-            )
-        )
+        # Filter directly by tenant_id (now stored on batch for both member and guest trade-ins)
+        query = TradeInBatch.query.filter_by(tenant_id=tenant_id)
 
         if status and status != 'all':
             query = query.filter(TradeInBatch.status == status)
@@ -83,19 +75,18 @@ def list_batches():
         print(f"[TradeIns] Error listing batches: {e}")
         traceback.print_exc()
         return jsonify({
+            'error': 'Failed to list trade-in batches',
             'batches': [],
-            'total': 0,
-            'page': 1,
-            'per_page': per_page if 'per_page' in dir() else 50,
-            'error': str(e)
-        }), 200  # Return 200 with error for graceful degradation
+            'total': 0
+        }), 500
 
 
 @trade_ins_bp.route('/<int:batch_id>', methods=['GET'])
 @require_shopify_auth
 def get_batch(batch_id):
     """Get trade-in batch details with items."""
-    batch = TradeInBatch.query.get_or_404(batch_id)
+    tenant_id = g.tenant_id
+    batch = TradeInBatch.query.filter_by(id=batch_id, tenant_id=tenant_id).first_or_404()
     return jsonify(batch.to_dict(include_items=True))
 
 
@@ -103,7 +94,8 @@ def get_batch(batch_id):
 @require_shopify_auth
 def get_batch_by_reference(batch_reference):
     """Get batch by reference number."""
-    batch = TradeInBatch.query.filter_by(batch_reference=batch_reference).first_or_404()
+    tenant_id = g.tenant_id
+    batch = TradeInBatch.query.filter_by(batch_reference=batch_reference, tenant_id=tenant_id).first_or_404()
     return jsonify(batch.to_dict(include_items=True))
 
 
@@ -221,7 +213,8 @@ def get_categories():
 @require_shopify_auth
 def add_items(batch_id):
     """Add items to a trade-in batch."""
-    batch = TradeInBatch.query.get_or_404(batch_id)
+    tenant_id = g.tenant_id
+    batch = TradeInBatch.query.filter_by(id=batch_id, tenant_id=tenant_id).first_or_404()
     data = request.json
 
     items_data = data.get('items', [data])  # Support single item or array
@@ -257,7 +250,11 @@ def add_items(batch_id):
 @require_shopify_auth
 def mark_item_listed(item_id):
     """Mark an item as listed in Shopify."""
-    item = TradeInItem.query.get_or_404(item_id)
+    tenant_id = g.tenant_id
+    item = TradeInItem.query.join(TradeInBatch).filter(
+        TradeInItem.id == item_id,
+        TradeInBatch.tenant_id == tenant_id
+    ).first_or_404()
     data = request.json
 
     item.shopify_product_id = data.get('shopify_product_id')
@@ -284,7 +281,11 @@ def mark_item_listed(item_id):
 @require_shopify_auth
 def mark_item_sold(item_id):
     """Mark an item as sold (usually called by webhook)."""
-    item = TradeInItem.query.get_or_404(item_id)
+    tenant_id = g.tenant_id
+    item = TradeInItem.query.join(TradeInBatch).filter(
+        TradeInItem.id == item_id,
+        TradeInBatch.tenant_id == tenant_id
+    ).first_or_404()
     data = request.json
 
     item.sold_date = datetime.utcnow()
@@ -304,8 +305,10 @@ def mark_item_sold(item_id):
 @require_shopify_auth
 def get_item_by_product(shopify_product_id):
     """Get trade-in item by Shopify product ID."""
-    item = TradeInItem.query.filter_by(
-        shopify_product_id=shopify_product_id
+    tenant_id = g.tenant_id
+    item = TradeInItem.query.join(TradeInBatch).filter(
+        TradeInItem.shopify_product_id == shopify_product_id,
+        TradeInBatch.tenant_id == tenant_id
     ).first_or_404()
 
     return jsonify(item.to_dict())

@@ -335,19 +335,18 @@ def list_members():
         print(f"[Members] Error listing members: {e}")
         traceback.print_exc()
         return jsonify({
+            'error': 'Failed to list members',
             'members': [],
-            'total': 0,
-            'page': 1,
-            'per_page': 50,
-            'error': str(e)
-        }), 200
+            'total': 0
+        }), 500
 
 
 @members_bp.route('/<int:member_id>', methods=['GET'])
 @require_shopify_auth
 def get_member(member_id):
     """Get member details."""
-    member = Member.query.get_or_404(member_id)
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
     return jsonify(member.to_dict(include_stats=True))
 
 
@@ -406,7 +405,8 @@ def create_member():
 @require_shopify_auth
 def update_member(member_id):
     """Update member details."""
-    member = Member.query.get_or_404(member_id)
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
     data = request.json
 
     # Update allowed fields

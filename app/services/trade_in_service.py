@@ -101,6 +101,7 @@ class TradeInService:
         batch_reference = TradeInBatch.generate_batch_reference(self.tenant_id)
 
         batch = TradeInBatch(
+            tenant_id=self.tenant_id,  # Required for tenant isolation
             member_id=member_id,
             guest_name=guest_name,
             guest_email=guest_email,
@@ -164,6 +165,8 @@ class TradeInService:
         batch = TradeInBatch.query.get(batch_id)
         if not batch:
             raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')  # Don't reveal tenant mismatch
 
         item = TradeInItem(
             batch_id=batch_id,
@@ -202,6 +205,8 @@ class TradeInService:
         batch = TradeInBatch.query.get(batch_id)
         if not batch:
             raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')  # Don't reveal tenant mismatch
 
         created_items = []
         total_value = Decimal('0')
@@ -372,6 +377,8 @@ class TradeInService:
         batch = TradeInBatch.query.get(batch_id)
         if not batch:
             raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')  # Don't reveal tenant mismatch
 
         if batch.status == 'completed':
             raise ValueError('Batch is already completed')
@@ -533,6 +540,8 @@ class TradeInService:
         batch = TradeInBatch.query.get(batch_id)
         if not batch:
             raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')  # Don't reveal tenant mismatch
 
         bonus_info = self.calculate_tier_bonus(batch)
 

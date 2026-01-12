@@ -14,6 +14,7 @@ class TradeInBatch(db.Model):
     __tablename__ = 'trade_in_batches'
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)  # Required for tenant isolation
     member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=True)  # Nullable for non-member trade-ins
 
     # Guest info for non-member trade-ins

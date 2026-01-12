@@ -396,6 +396,8 @@ def fix_schema():
         ("trade_in_batches", "guest_name", "VARCHAR(200)"),
         ("trade_in_batches", "guest_email", "VARCHAR(200)"),
         ("trade_in_batches", "guest_phone", "VARCHAR(50)"),
+        # Trade-in batches - tenant isolation (CRITICAL SECURITY)
+        ("trade_in_batches", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Tier configurations - promotion system columns
         ("tier_configurations", "yearly_price", "NUMERIC(6,2)"),
         ("tier_configurations", "trade_in_bonus_pct", "NUMERIC(5,2) DEFAULT 0"),
@@ -443,6 +445,28 @@ def fix_schema():
         except Exception:
             # Column might already be nullable, that's fine
             results.append({'table': 'trade_in_batches', 'column': 'member_id', 'action': 'already_nullable_or_error'})
+
+        # Backfill tenant_id for existing trade-in batches (from their member)
+        try:
+            backfill_sql = text('''
+                UPDATE trade_in_batches
+                SET tenant_id = m.tenant_id
+                FROM members m
+                WHERE trade_in_batches.member_id = m.id
+                AND trade_in_batches.tenant_id IS NULL
+            ''')
+            result = db.session.execute(backfill_sql)
+            results.append({'table': 'trade_in_batches', 'column': 'tenant_id', 'action': f'backfilled_{result.rowcount}_rows'})
+        except Exception as e:
+            results.append({'table': 'trade_in_batches', 'column': 'tenant_id', 'action': f'backfill_error: {str(e)}'})
+
+        # Add index on tenant_id for trade_in_batches
+        try:
+            index_sql = text('CREATE INDEX IF NOT EXISTS ix_trade_in_batches_tenant_id ON trade_in_batches (tenant_id)')
+            db.session.execute(index_sql)
+            results.append({'table': 'trade_in_batches', 'index': 'ix_trade_in_batches_tenant_id', 'action': 'created'})
+        except Exception:
+            results.append({'table': 'trade_in_batches', 'index': 'ix_trade_in_batches_tenant_id', 'action': 'exists_or_error'})
 
         db.session.commit()
 

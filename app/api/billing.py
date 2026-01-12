@@ -118,14 +118,29 @@ def billing_callback():
     Query params:
         tenant_id: Tenant ID
         charge_id: Shopify charge ID (optional)
+
+    Note: This is a Shopify redirect callback so standard auth can't be used.
+    We validate tenant existence and active status instead.
     """
     tenant_id = request.args.get('tenant_id')
     if not tenant_id:
         return jsonify({'error': 'Missing tenant_id'}), 400
 
-    tenant = Tenant.query.get(int(tenant_id))
+    try:
+        tenant_id_int = int(tenant_id)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid tenant_id'}), 400
+
+    tenant = Tenant.query.get(tenant_id_int)
     if not tenant:
         return jsonify({'error': 'Tenant not found'}), 404
+
+    # Validate tenant has valid Shopify credentials
+    if not tenant.shopify_domain or not tenant.shopify_access_token:
+        return jsonify({'error': 'Tenant not properly configured'}), 400
+
+    if not tenant.is_active:
+        return jsonify({'error': 'Tenant is not active'}), 403
 
     # Check subscription status
     billing = ShopifyBillingService(
