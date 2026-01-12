@@ -404,6 +404,7 @@ class OnboardingService:
 
         return {
             'onboarding_complete': settings.get('onboarding_complete', False),
+            'store_credit_enabled': settings.get('store_credit_enabled', False),
             'template_used': settings.get('template_used'),
             'has_tiers': tier_count > 0,
             'tier_count': tier_count,

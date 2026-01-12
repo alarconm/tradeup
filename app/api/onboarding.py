@@ -46,6 +46,7 @@ def get_onboarding_status():
     # Build detailed steps
     has_tiers = status.get('has_tiers', False)
     onboarding_complete = status.get('onboarding_complete', False)
+    store_credit_enabled = status.get('store_credit_enabled', False)
 
     steps = [
         {
@@ -59,8 +60,8 @@ def get_onboarding_status():
             'id': 2,
             'name': 'Store Credit Enabled',
             'description': 'Shopify native store credit is set up',
-            'status': 'pending',  # Will be updated below
-            'action': 'check_store_credit'
+            'status': 'complete' if store_credit_enabled else 'pending',
+            'action': 'check_store_credit' if not store_credit_enabled else None
         },
         {
             'id': 3,
@@ -74,7 +75,7 @@ def get_onboarding_status():
             'name': 'Ready to Go',
             'description': 'Your loyalty program is live and accepting members',
             'status': 'complete' if onboarding_complete else 'pending',
-            'action': 'go_live' if has_tiers and not onboarding_complete else None
+            'action': 'go_live' if store_credit_enabled and has_tiers and not onboarding_complete else None
         }
     ]
 
@@ -107,6 +108,8 @@ def check_store_credit():
         - instructions: List of steps to enable (if not enabled)
         - settings_url: Direct link to Shopify payment settings
     """
+    from sqlalchemy.orm.attributes import flag_modified
+
     tenant = get_tenant_from_request()
     if not tenant:
         return jsonify({'error': 'Tenant not found'}), 404
@@ -115,6 +118,14 @@ def check_store_credit():
     service = OnboardingService(tenant.id)
 
     result = service.check_store_credit_enabled()
+
+    # Save store credit status in tenant settings so we can track progress
+    if tenant.settings is None:
+        tenant.settings = {}
+    tenant.settings['store_credit_enabled'] = result.get('enabled', False)
+    flag_modified(tenant, 'settings')
+    db.session.commit()
+
     return jsonify(result)
 
 
