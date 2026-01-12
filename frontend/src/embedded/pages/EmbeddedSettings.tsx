@@ -57,6 +57,7 @@ interface SettingsResponse {
       points_enabled: boolean;
       referrals_enabled: boolean;
       self_signup_enabled: boolean;
+      advanced_features_enabled: boolean;
     };
     auto_enrollment: {
       enabled: boolean;
@@ -935,9 +936,38 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 onChange={(value) => handleChange('features', 'referrals_enabled', value)}
                 helpText="Allow members to earn rewards by referring new customers"
               />
+
+              <Divider />
+
+              <Checkbox
+                label="Show advanced features"
+                checked={getValue('features', 'advanced_features_enabled', false)}
+                onChange={(value) => handleChange('features', 'advanced_features_enabled', value)}
+                helpText="Shows Promotions, Points & Rewards, and Membership Tiers in the navigation sidebar. Perfect for power users."
+              />
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
+
+        {/* Quick Tiers Access - Show when advanced features OFF */}
+        {!getValue('features', 'advanced_features_enabled', false) && (
+          <Layout.AnnotatedSection
+            id="tiers-shortcut"
+            title="Membership Tiers"
+            description="Configure your membership tiers and benefits"
+          >
+            <Card>
+              <BlockStack gap="400">
+                <Text as="p" variant="bodyMd">
+                  Set up tier pricing, trade-in bonuses, and member benefits for your loyalty program.
+                </Text>
+                <Button url="/app/tiers" fullWidth>
+                  Manage Membership Tiers
+                </Button>
+              </BlockStack>
+            </Card>
+          </Layout.AnnotatedSection>
+        )}
 
         {/* Auto-Enrollment */}
         <Layout.AnnotatedSection

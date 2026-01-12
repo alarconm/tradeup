@@ -9,6 +9,8 @@
  */
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { NavMenu } from '@shopify/app-bridge-react';
+import { useQuery } from '@tanstack/react-query';
+import { getApiUrl, authFetch } from '../hooks/useShopifyBridge';
 
 // Embedded app pages
 import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
@@ -34,17 +36,45 @@ interface EmbeddedAppProps {
   shop: string | null;
 }
 
+interface Settings {
+  features?: {
+    advanced_features_enabled?: boolean;
+    points_enabled?: boolean;
+    referrals_enabled?: boolean;
+    self_signup_enabled?: boolean;
+  };
+}
+
+async function fetchSettings(shop: string | null): Promise<Settings> {
+  const response = await authFetch(`${getApiUrl()}/settings`, shop);
+  if (!response.ok) throw new Error('Failed to fetch settings');
+  const data = await response.json();
+  return data.settings;
+}
+
 export function EmbeddedApp({ shop }: EmbeddedAppProps) {
+  // Fetch settings to check if advanced features are enabled
+  const { data: settings } = useQuery({
+    queryKey: ['settings', shop],
+    queryFn: () => fetchSettings(shop),
+    enabled: !!shop,
+    staleTime: 60000, // Cache for 60s to avoid re-fetching on every page
+  });
+
+  const showAdvanced = settings?.features?.advanced_features_enabled ?? false;
+
   return (
     <>
       {/* App Bridge NavMenu - configures Shopify Admin sidebar navigation */}
+      {/* Default: Dashboard, Members, Trade-Ins, Settings */}
+      {/* Advanced: + Promotions, Points & Rewards, Membership Tiers */}
       <NavMenu>
         <Link to="/app/dashboard" rel="home">Dashboard</Link>
         <Link to="/app/members">Members</Link>
         <Link to="/app/trade-ins">Trade-Ins</Link>
-        <Link to="/app/promotions">Promotions</Link>
-        <Link to="/app/points">Points & Rewards</Link>
-        <Link to="/app/tiers">Membership Tiers</Link>
+        {showAdvanced && <Link to="/app/promotions">Promotions</Link>}
+        {showAdvanced && <Link to="/app/points">Points & Rewards</Link>}
+        {showAdvanced && <Link to="/app/tiers">Membership Tiers</Link>}
         <Link to="/app/settings">Settings</Link>
       </NavMenu>
 

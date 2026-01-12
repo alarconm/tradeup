@@ -38,7 +38,8 @@ DEFAULT_SETTINGS = {
     'features': {
         'points_enabled': False,
         'referrals_enabled': False,
-        'self_signup_enabled': True
+        'self_signup_enabled': True,
+        'advanced_features_enabled': False  # Show simplified nav by default
     },
     'auto_enrollment': {
         'enabled': True,  # Auto-enroll customers on first purchase
