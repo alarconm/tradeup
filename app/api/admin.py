@@ -472,6 +472,22 @@ def fix_schema():
         except Exception:
             results.append({'table': 'trade_in_batches', 'index': 'ix_trade_in_batches_tenant_id', 'action': 'exists_or_error'})
 
+        # Add index on tenant_id for promotions
+        try:
+            index_sql = text('CREATE INDEX IF NOT EXISTS ix_promotions_tenant_id ON promotions (tenant_id)')
+            db.session.execute(index_sql)
+            results.append({'table': 'promotions', 'index': 'ix_promotions_tenant_id', 'action': 'created'})
+        except Exception:
+            results.append({'table': 'promotions', 'index': 'ix_promotions_tenant_id', 'action': 'exists_or_error'})
+
+        # Add index on tenant_id for bulk_credit_operations
+        try:
+            index_sql = text('CREATE INDEX IF NOT EXISTS ix_bulk_credit_operations_tenant_id ON bulk_credit_operations (tenant_id)')
+            db.session.execute(index_sql)
+            results.append({'table': 'bulk_credit_operations', 'index': 'ix_bulk_credit_operations_tenant_id', 'action': 'created'})
+        except Exception:
+            results.append({'table': 'bulk_credit_operations', 'index': 'ix_bulk_credit_operations_tenant_id', 'action': 'exists_or_error'})
+
         db.session.commit()
 
         return jsonify({
