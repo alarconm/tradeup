@@ -306,18 +306,50 @@ def create_and_enroll_customer():
 @members_bp.route('', methods=['GET'])
 @require_shopify_auth
 def list_members():
-    """List all members for the tenant."""
+    """List all members for the tenant.
+
+    Query params:
+        page: Page number (default: 1)
+        per_page: Items per page (default: 50)
+        status: Filter by status (active, cancelled, etc.)
+        search: Search by name or email
+        tier: Filter by tier name (case-insensitive)
+    """
     try:
         tenant_id = g.tenant_id  # Use tenant_id from auth middleware
 
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         status = request.args.get('status')
+        search = request.args.get('search', '').strip()
+        tier_filter = request.args.get('tier', '').strip()
 
         query = Member.query.filter_by(tenant_id=tenant_id)
 
         if status:
             query = query.filter_by(status=status)
+
+        # Search by name or email
+        if search:
+            search_pattern = f'%{search}%'
+            query = query.filter(
+                db.or_(
+                    Member.name.ilike(search_pattern),
+                    Member.email.ilike(search_pattern),
+                    Member.first_name.ilike(search_pattern),
+                    Member.last_name.ilike(search_pattern),
+                    Member.member_number.ilike(search_pattern)
+                )
+            )
+
+        # Filter by tier name
+        if tier_filter:
+            tier = MembershipTier.query.filter(
+                MembershipTier.tenant_id == tenant_id,
+                db.func.lower(MembershipTier.name) == tier_filter.lower()
+            ).first()
+            if tier:
+                query = query.filter(Member.tier_id == tier.id)
 
         pagination = query.order_by(Member.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
