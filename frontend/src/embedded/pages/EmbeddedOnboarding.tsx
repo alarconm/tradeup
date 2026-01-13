@@ -189,10 +189,19 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
     );
   }
 
-  // If onboarding is complete, redirect to dashboard
+  // If onboarding is complete, redirect to dashboard with a loading message
   if (status?.setup_complete) {
-    navigate('/app/dashboard');
-    return null;
+    navigate('/app/dashboard', { replace: true });
+    return (
+      <Page title="Setup Complete">
+        <Box padding="1600">
+          <BlockStack gap="400" inlineAlign="center">
+            <Spinner size="large" />
+            <Text as="p" tone="subdued">Redirecting to dashboard...</Text>
+          </BlockStack>
+        </Box>
+      </Page>
+    );
   }
 
   const currentStep = status?.current_step || 1;
