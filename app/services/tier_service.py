@@ -863,24 +863,61 @@ class TierService:
             'stats': stats
         }
 
-        # Apply if eligible and requested
-        if apply_if_eligible and eligible_tier:
-            # Check if this is an upgrade
-            if not member.tier or eligible_tier.bonus_rate > member.tier.bonus_rate:
-                assign_result = self.assign_tier(
-                    member_id=member_id,
-                    tier_id=eligible_tier.id,
-                    source_type='earned',
-                    source_reference=f'rule_{eligible_rule.id}:{eligible_rule.name}',
-                    reason=f'Earned via: {eligible_rule.name}',
-                    created_by='system:eligibility_check',
-                    metadata={
-                        'rule_id': eligible_rule.id,
-                        'metric': eligible_rule.metric,
-                        'value_achieved': stats.get(eligible_rule.metric)
-                    }
-                )
-                result['tier_assigned'] = assign_result.get('success', False)
+        # Apply if requested
+        if apply_if_eligible:
+            if eligible_tier:
+                # Check if this is different from current tier
+                if not member.tier or eligible_tier.id != member.tier_id:
+                    # Determine if upgrade or downgrade
+                    current_bonus = member.tier.bonus_rate if member.tier else 0
+                    new_bonus = eligible_tier.bonus_rate
+
+                    change_type = 'upgraded' if new_bonus > current_bonus else 'downgraded'
+
+                    assign_result = self.assign_tier(
+                        member_id=member_id,
+                        tier_id=eligible_tier.id,
+                        source_type='earned',
+                        source_reference=f'rule_{eligible_rule.id}:{eligible_rule.name}',
+                        reason=f'{change_type.capitalize()} via: {eligible_rule.name}',
+                        created_by='system:eligibility_check',
+                        metadata={
+                            'rule_id': eligible_rule.id,
+                            'metric': eligible_rule.metric,
+                            'value_achieved': stats.get(eligible_rule.metric),
+                            'change_type': change_type
+                        }
+                    )
+                    result['tier_assigned'] = assign_result.get('success', False)
+                    result['change_type'] = change_type
+            elif member.tier and member.tier_assigned_by == 'earned':
+                # Member has earned tier but no longer qualifies - check for downgrade rules
+                downgrade_rules = TierEligibilityRule.query.filter_by(
+                    tenant_id=self.tenant_id,
+                    is_active=True,
+                    rule_type='downgrade'
+                ).all()
+
+                if downgrade_rules:
+                    # Apply downgrade to lowest tier or remove
+                    lowest_tier = MembershipTier.query.filter_by(
+                        tenant_id=self.tenant_id,
+                        is_active=True
+                    ).order_by(MembershipTier.bonus_rate.asc()).first()
+
+                    if lowest_tier and lowest_tier.id != member.tier_id:
+                        assign_result = self.assign_tier(
+                            member_id=member_id,
+                            tier_id=lowest_tier.id,
+                            source_type='earned',
+                            source_reference='downgrade:no_longer_eligible',
+                            reason='No longer meets tier requirements',
+                            created_by='system:eligibility_check',
+                            metadata={'change_type': 'downgraded'}
+                        )
+                        result['tier_assigned'] = assign_result.get('success', False)
+                        result['change_type'] = 'downgraded'
+                        result['downgrade_reason'] = 'No longer meets tier requirements'
 
         return result
 

@@ -486,3 +486,228 @@ def get_activity():
         print(f"[Dashboard] Error getting activity: {e}")
         traceback.print_exc()
         return jsonify([]), 200
+
+
+@dashboard_bp.route('/daily-report', methods=['GET'])
+@require_shopify_auth
+def get_daily_report():
+    """
+    Get daily report with comprehensive metrics for the dashboard widget.
+
+    Query params:
+    - date: ISO date (YYYY-MM-DD), defaults to today
+
+    Returns:
+    - date: Report date
+    - metrics: Key performance indicators
+    - comparison: Comparison with previous day
+    - top_trade_ins: Highest value trade-ins today
+    - new_members_list: Members enrolled today
+    - summary: Human-readable summary text
+    """
+    try:
+        tenant_id = g.tenant_id
+
+        # Parse date (default to today)
+        date_str = request.args.get('date')
+        if date_str:
+            try:
+                report_date = datetime.fromisoformat(date_str).date()
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        else:
+            report_date = datetime.utcnow().date()
+
+        # Date range for today (start of day to end of day)
+        start_of_day = datetime.combine(report_date, datetime.min.time())
+        end_of_day = datetime.combine(report_date, datetime.max.time())
+
+        # Previous day range
+        prev_date = report_date - timedelta(days=1)
+        prev_start = datetime.combine(prev_date, datetime.min.time())
+        prev_end = datetime.combine(prev_date, datetime.max.time())
+
+        # ==================== Today's Metrics ====================
+
+        # New members today
+        new_members_today = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.created_at >= start_of_day,
+            Member.created_at <= end_of_day
+        ).all()
+        new_members_count = len(new_members_today)
+
+        # Trade-in ledger stats for today
+        today_ledger_stats = db.session.query(
+            func.count(TradeInLedger.id).label('total_count'),
+            func.coalesce(func.sum(TradeInLedger.total_value), 0).label('total_value'),
+            func.coalesce(func.sum(TradeInLedger.cash_amount), 0).label('total_cash'),
+            func.coalesce(func.sum(TradeInLedger.credit_amount), 0).label('total_credit'),
+            func.coalesce(func.sum(TradeInLedger.bonus_amount), 0).label('total_bonus'),
+        ).filter(
+            TradeInLedger.tenant_id == tenant_id,
+            TradeInLedger.created_at >= start_of_day,
+            TradeInLedger.created_at <= end_of_day
+        ).first()
+
+        trade_ins_today = today_ledger_stats.total_count if today_ledger_stats else 0
+        trade_in_value_today = float(today_ledger_stats.total_value if today_ledger_stats else 0)
+        cash_paid_today = float(today_ledger_stats.total_cash if today_ledger_stats else 0)
+        credit_paid_today = float(today_ledger_stats.total_credit if today_ledger_stats else 0)
+        bonus_today = float(today_ledger_stats.total_bonus if today_ledger_stats else 0)
+
+        # Credits issued today (positive amounts only, from ledger)
+        credits_result = (
+            db.session.query(
+                func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            )
+            .join(Member, StoreCreditLedger.member_id == Member.id)
+            .filter(
+                Member.tenant_id == tenant_id,
+                StoreCreditLedger.amount > 0,
+                StoreCreditLedger.created_at >= start_of_day,
+                StoreCreditLedger.created_at <= end_of_day
+            )
+            .scalar()
+        )
+        credits_issued_today = float(credits_result or 0)
+
+        # ==================== Yesterday's Metrics ====================
+
+        # New members yesterday
+        new_members_yesterday = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.created_at >= prev_start,
+            Member.created_at <= prev_end
+        ).count()
+
+        # Trade-in ledger stats for yesterday
+        prev_ledger_stats = db.session.query(
+            func.count(TradeInLedger.id).label('total_count'),
+            func.coalesce(func.sum(TradeInLedger.total_value), 0).label('total_value'),
+        ).filter(
+            TradeInLedger.tenant_id == tenant_id,
+            TradeInLedger.created_at >= prev_start,
+            TradeInLedger.created_at <= prev_end
+        ).first()
+
+        trade_ins_yesterday = prev_ledger_stats.total_count if prev_ledger_stats else 0
+        trade_in_value_yesterday = float(prev_ledger_stats.total_value if prev_ledger_stats else 0)
+
+        # ==================== Top Trade-ins Today ====================
+
+        top_trade_ins_today = (
+            TradeInLedger.query
+            .filter(
+                TradeInLedger.tenant_id == tenant_id,
+                TradeInLedger.created_at >= start_of_day,
+                TradeInLedger.created_at <= end_of_day
+            )
+            .order_by(TradeInLedger.total_value.desc())
+            .limit(5)
+            .all()
+        )
+
+        # ==================== Calculate Changes ====================
+
+        def calc_change(current, previous):
+            if previous == 0:
+                return 100 if current > 0 else 0
+            return round(((current - previous) / previous) * 100, 1)
+
+        # ==================== Build Summary ====================
+
+        summary_parts = []
+        if new_members_count > 0:
+            summary_parts.append(f"{new_members_count} new member{'s' if new_members_count != 1 else ''}")
+        if trade_ins_today > 0:
+            summary_parts.append(f"{trade_ins_today} trade-in{'s' if trade_ins_today != 1 else ''} (${trade_in_value_today:,.2f})")
+        if credits_issued_today > 0:
+            summary_parts.append(f"${credits_issued_today:,.2f} in credits issued")
+
+        summary = ', '.join(summary_parts) if summary_parts else 'No activity today'
+
+        return jsonify({
+            'success': True,
+            'date': report_date.isoformat(),
+            'day_of_week': report_date.strftime('%A'),
+
+            # Key metrics
+            'metrics': {
+                'new_members': new_members_count,
+                'trade_ins': trade_ins_today,
+                'trade_in_value': trade_in_value_today,
+                'cash_paid': cash_paid_today,
+                'credit_paid': credit_paid_today,
+                'bonus_issued': bonus_today,
+                'credits_issued': credits_issued_today,
+            },
+
+            # Comparison with yesterday
+            'comparison': {
+                'new_members': {
+                    'today': new_members_count,
+                    'yesterday': new_members_yesterday,
+                    'change_pct': calc_change(new_members_count, new_members_yesterday)
+                },
+                'trade_ins': {
+                    'today': trade_ins_today,
+                    'yesterday': trade_ins_yesterday,
+                    'change_pct': calc_change(trade_ins_today, trade_ins_yesterday)
+                },
+                'trade_in_value': {
+                    'today': trade_in_value_today,
+                    'yesterday': trade_in_value_yesterday,
+                    'change_pct': calc_change(trade_in_value_today, trade_in_value_yesterday)
+                }
+            },
+
+            # Top trade-ins today
+            'top_trade_ins': [
+                {
+                    'id': ti.id,
+                    'member_name': ti.member_name or 'Guest',
+                    'total_value': float(ti.total_value or 0),
+                    'items': ti.items_json.get('count', 0) if ti.items_json else 0,
+                    'payment_method': ti.payment_method or 'credit'
+                }
+                for ti in top_trade_ins_today
+            ],
+
+            # New members today (limited info)
+            'new_members_list': [
+                {
+                    'id': m.id,
+                    'name': m.name or m.email,
+                    'member_number': m.member_number,
+                    'tier': m.tier.name if m.tier else 'None'
+                }
+                for m in new_members_today[:5]  # Limit to 5
+            ],
+
+            # Human-readable summary
+            'summary': summary
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[Dashboard] Error getting daily report: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'date': datetime.utcnow().date().isoformat(),
+            'metrics': {
+                'new_members': 0,
+                'trade_ins': 0,
+                'trade_in_value': 0,
+                'cash_paid': 0,
+                'credit_paid': 0,
+                'bonus_issued': 0,
+                'credits_issued': 0,
+            },
+            'comparison': {},
+            'top_trade_ins': [],
+            'new_members_list': [],
+            'summary': 'Error loading report'
+        }), 200

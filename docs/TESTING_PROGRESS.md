@@ -31,9 +31,9 @@
 | 1. App Discovery & Installation | 4 | 0 | 0 | 0 | 4 (Requires App Store) |
 | 2. Onboarding & Initial Setup | 8 | 8 | 0 | 0 | 0 |
 | 3. Billing & Subscription | 11 | 11 | 0 | 0 | 0 |
-| 4. Member Management | 17 | 14 | 0 | 3 | 0 |
+| 4. Member Management | 17 | 17 | 0 | 0 | 0 |
 | 5. Tier System | 15 | 15 | 0 | 0 | 0 |
-| 6. Trade-In Management | 20 | 18 | 0 | 2 | 0 |
+| 6. Trade-In Management | 20 | 20 | 0 | 0 | 0 |
 | 7. Store Credit | 12 | 12 | 0 | 0 | 0 |
 | 8. Points System | 8 | 8 | 0 | 0 | 0 |
 | 9. Rewards Catalog | 14 | 14 | 0 | 0 | 0 |
@@ -41,16 +41,16 @@
 | 11. Bulk Operations | 6 | 6 | 0 | 0 | 0 |
 | 12. Analytics & Reporting | 10 | 10 | 0 | 0 | 0 |
 | 13. Settings & Configuration | 22 | 22 | 0 | 0 | 0 |
-| 14. Promotions & Tier Rules | 9 | 7 | 0 | 2 | 0 |
-| 15. Shopify Integration | 7 | 6 | 0 | 1 | 0 |
+| 14. Promotions & Tier Rules | 9 | 9 | 0 | 0 | 0 |
+| 15. Shopify Integration | 7 | 7 | 0 | 0 | 0 |
 | 16. Theme Extensions | 6 | 6 | 0 | 0 | 0 |
 | 17. Customer Account Extension | 4 | 4 | 0 | 0 | 0 |
 | 18. App Proxy | 4 | 4 | 0 | 0 | 0 |
-| 19. Day-to-Day Operations | 10 | 8 | 0 | 2 | 0 |
+| 19. Day-to-Day Operations | 10 | 10 | 0 | 0 | 0 |
 | 20. Error Handling & Support | 5 | 5 | 0 | 0 | 0 |
-| **TOTAL** | **200** | **186** | **0** | **10** | **4** |
+| **TOTAL** | **200** | **196** | **0** | **0** | **4** |
 
-**Overall Progress: 93% Complete (186/200 PASS)**
+**Overall Progress: 98% Complete (196/200 PASS)**
 *Note: 4 App Discovery items require Shopify App Store listing (external dependency)*
 
 ---
@@ -93,7 +93,7 @@
 | US-3.8 | PASS | CODE | Downgrade scheduling implemented | FIXED |
 | US-3.9 | PASS | CODE | app_subscription_cancel webhook | - |
 | US-3.10 | PASS | CODE | Billing history with BillingHistory model | FIXED |
-| US-3.11 | PARTIAL | CODE | Only 90% warning, needs 80%/100% | - |
+| US-3.11 | PASS | CODE | Added 80%, 90%, 100% usage warning thresholds | FIXED |
 
 ### 4. Member Management
 
@@ -110,12 +110,12 @@
 | US-4.9 | PASS | CODE | Credit history in member ledger | - |
 | US-4.10 | PASS | CODE | Export to CSV implemented | - |
 | US-4.11 | PASS | CODE | Bulk actions in members API | - |
-| US-4.12 | PARTIAL | CODE | Uses "paused" not "suspended" | - |
-| US-4.13 | PARTIAL | CODE | Method exists, no dedicated endpoint | - |
+| US-4.12 | PASS | CODE | Added "suspended" status with backward compat for "paused" | FIXED |
+| US-4.13 | PASS | CODE | Added /suspend, /reactivate, /cancel endpoints | FIXED |
 | US-4.14 | PASS | CODE | POST /api/membership/assign-tier | - |
 | US-4.15 | PASS | CODE | Points history endpoint | - |
 | US-4.16 | PASS | CODE | Member activity tracking | - |
-| US-4.17 | PARTIAL | CODE | Tier changes tracked separately | - |
+| US-4.17 | PASS | CODE | Added TierChangeLog on member tier updates | FIXED |
 
 ### 5. Tier System Configuration
 
@@ -156,11 +156,11 @@
 | US-6.13 | PASS | CODE | Item photos support | - |
 | US-6.14 | PASS | CODE | Notes field on trade-ins | - |
 | US-6.15 | PASS | CODE | Partial approval support | - |
-| US-6.16 | PARTIAL | CODE | Limited item editing | - |
+| US-6.16 | PASS | CODE | Added PUT/DELETE endpoints for trade-in items | FIXED |
 | US-6.17 | PASS | CODE | Search parameter implemented | FIXED |
 | US-6.18 | PASS | CODE | Timeline/history endpoint added | FIXED |
-| US-6.19 | PARTIAL | CODE | Auto-approve threshold in settings, not enforced | - |
-| US-6.20 | PARTIAL | CODE | Manual review threshold in settings, not enforced | - |
+| US-6.19 | PASS | CODE | Auto-approve threshold enforced via apply-thresholds | FIXED |
+| US-6.20 | PASS | CODE | Manual review threshold enforced via apply-thresholds | FIXED |
 
 ### 7. Store Credit Operations
 
@@ -286,8 +286,8 @@
 | US-14.3 | PASS | CODE | Points-based rules | - |
 | US-14.4 | PASS | CODE | Manual tier override | - |
 | US-14.5 | PASS | CODE | Tier benefits config | - |
-| US-14.6 | PARTIAL | CODE | Auto-upgrade present but service integration unclear | - |
-| US-14.7 | PARTIAL | CODE | Downgrade rules infrastructure but unclear enforcement | - |
+| US-14.6 | PASS | CODE | Auto-upgrade with /process-eligibility endpoint | FIXED |
+| US-14.7 | PASS | CODE | Downgrade rules with expiration processing | FIXED |
 | US-14.8 | PASS | CODE | Promotion scheduling | - |
 | US-14.9 | PASS | CODE | Bonus multipliers | - |
 
@@ -301,7 +301,7 @@
 | US-15.4 | PASS | CODE | Order webhooks | - |
 | US-15.5 | PASS | CODE | Billing integration | - |
 | US-15.6 | PASS | CODE | Store credit sync | - |
-| US-15.7 | PARTIAL | CODE | Metafield sync present but needs verification | - |
+| US-15.7 | PASS | CODE | Added sync/verify metafield endpoints (individual & bulk) | FIXED |
 
 ### 16. Theme Extensions (Storefront)
 
@@ -342,8 +342,8 @@
 | US-19.4 | PASS | CODE | Trade-in processing | - |
 | US-19.5 | PASS | CODE | Credit adjustments | - |
 | US-19.6 | PASS | CODE | Tier management | - |
-| US-19.7 | PARTIAL | CODE | Notifications may need more granular control | - |
-| US-19.8 | PARTIAL | CODE | Daily report widget not dedicated | - |
+| US-19.7 | PASS | CODE | Added granular notification controls (15+ toggles) | FIXED |
+| US-19.8 | PASS | CODE | Added /daily-report endpoint with comparison metrics | FIXED |
 | US-19.9 | PASS | CODE | Settings access | - |
 | US-19.10 | PASS | CODE | Help/support access | - |
 
@@ -376,18 +376,20 @@
 
 ### Remaining Partial Items (Low Priority)
 
-| Issue # | User Story | Description | Notes |
-|---------|------------|-------------|-------|
-| 1 | US-3.11 | Usage warnings | Only 90% warning, could add 80%/100% |
-| 2 | US-4.12 | Member status naming | Uses "paused" instead of "suspended" |
-| 3 | US-4.13 | Reactivation endpoint | Method exists but no dedicated endpoint |
-| 4 | US-4.17 | Tier change tracking | Changes tracked but separately |
-| 5 | US-6.16 | Item editing | Limited after creation |
-| 6 | US-6.19/20 | Auto-approve thresholds | Settings exist but not enforced |
-| 7 | US-14.6/7 | Auto-upgrade/downgrade | Infrastructure but unclear service integration |
-| 8 | US-15.7 | Metafield sync | Present but needs verification |
-| 9 | US-19.7 | Notification control | May need more granular settings |
-| 10 | US-19.8 | Daily report | Dashboard exists but not dedicated widget |
+**ALL COMPLETED IN SESSION 2!**
+
+| Issue # | User Story | Description | Status |
+|---------|------------|-------------|--------|
+| 1 | US-3.11 | Usage warnings 80%/90%/100% | FIXED |
+| 2 | US-4.12 | Member status "suspended" | FIXED |
+| 3 | US-4.13 | Dedicated reactivation endpoint | FIXED |
+| 4 | US-4.17 | Tier change tracking in update | FIXED |
+| 5 | US-6.16 | Item editing (PUT/DELETE) | FIXED |
+| 6 | US-6.19/20 | Auto-approve threshold enforcement | FIXED |
+| 7 | US-14.6/7 | Auto-upgrade/downgrade service | FIXED |
+| 8 | US-15.7 | Metafield sync verification | FIXED |
+| 9 | US-19.7 | Granular notification controls | FIXED |
+| 10 | US-19.8 | Daily report endpoint | FIXED |
 
 ---
 
@@ -421,6 +423,37 @@
 - `frontend/src/components/index.ts` - Exported BugReportModal
 - `frontend/src/main.tsx` - Integrated ToastProvider
 
+### Session 2 - January 13, 2026
+
+**Status:** All 10 Low Priority Enhancements COMPLETED
+**Progress:** 196/200 (98%) user stories verified and passing
+**Remaining:** Only 4 App Store items (external dependency)
+
+**Fixes Implemented:**
+1. **US-3.11** - Added 80%, 90%, 100% usage warning thresholds in billing status
+2. **US-4.12** - Added "suspended" status with backward compat alias for "paused"
+3. **US-4.13** - Added dedicated /suspend, /reactivate, /cancel endpoints
+4. **US-4.17** - Added TierChangeLog entries when tier changes in update_member
+5. **US-6.16** - Added PUT/DELETE endpoints for trade-in items with validation
+6. **US-6.19/20** - Added apply_auto_approval_thresholds service and /apply-thresholds endpoint
+7. **US-14.6/7** - Enhanced tier service with downgrade logic, added /process-eligibility and /process-expirations
+8. **US-15.7** - Added /sync-metafields, /verify-metafields, /sync-all-metafields, /verify-all-metafields
+9. **US-19.7** - Added 15+ granular notification toggles (trade_in_created, tier_upgrade, credit_expiring, etc.)
+10. **US-19.8** - Added /daily-report endpoint with metrics, comparison, top trade-ins, new members
+
+**Files Modified:**
+- `app/api/billing.py` - Added usage warning logic with get_usage_warning function
+- `app/api/members.py` - Added MEMBER_STATUSES, suspend/reactivate/cancel endpoints, metafield sync endpoints
+- `app/api/trade_ins.py` - Added PUT/DELETE item endpoints, apply-thresholds endpoint
+- `app/api/tiers.py` - Added process-eligibility and process-expirations endpoints
+- `app/api/settings.py` - Added granular notification controls to DEFAULT_SETTINGS
+- `app/api/dashboard.py` - Added daily-report endpoint with comprehensive metrics
+- `app/services/tier_service.py` - Enhanced with downgrade logic in check_earned_tier_eligibility
+- `app/services/trade_in_service.py` - Added apply_auto_approval_thresholds method
+- `app/services/notification_service.py` - Updated _get_tenant_settings with granular controls
+- `app/models/member.py` - Updated status field comment
+- `frontend/src/admin/pages/MemberDetail.tsx` - Updated STATUS_LABELS
+
 ---
 
 ## Continuation Instructions
@@ -436,7 +469,8 @@ When resuming in a new session:
 **Ready for Launch Checklist:**
 - [x] All Priority 1 issues fixed
 - [x] All Priority 2 issues fixed
-- [x] 93% of user stories passing
+- [x] All Low Priority enhancements completed
+- [x] 98% of user stories passing (196/200)
 - [ ] Deploy changes to production
 - [ ] End-to-end browser testing
 - [ ] Set SHOPIFY_BILLING_TEST=false for production
@@ -444,3 +478,5 @@ When resuming in a new session:
 **Test store:**
 - Domain: uy288y-nx.myshopify.com
 - App URL: https://app.cardflowlabs.com
+
+**Note:** The remaining 4 items (US-1.1 through US-1.4) require Shopify App Store listing, which is an external dependency. All implementable features are now complete.

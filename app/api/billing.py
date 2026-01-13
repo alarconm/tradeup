@@ -210,6 +210,34 @@ def subscription_status():
 
     tier_count = tenant.membership_tiers.count()
 
+    # Calculate usage percentages and warnings
+    member_pct = (member_count / tenant.max_members * 100) if tenant.max_members else 0
+    tier_pct = (tier_count / tenant.max_tiers * 100) if tenant.max_tiers else 0
+
+    def get_usage_warning(percentage: float, current: int, limit: int) -> dict:
+        """Get usage warning level and message."""
+        if limit is None or limit == 0:
+            return {'level': None, 'message': None}  # Unlimited
+        if percentage >= 100:
+            return {
+                'level': 'critical',
+                'message': f'Limit reached ({current}/{limit}). Upgrade to add more.'
+            }
+        elif percentage >= 90:
+            return {
+                'level': 'warning',
+                'message': f'Approaching limit ({current}/{limit}). Consider upgrading soon.'
+            }
+        elif percentage >= 80:
+            return {
+                'level': 'caution',
+                'message': f'Usage at {percentage:.0f}% ({current}/{limit}).'
+            }
+        return {'level': None, 'message': None}
+
+    member_warning = get_usage_warning(member_pct, member_count, tenant.max_members)
+    tier_warning = get_usage_warning(tier_pct, tier_count, tenant.max_tiers)
+
     return jsonify({
         'plan': tenant.subscription_plan,
         'status': tenant.subscription_status,
@@ -220,13 +248,20 @@ def subscription_status():
             'members': {
                 'current': member_count,
                 'limit': tenant.max_members,
-                'percentage': (member_count / tenant.max_members * 100) if tenant.max_members else 0
+                'percentage': member_pct,
+                'warning': member_warning
             },
             'tiers': {
                 'current': tier_count,
                 'limit': tenant.max_tiers,
-                'percentage': (tier_count / tenant.max_tiers * 100) if tenant.max_tiers else 0
+                'percentage': tier_pct,
+                'warning': tier_warning
             }
+        },
+        'warnings': {
+            'has_warnings': member_warning['level'] is not None or tier_warning['level'] is not None,
+            'members': member_warning,
+            'tiers': tier_warning
         }
     })
 

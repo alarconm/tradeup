@@ -232,6 +232,80 @@ class TradeInService:
 
         return created_items
 
+    def apply_auto_approval_thresholds(self, batch_id: int) -> Dict[str, Any]:
+        """
+        Apply auto-approval thresholds to a trade-in batch.
+
+        Checks the batch total against tenant settings and:
+        - Auto-approves if under auto_approve_under threshold
+        - Marks as in_review if over require_review_over threshold
+        - Otherwise leaves as pending
+
+        Args:
+            batch_id: ID of the batch to check
+
+        Returns:
+            Dict with action taken and details
+        """
+        batch = TradeInBatch.query.get(batch_id)
+        if not batch:
+            raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')
+
+        # Only apply to pending batches
+        if batch.status != 'pending':
+            return {
+                'action': 'skipped',
+                'reason': f'Batch is already {batch.status}'
+            }
+
+        # Get tenant settings
+        tenant = Tenant.query.get(self.tenant_id)
+        settings = tenant.settings or {}
+        trade_in_settings = settings.get('trade_ins', {})
+
+        auto_approve_under = Decimal(str(trade_in_settings.get('auto_approve_under', 50.00)))
+        require_review_over = Decimal(str(trade_in_settings.get('require_review_over', 500.00)))
+
+        total_value = batch.total_trade_value or Decimal('0')
+
+        # Check thresholds
+        if total_value <= auto_approve_under:
+            # Auto-approve low-value trade-ins
+            batch.status = 'approved'
+            batch.approved_at = datetime.utcnow()
+            batch.approved_by = 'SYSTEM (auto-approved under threshold)'
+            db.session.commit()
+
+            return {
+                'action': 'auto_approved',
+                'total_value': float(total_value),
+                'threshold': float(auto_approve_under),
+                'message': f'Trade-in auto-approved (${total_value:.2f} <= ${auto_approve_under:.2f})'
+            }
+
+        elif total_value >= require_review_over:
+            # Mark high-value trade-ins for review
+            batch.status = 'in_review'
+            batch.notes = (batch.notes or '') + f'\n[AUTO] Flagged for review - value ${total_value:.2f} exceeds ${require_review_over:.2f}'
+            db.session.commit()
+
+            return {
+                'action': 'flagged_for_review',
+                'total_value': float(total_value),
+                'threshold': float(require_review_over),
+                'message': f'Trade-in flagged for review (${total_value:.2f} >= ${require_review_over:.2f})'
+            }
+
+        else:
+            # Normal pending - no action
+            return {
+                'action': 'pending',
+                'total_value': float(total_value),
+                'message': f'Trade-in is pending manual review (${auto_approve_under:.2f} < ${total_value:.2f} < ${require_review_over:.2f})'
+            }
+
     def mark_item_listed(
         self,
         item_id: int,

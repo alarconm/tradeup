@@ -325,6 +325,122 @@ def mark_item_sold(item_id):
     return jsonify(item.to_dict())
 
 
+@trade_ins_bp.route('/items/<int:item_id>', methods=['PUT'])
+@require_shopify_auth
+def update_item(item_id):
+    """
+    Update a trade-in item.
+
+    Only allows updates to items in pending/in_review batches.
+    Once a batch is approved/completed, items cannot be edited.
+
+    Request body:
+        product_title: string (optional)
+        product_sku: string (optional)
+        trade_value: number (optional)
+        market_value: number (optional)
+        notes: string (optional)
+
+    Returns:
+        Updated item details
+    """
+    tenant_id = g.tenant_id
+    item = TradeInItem.query.join(TradeInBatch).filter(
+        TradeInItem.id == item_id,
+        TradeInBatch.tenant_id == tenant_id
+    ).first_or_404()
+
+    batch = item.batch
+
+    # Only allow edits on pending/in_review batches
+    if batch.status not in ('pending', 'in_review'):
+        return jsonify({
+            'error': f'Cannot edit items in a {batch.status} batch. Items can only be edited before approval.'
+        }), 400
+
+    # Also block if item is already listed/sold
+    if item.listed_date:
+        return jsonify({
+            'error': 'Cannot edit an item that has already been listed.'
+        }), 400
+
+    if item.sold_date:
+        return jsonify({
+            'error': 'Cannot edit an item that has already been sold.'
+        }), 400
+
+    data = request.json
+    old_trade_value = item.trade_value
+
+    # Update allowed fields
+    if 'product_title' in data:
+        item.product_title = data['product_title']
+    if 'product_sku' in data:
+        item.product_sku = data['product_sku']
+    if 'trade_value' in data:
+        item.trade_value = data['trade_value']
+    if 'market_value' in data:
+        item.market_value = data['market_value']
+    if 'notes' in data:
+        item.notes = data['notes']
+
+    # Recalculate batch totals if trade_value changed
+    if 'trade_value' in data and data['trade_value'] != old_trade_value:
+        batch.total_trade_value = sum(i.trade_value for i in batch.items)
+
+    db.session.commit()
+
+    return jsonify({
+        'item': item.to_dict(),
+        'batch': batch.to_dict()
+    })
+
+
+@trade_ins_bp.route('/items/<int:item_id>', methods=['DELETE'])
+@require_shopify_auth
+def delete_item(item_id):
+    """
+    Delete a trade-in item.
+
+    Only allows deletion from pending/in_review batches.
+
+    Returns:
+        Success message and updated batch details
+    """
+    tenant_id = g.tenant_id
+    item = TradeInItem.query.join(TradeInBatch).filter(
+        TradeInItem.id == item_id,
+        TradeInBatch.tenant_id == tenant_id
+    ).first_or_404()
+
+    batch = item.batch
+
+    # Only allow deletion from pending/in_review batches
+    if batch.status not in ('pending', 'in_review'):
+        return jsonify({
+            'error': f'Cannot delete items from a {batch.status} batch.'
+        }), 400
+
+    if item.listed_date or item.sold_date:
+        return jsonify({
+            'error': 'Cannot delete an item that has been listed or sold.'
+        }), 400
+
+    db.session.delete(item)
+
+    # Update batch totals
+    batch.total_items = batch.items.count() - 1  # -1 because delete not committed yet
+    batch.total_trade_value = sum(i.trade_value for i in batch.items if i.id != item_id)
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Item deleted successfully',
+        'batch': batch.to_dict()
+    })
+
+
 @trade_ins_bp.route('/items/by-product/<shopify_product_id>', methods=['GET'])
 @require_shopify_auth
 def get_item_by_product(shopify_product_id):
@@ -336,6 +452,32 @@ def get_item_by_product(shopify_product_id):
     ).first_or_404()
 
     return jsonify(item.to_dict())
+
+
+@trade_ins_bp.route('/<int:batch_id>/apply-thresholds', methods=['POST'])
+@require_shopify_auth
+def apply_auto_thresholds(batch_id):
+    """
+    Apply auto-approval thresholds to a batch.
+
+    Checks the batch total against tenant settings and:
+    - Auto-approves if under auto_approve_under threshold
+    - Marks as in_review if over require_review_over threshold
+    - Otherwise leaves as pending
+
+    Call this after all items have been added to a batch.
+
+    Returns:
+        Action taken (auto_approved, flagged_for_review, pending, skipped)
+    """
+    tenant_id = g.tenant_id
+    service = TradeInService(tenant_id)
+
+    try:
+        result = service.apply_auto_approval_thresholds(batch_id)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
 
 
 @trade_ins_bp.route('/<int:batch_id>/preview-bonus', methods=['GET'])

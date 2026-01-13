@@ -115,7 +115,8 @@ class Member(db.Model):
     phone = db.Column(db.String(50))
 
     # Membership status
-    status = db.Column(db.String(20), default='pending')  # pending, active, paused, cancelled, expired
+    # Valid statuses: pending, active, suspended (or paused for backward compat), cancelled, expired
+    status = db.Column(db.String(20), default='pending')
     membership_start_date = db.Column(db.Date)
     membership_end_date = db.Column(db.Date)  # NULL = ongoing
 

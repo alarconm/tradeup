@@ -30,8 +30,10 @@ type TabId = 'overview' | 'tradeins' | 'credits' | 'settings'
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   active: { label: 'Active', color: '#059669', bg: 'rgba(5, 150, 105, 0.1)' },
   pending: { label: 'Pending', color: '#d97706', bg: 'rgba(217, 119, 6, 0.1)' },
-  paused: { label: 'Paused', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)' },
+  suspended: { label: 'Suspended', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)' },
+  paused: { label: 'Suspended', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)' },  // Legacy alias
   cancelled: { label: 'Cancelled', color: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)' },
+  expired: { label: 'Expired', color: '#9ca3af', bg: 'rgba(156, 163, 175, 0.1)' },
 }
 
 const EVENT_TYPE_LABELS: Record<string, string> = {

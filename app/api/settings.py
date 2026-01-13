@@ -63,13 +63,39 @@ DEFAULT_SETTINGS = {
         'grace_period_days': 3,   # Days to retry failed payment before downgrade
     },
     'notifications': {
-        'enabled': True,
+        'enabled': True,  # Master toggle for all notifications
+
+        # Member notifications
         'welcome_email': True,  # Send welcome email on enrollment
-        'trade_in_updates': True,  # Trade-in status change emails
-        'tier_change': True,  # Tier upgrade/downgrade emails
-        'credit_issued': True,  # Store credit issued emails
+
+        # Trade-in notifications (granular controls)
+        'trade_in_updates': True,  # Legacy toggle (enables all trade-in emails)
+        'trade_in_created': True,  # Trade-in received confirmation
+        'trade_in_approved': True,  # Trade-in approved/completed
+        'trade_in_rejected': True,  # Trade-in rejected notification
+
+        # Tier notifications (granular controls)
+        'tier_change': True,  # Legacy toggle (enables all tier emails)
+        'tier_upgrade': True,  # Tier upgrade notification
+        'tier_downgrade': True,  # Tier downgrade notification
+        'tier_expiring': True,  # Tier about to expire warning
+
+        # Credit notifications (granular controls)
+        'credit_issued': True,  # Legacy toggle (enables all credit emails)
+        'credit_added': True,  # Store credit added notification
+        'credit_expiring': True,  # Credit expiration warning
+        'monthly_credit': True,  # Monthly membership credit notification
+
+        # Referral notifications
+        'referral_success': True,  # Referral completed notification
+
+        # Daily digest option
+        'daily_digest': False,  # Combine daily notifications into one email
+
+        # Sender configuration
         'from_name': None,  # Defaults to shop name
         'from_email': None,  # SendGrid verified sender
+        'reply_to': None,  # Reply-to address (optional)
     },
     'contact': {
         'support_email': None,

@@ -667,3 +667,71 @@ def get_tier_stats():
         'recent_changes': [log.to_dict() for log in recent_changes],
         'active_promotions': active_promos
     })
+
+
+# ==================== Batch Processing Endpoints ====================
+
+@tiers_bp.route('/process-eligibility', methods=['POST'])
+def process_tier_eligibility():
+    """
+    Process tier eligibility for all active members.
+
+    This endpoint triggers the batch eligibility check which:
+    - Checks all active members against eligibility rules
+    - Upgrades members who meet higher tier criteria
+    - Downgrades members who no longer meet their current tier requirements
+
+    Request body (optional):
+        member_ids: list[int] - Specific member IDs to process (default: all active)
+
+    Returns:
+        Processing results with counts of upgrades/downgrades/unchanged
+    """
+    tenant = get_tenant()
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    data = request.get_json() or {}
+    member_ids = data.get('member_ids')
+
+    try:
+        service = TierService(tenant.id)
+        results = service.process_activity_batch(member_ids=member_ids)
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'message': f'Processed {results["checked"]} members: {results["upgraded"]} upgraded, {results["downgraded"]} downgraded, {results["unchanged"]} unchanged'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@tiers_bp.route('/process-expirations', methods=['POST'])
+def process_tier_expirations():
+    """
+    Process expired tier assignments.
+
+    This endpoint triggers the expiration check which:
+    - Finds members with expired tier assignments
+    - Reverts promotional tiers to previous tier
+    - Removes expired tiers
+
+    Returns:
+        Processing results with counts of processed/removed/reverted
+    """
+    tenant = get_tenant()
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    try:
+        service = TierService(tenant.id)
+        results = service.process_expired_tiers()
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'message': f'Processed {results["processed"]} expirations: {results["removed"]} removed, {results["reverted"]} reverted'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

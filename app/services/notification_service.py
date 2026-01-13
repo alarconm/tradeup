@@ -303,7 +303,7 @@ Your Code: {referral_code}
         return SendGridAPIClient(api_key=self.api_key)
 
     def _get_tenant_settings(self, tenant_id: int) -> Dict[str, Any]:
-        """Get notification settings for a tenant."""
+        """Get notification settings for a tenant with granular controls."""
         from ..models import Tenant
         tenant = Tenant.query.get(tenant_id)
         if not tenant:
@@ -312,14 +312,45 @@ Your Code: {referral_code}
         settings = tenant.settings or {}
         notifications = settings.get('notifications', {})
 
+        # Get legacy toggles (for backward compatibility)
+        trade_in_updates = notifications.get('trade_in_updates', True)
+        tier_change = notifications.get('tier_change', True)
+        credit_issued = notifications.get('credit_issued', True)
+
         return {
             'enabled': notifications.get('enabled', True),
+
+            # Member notifications
             'welcome_email': notifications.get('welcome_email', True),
-            'trade_in_updates': notifications.get('trade_in_updates', True),
-            'tier_change': notifications.get('tier_change', True),
-            'credit_issued': notifications.get('credit_issued', True),
+
+            # Trade-in notifications - use granular setting if set, else fall back to legacy toggle
+            'trade_in_updates': trade_in_updates,  # Legacy toggle
+            'trade_in_created': notifications.get('trade_in_created', trade_in_updates),
+            'trade_in_approved': notifications.get('trade_in_approved', trade_in_updates),
+            'trade_in_rejected': notifications.get('trade_in_rejected', trade_in_updates),
+
+            # Tier notifications - use granular setting if set, else fall back to legacy toggle
+            'tier_change': tier_change,  # Legacy toggle
+            'tier_upgrade': notifications.get('tier_upgrade', tier_change),
+            'tier_downgrade': notifications.get('tier_downgrade', tier_change),
+            'tier_expiring': notifications.get('tier_expiring', tier_change),
+
+            # Credit notifications - use granular setting if set, else fall back to legacy toggle
+            'credit_issued': credit_issued,  # Legacy toggle
+            'credit_added': notifications.get('credit_added', credit_issued),
+            'credit_expiring': notifications.get('credit_expiring', credit_issued),
+            'monthly_credit': notifications.get('monthly_credit', credit_issued),
+
+            # Referral notifications
+            'referral_success': notifications.get('referral_success', True),
+
+            # Daily digest
+            'daily_digest': notifications.get('daily_digest', False),
+
+            # Sender configuration
             'from_name': notifications.get('from_name') or tenant.shop_name or self.default_from_name,
             'from_email': notifications.get('from_email') or self.default_from_email,
+            'reply_to': notifications.get('reply_to'),
             'shop_name': tenant.shop_name
         }
 
@@ -442,7 +473,8 @@ Your Code: {referral_code}
         from ..models import TradeInBatch
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('trade_in_updates'):
+        # Use granular setting (trade_in_created) with legacy fallback (trade_in_updates)
+        if not settings.get('enabled') or not settings.get('trade_in_created'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         batch = TradeInBatch.query.get(batch_id)
@@ -490,7 +522,8 @@ Your Code: {referral_code}
         from ..models import TradeInBatch
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('trade_in_updates'):
+        # Use granular setting (trade_in_approved) with legacy fallback (trade_in_updates)
+        if not settings.get('enabled') or not settings.get('trade_in_approved'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         batch = TradeInBatch.query.get(batch_id)
@@ -549,7 +582,8 @@ Your Code: {referral_code}
         from ..models import Member
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('tier_change'):
+        # Use granular setting (tier_upgrade) with legacy fallback (tier_change)
+        if not settings.get('enabled') or not settings.get('tier_upgrade'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         member = Member.query.get(member_id)
@@ -599,7 +633,8 @@ Your Code: {referral_code}
         from ..models import Member
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('credit_issued'):
+        # Use granular setting (credit_added) with legacy fallback (credit_issued)
+        if not settings.get('enabled') or not settings.get('credit_added'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         member = Member.query.get(member_id)
@@ -819,7 +854,8 @@ Your Code: {referral_code}
         from ..models import Member
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('credit_issued'):
+        # Use granular setting (credit_expiring)
+        if not settings.get('enabled') or not settings.get('credit_expiring'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         member = Member.query.get(member_id)
@@ -868,7 +904,8 @@ Your Code: {referral_code}
         from ..models import Member
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled') or not settings.get('credit_issued'):
+        # Use granular setting (monthly_credit)
+        if not settings.get('enabled') or not settings.get('monthly_credit'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         member = Member.query.get(member_id)
@@ -924,7 +961,8 @@ Your Code: {referral_code}
         from ..models import Member
         settings = self._get_tenant_settings(tenant_id)
 
-        if not settings.get('enabled'):
+        # Use granular setting (referral_success)
+        if not settings.get('enabled') or not settings.get('referral_success'):
             return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
 
         member = Member.query.get(referrer_member_id)

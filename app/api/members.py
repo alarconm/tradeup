@@ -464,10 +464,17 @@ def create_member():
 @members_bp.route('/<int:member_id>', methods=['PUT'])
 @require_shopify_auth
 def update_member(member_id):
-    """Update member details."""
+    """Update member details with tier change tracking."""
+    from ..models import TierChangeLog
+    from datetime import datetime
+
     tenant_id = g.tenant_id
     member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
     data = request.json
+
+    # Track tier change for logging
+    previous_tier_id = member.tier_id
+    previous_tier_name = member.tier.name if member.tier else None
 
     # Update allowed fields
     if 'name' in data:
@@ -476,14 +483,50 @@ def update_member(member_id):
         member.phone = data['phone']
     if 'email' in data:
         member.email = data['email']
-    if 'tier_id' in data:
+    if 'tier_id' in data and data['tier_id'] != previous_tier_id:
         member.tier_id = data['tier_id']
+        member.tier_assigned_at = datetime.utcnow()
+        member.tier_assigned_by = 'staff'
     if 'status' in data:
         member.status = data['status']
     if 'shopify_customer_id' in data:
         member.shopify_customer_id = data['shopify_customer_id']
     if 'notes' in data:
         member.notes = data['notes']
+
+    db.session.flush()  # Ensure tier relationship is loaded
+
+    # Log tier change if it occurred
+    if 'tier_id' in data and data['tier_id'] != previous_tier_id:
+        new_tier = MembershipTier.query.get(data['tier_id'])
+        new_tier_name = new_tier.name if new_tier else None
+
+        # Determine change type
+        if previous_tier_id is None:
+            change_type = 'assigned'
+        elif data['tier_id'] is None:
+            change_type = 'removed'
+        else:
+            # Check bonus rates to determine upgrade vs downgrade
+            prev_tier = MembershipTier.query.get(previous_tier_id)
+            prev_bonus = prev_tier.trade_in_bonus_pct if prev_tier else 0
+            new_bonus = new_tier.trade_in_bonus_pct if new_tier else 0
+            change_type = 'upgraded' if new_bonus > prev_bonus else 'downgraded'
+
+        tier_log = TierChangeLog(
+            tenant_id=tenant_id,
+            member_id=member_id,
+            previous_tier_id=previous_tier_id,
+            new_tier_id=data['tier_id'],
+            previous_tier_name=previous_tier_name,
+            new_tier_name=new_tier_name,
+            change_type=change_type,
+            source_type='staff',
+            source_reference=request.headers.get('X-Staff-Email', 'API'),
+            reason=data.get('tier_change_reason', 'Manual tier change via API'),
+            created_by=request.headers.get('X-Staff-Email', 'API')
+        )
+        db.session.add(tier_log)
 
     db.session.commit()
     return jsonify(member.to_dict())
@@ -588,6 +631,151 @@ def delete_member(member_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Failed to delete member: {str(e)}'}), 500
+
+
+# ==================== Member Status Management ====================
+
+# Valid member statuses with display labels
+MEMBER_STATUSES = {
+    'pending': 'Pending',
+    'active': 'Active',
+    'suspended': 'Suspended',
+    'paused': 'Suspended',  # Backward compatibility alias
+    'cancelled': 'Cancelled',
+    'expired': 'Expired'
+}
+
+
+@members_bp.route('/<int:member_id>/suspend', methods=['POST'])
+@require_shopify_auth
+def suspend_member(member_id):
+    """
+    Suspend a member's membership.
+
+    Request body (optional):
+        reason: string - Reason for suspension
+
+    Returns:
+        Updated member details
+    """
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    data = request.get_json() or {}
+
+    if member.status == 'suspended':
+        return jsonify({'error': 'Member is already suspended'}), 400
+
+    if member.status == 'cancelled':
+        return jsonify({'error': 'Cannot suspend a cancelled membership'}), 400
+
+    previous_status = member.status
+    member.status = 'suspended'
+
+    # Add reason to notes if provided
+    reason = data.get('reason')
+    if reason:
+        from datetime import datetime
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        note = f'\n[{timestamp}] Suspended: {reason}'
+        member.notes = (member.notes or '') + note
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'member': member.to_dict(),
+        'previous_status': previous_status,
+        'message': 'Member suspended successfully'
+    })
+
+
+@members_bp.route('/<int:member_id>/reactivate', methods=['POST'])
+@require_shopify_auth
+def reactivate_member(member_id):
+    """
+    Reactivate a suspended or paused member.
+
+    Request body (optional):
+        reason: string - Reason for reactivation
+
+    Returns:
+        Updated member details
+    """
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    data = request.get_json() or {}
+
+    # Allow reactivation from suspended, paused, or expired status
+    if member.status not in ('suspended', 'paused', 'expired'):
+        return jsonify({
+            'error': f'Cannot reactivate member with status "{member.status}". Only suspended, paused, or expired members can be reactivated.'
+        }), 400
+
+    previous_status = member.status
+    member.status = 'active'
+
+    # Clear membership_end_date if it was set
+    if member.membership_end_date:
+        member.membership_end_date = None
+
+    # Add reason to notes if provided
+    reason = data.get('reason')
+    if reason:
+        from datetime import datetime
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        note = f'\n[{timestamp}] Reactivated: {reason}'
+        member.notes = (member.notes or '') + note
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'member': member.to_dict(),
+        'previous_status': previous_status,
+        'message': 'Member reactivated successfully'
+    })
+
+
+@members_bp.route('/<int:member_id>/cancel', methods=['POST'])
+@require_shopify_auth
+def cancel_member(member_id):
+    """
+    Cancel a member's membership.
+
+    Request body (optional):
+        reason: string - Reason for cancellation
+
+    Returns:
+        Updated member details
+    """
+    from datetime import date
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    data = request.get_json() or {}
+
+    if member.status == 'cancelled':
+        return jsonify({'error': 'Member is already cancelled'}), 400
+
+    previous_status = member.status
+    member.status = 'cancelled'
+    member.membership_end_date = date.today()
+
+    # Add reason to notes if provided
+    reason = data.get('reason')
+    if reason:
+        from datetime import datetime
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        note = f'\n[{timestamp}] Cancelled: {reason}'
+        member.notes = (member.notes or '') + note
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'member': member.to_dict(),
+        'previous_status': previous_status,
+        'message': 'Member cancelled successfully'
+    })
 
 
 @members_bp.route('/tiers', methods=['GET'])
@@ -885,6 +1073,272 @@ def send_tier_email():
         return jsonify(result)
     else:
         return jsonify(result), 400
+
+
+# ==================== Metafield Sync Operations ====================
+
+@members_bp.route('/<int:member_id>/sync-metafields', methods=['POST'])
+@require_shopify_auth
+def sync_member_metafields(member_id):
+    """
+    Sync a member's data to Shopify customer metafields.
+
+    This updates the following metafields in Shopify:
+    - tradeup.member_number
+    - tradeup.tier
+    - tradeup.credit_balance
+    - tradeup.trade_in_count
+    - tradeup.total_bonus_earned
+    - tradeup.status
+    - tradeup.joined_date
+
+    Returns:
+        Sync result with metafields set
+    """
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+
+    if not member.shopify_customer_id:
+        return jsonify({
+            'success': False,
+            'error': 'Member is not linked to a Shopify customer'
+        }), 400
+
+    service = MembershipService(tenant_id)
+    result = service.sync_member_metafields_to_shopify(member)
+
+    if result.get('success'):
+        return jsonify(result)
+    else:
+        return jsonify(result), 500
+
+
+@members_bp.route('/<int:member_id>/verify-metafields', methods=['GET'])
+@require_shopify_auth
+def verify_member_metafields(member_id):
+    """
+    Verify a member's metafields match Shopify.
+
+    Compares TradeUp member data with Shopify customer metafields
+    and reports any discrepancies.
+
+    Returns:
+        Verification result with any mismatches
+    """
+    tenant_id = g.tenant_id
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+
+    if not member.shopify_customer_id:
+        return jsonify({
+            'success': False,
+            'error': 'Member is not linked to a Shopify customer'
+        }), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+
+        # Get current metafields from Shopify
+        shopify_result = client.get_customer_metafields(member.shopify_customer_id)
+
+        if not shopify_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': shopify_result.get('error', 'Failed to fetch Shopify metafields')
+            }), 500
+
+        shopify_metafields = shopify_result.get('metafields', {})
+
+        # Build expected values from TradeUp
+        expected = {
+            'member_number': member.member_number,
+            'tier': member.tier.name if member.tier else 'None',
+            'status': member.status or 'active'
+        }
+
+        # Compare and find mismatches
+        mismatches = []
+        for key, expected_value in expected.items():
+            shopify_value = shopify_metafields.get(key, {}).get('value')
+            if shopify_value != expected_value:
+                mismatches.append({
+                    'field': key,
+                    'expected': expected_value,
+                    'actual': shopify_value
+                })
+
+        in_sync = len(mismatches) == 0
+
+        return jsonify({
+            'success': True,
+            'member_id': member.id,
+            'member_number': member.member_number,
+            'shopify_customer_id': member.shopify_customer_id,
+            'in_sync': in_sync,
+            'mismatches': mismatches,
+            'shopify_metafields': shopify_metafields,
+            'expected': expected
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@members_bp.route('/sync-all-metafields', methods=['POST'])
+@require_shopify_auth
+def sync_all_member_metafields():
+    """
+    Sync all active members' metafields to Shopify.
+
+    Query params:
+        dry_run: If true, only reports what would be synced (default: false)
+
+    Returns:
+        Sync results with counts and any errors
+    """
+    tenant_id = g.tenant_id
+    dry_run = request.args.get('dry_run', 'false').lower() == 'true'
+
+    # Get all active members with Shopify links
+    members = Member.query.filter(
+        Member.tenant_id == tenant_id,
+        Member.status == 'active',
+        Member.shopify_customer_id.isnot(None)
+    ).all()
+
+    results = {
+        'total': len(members),
+        'synced': 0,
+        'skipped': 0,
+        'failed': 0,
+        'errors': [],
+        'dry_run': dry_run
+    }
+
+    if dry_run:
+        return jsonify({
+            **results,
+            'message': f'Dry run: Would sync {len(members)} members'
+        })
+
+    service = MembershipService(tenant_id)
+
+    for member in members:
+        try:
+            result = service.sync_member_metafields_to_shopify(member)
+            if result.get('success'):
+                results['synced'] += 1
+            else:
+                results['failed'] += 1
+                results['errors'].append({
+                    'member_id': member.id,
+                    'member_number': member.member_number,
+                    'error': result.get('error', 'Unknown error')
+                })
+        except Exception as e:
+            results['failed'] += 1
+            results['errors'].append({
+                'member_id': member.id,
+                'member_number': member.member_number,
+                'error': str(e)
+            })
+
+    return jsonify(results)
+
+
+@members_bp.route('/verify-all-metafields', methods=['GET'])
+@require_shopify_auth
+def verify_all_member_metafields():
+    """
+    Verify metafields for all active members.
+
+    Query params:
+        limit: Max members to check (default: 100)
+        only_mismatched: If true, only return members with mismatches (default: false)
+
+    Returns:
+        Verification results with sync status for each member
+    """
+    tenant_id = g.tenant_id
+    limit = request.args.get('limit', 100, type=int)
+    only_mismatched = request.args.get('only_mismatched', 'false').lower() == 'true'
+
+    # Get members with Shopify links
+    members = Member.query.filter(
+        Member.tenant_id == tenant_id,
+        Member.status == 'active',
+        Member.shopify_customer_id.isnot(None)
+    ).limit(limit).all()
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to initialize Shopify client: {str(e)}'
+        }), 500
+
+    results = {
+        'total_checked': 0,
+        'in_sync': 0,
+        'out_of_sync': 0,
+        'members': []
+    }
+
+    for member in members:
+        results['total_checked'] += 1
+
+        try:
+            shopify_result = client.get_customer_metafields(member.shopify_customer_id)
+            shopify_metafields = shopify_result.get('metafields', {}) if shopify_result.get('success') else {}
+
+            expected = {
+                'member_number': member.member_number,
+                'tier': member.tier.name if member.tier else 'None',
+                'status': member.status or 'active'
+            }
+
+            mismatches = []
+            for key, expected_value in expected.items():
+                shopify_value = shopify_metafields.get(key, {}).get('value')
+                if shopify_value != expected_value:
+                    mismatches.append({
+                        'field': key,
+                        'expected': expected_value,
+                        'actual': shopify_value
+                    })
+
+            in_sync = len(mismatches) == 0
+
+            if in_sync:
+                results['in_sync'] += 1
+            else:
+                results['out_of_sync'] += 1
+
+            # Only include in results if showing all or member is mismatched
+            if not only_mismatched or not in_sync:
+                results['members'].append({
+                    'member_id': member.id,
+                    'member_number': member.member_number,
+                    'in_sync': in_sync,
+                    'mismatches': mismatches
+                })
+
+        except Exception as e:
+            results['out_of_sync'] += 1
+            results['members'].append({
+                'member_id': member.id,
+                'member_number': member.member_number,
+                'in_sync': False,
+                'error': str(e)
+            })
+
+    results['success'] = True
+    return jsonify(results)
 
 
 @members_bp.route('/email/templates', methods=['GET'])
