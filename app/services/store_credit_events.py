@@ -518,13 +518,13 @@ class StoreCreditEventService:
     """
     New-style event service for TradeUp Admin Dashboard.
     Supports filter-based event creation with flat credit amounts.
+    Now uses database persistence for production reliability.
     """
 
     def __init__(self, tenant_id: int):
         """Initialize with tenant ID."""
         self.tenant_id = tenant_id
         self._shopify_client = None
-        self._events_storage = {}  # In-memory storage for now, use DB in production
 
     @property
     def shopify_client(self):
@@ -541,30 +541,29 @@ class StoreCreditEventService:
         status: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        List store credit events.
+        List store credit events from database.
 
         Returns paginated list of events.
         """
-        # For now, return mock data - integrate with database in production
-        events = list(self._events_storage.values())
+        from ..models.promotions import StoreCreditEvent
+        from ..extensions import db
+
+        query = StoreCreditEvent.query.filter_by(tenant_id=self.tenant_id)
 
         if status:
-            events = [e for e in events if e.get('status') == status]
+            query = query.filter(StoreCreditEvent.status == status)
 
         # Sort by created_at descending
-        events.sort(key=lambda e: e.get('created_at', ''), reverse=True)
+        query = query.order_by(StoreCreditEvent.created_at.desc())
 
         # Paginate
-        total = len(events)
-        start = (page - 1) * limit
-        end = start + limit
-        page_events = events[start:end]
+        pagination = query.paginate(page=page, per_page=limit, error_out=False)
 
         return {
-            'events': page_events,
-            'total': total,
+            'events': [e.to_dict() for e in pagination.items],
+            'total': pagination.total,
             'page': page,
-            'pages': (total + limit - 1) // limit if total > 0 else 1
+            'pages': pagination.pages if pagination.pages > 0 else 1
         }
 
     def preview_event(
@@ -610,27 +609,51 @@ class StoreCreditEventService:
         name: str,
         description: str,
         credit_amount: float,
-        filters: Dict[str, Any]
+        filters: Dict[str, Any],
+        created_by: str = 'system'
     ) -> Dict[str, Any]:
         """
-        Run a store credit event.
+        Run a store credit event and persist to database.
 
         Args:
             name: Event name
             description: Event description
             credit_amount: Amount to credit each customer
             filters: Customer filters
+            created_by: Who created the event
 
         Returns:
             Run result with success status and totals
         """
         import time
+        import json
+        from ..models.promotions import StoreCreditEvent, StoreCreditEventStatus
+        from ..extensions import db
 
         customers = self._get_eligible_customers(filters)
-        event_id = str(uuid.uuid4())
+        event_uuid = str(uuid.uuid4())
+
+        # Create event record in database
+        event = StoreCreditEvent(
+            tenant_id=self.tenant_id,
+            event_uuid=event_uuid,
+            name=name,
+            description=description,
+            credit_amount=credit_amount,
+            filters=json.dumps(filters) if filters else None,
+            status=StoreCreditEventStatus.RUNNING.value,
+            customers_targeted=len(customers),
+            idempotency_tag=f'tradeup-event-{event_uuid[:8]}',
+            created_by=created_by,
+            executed_at=datetime.utcnow()
+        )
+        db.session.add(event)
+        db.session.commit()
 
         results = []
         successful = 0
+        skipped = 0
+        failed = 0
         total_credited = 0
         errors = []
 
@@ -644,38 +667,104 @@ class StoreCreditEventService:
                 if result.get('success'):
                     successful += 1
                     total_credited += credit_amount
+                    results.append({
+                        'customer_id': customer['id'],
+                        'email': customer.get('email'),
+                        'success': True,
+                        'amount': credit_amount
+                    })
+                else:
+                    failed += 1
+                    error_msg = result.get('error', 'Unknown error')
+                    errors.append(f"Customer {customer.get('email', customer['id'])}: {error_msg}")
+                    results.append({
+                        'customer_id': customer['id'],
+                        'email': customer.get('email'),
+                        'success': False,
+                        'error': error_msg
+                    })
             except Exception as e:
+                failed += 1
                 errors.append(f"Customer {customer.get('email', customer['id'])}: {str(e)}")
+                results.append({
+                    'customer_id': customer['id'],
+                    'email': customer.get('email'),
+                    'success': False,
+                    'error': str(e)
+                })
 
             # Rate limiting
             time.sleep(0.2)
 
-        # Store event record
-        event_record = {
-            'id': event_id,
-            'name': name,
-            'description': description,
-            'credit_amount': credit_amount,
-            'filters': filters,
-            'status': 'completed',
-            'customers_affected': successful,
-            'total_credited': total_credited,
-            'created_at': datetime.utcnow().isoformat(),
-            'executed_at': datetime.utcnow().isoformat()
-        }
-        self._events_storage[event_id] = event_record
+        # Update event record with results
+        event.status = StoreCreditEventStatus.COMPLETED.value
+        event.customers_processed = successful
+        event.customers_skipped = skipped
+        event.customers_failed = failed
+        event.total_credit_amount = total_credited
+        event.execution_results = json.dumps(results)
+        event.completed_at = datetime.utcnow()
+        if errors:
+            event.error_message = '\n'.join(errors[:50])  # Limit stored errors
+
+        db.session.commit()
 
         return {
             'success': True,
-            'event_id': event_id,
+            'event_id': event_uuid,
+            'event_db_id': event.id,
             'customers_processed': successful,
+            'customers_failed': failed,
             'total_credited': total_credited,
             'errors': errors if errors else None
         }
 
     def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
-        """Get a specific event by ID."""
-        return self._events_storage.get(event_id)
+        """Get a specific event by UUID or database ID."""
+        from ..models.promotions import StoreCreditEvent
+
+        # Try UUID first
+        event = StoreCreditEvent.query.filter_by(
+            tenant_id=self.tenant_id,
+            event_uuid=event_id
+        ).first()
+
+        # Try database ID if UUID not found
+        if not event:
+            try:
+                event = StoreCreditEvent.query.filter_by(
+                    tenant_id=self.tenant_id,
+                    id=int(event_id)
+                ).first()
+            except ValueError:
+                pass
+
+        return event.to_dict(include_results=True) if event else None
+
+    def delete_event(self, event_id: str) -> bool:
+        """Delete an event by UUID or database ID."""
+        from ..models.promotions import StoreCreditEvent
+        from ..extensions import db
+
+        event = StoreCreditEvent.query.filter_by(
+            tenant_id=self.tenant_id,
+            event_uuid=event_id
+        ).first()
+
+        if not event:
+            try:
+                event = StoreCreditEvent.query.filter_by(
+                    tenant_id=self.tenant_id,
+                    id=int(event_id)
+                ).first()
+            except ValueError:
+                pass
+
+        if event:
+            db.session.delete(event)
+            db.session.commit()
+            return True
+        return False
 
     def _get_eligible_customers(self, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -783,19 +872,185 @@ class StoreCreditEventService:
         min_spend: Optional[float] = None
     ) -> List[Dict[str, Any]]:
         """
-        Filter customers based on their order history.
+        Filter customers based on their order history using Shopify API.
 
-        This is a simplified implementation. In production, use
-        Shopify's order search API with proper filtering.
+        Args:
+            customers: List of customer dicts from initial filter
+            date_range: {'start': 'YYYY-MM-DD', 'end': 'YYYY-MM-DD'}
+            sources: List of order sources ('web', 'pos', etc.)
+            collections: List of collection IDs
+            product_tags: List of product tags
+            min_spend: Minimum total spend amount
+
+        Returns:
+            Filtered list of customers matching order criteria
         """
-        if not date_range:
+        if not any([date_range, sources, collections, product_tags, min_spend]):
             return customers
 
-        # For now, return all customers - full implementation would
-        # query orders and filter based on criteria
-        # TODO: Implement full order-based filtering
+        # Build customer ID list for efficient lookup
+        customer_ids = {c.get('id'): c for c in customers}
+        if not customer_ids:
+            return []
 
-        return customers
+        # Build order query
+        query_parts = []
+
+        if date_range:
+            start = date_range.get('start')
+            end = date_range.get('end')
+            if start:
+                query_parts.append(f'created_at:>={start}')
+            if end:
+                query_parts.append(f'created_at:<={end}')
+
+        # Add financial status filter
+        query_parts.append('(financial_status:paid OR financial_status:authorized)')
+
+        query_string = ' AND '.join(query_parts) if query_parts else ''
+
+        # Fetch orders and aggregate by customer
+        customer_order_totals: Dict[str, float] = {}
+        customer_sources: Dict[str, set] = {}
+
+        graphql_query = """
+        query getOrders($query: String!, $first: Int!, $after: String) {
+            orders(first: $first, query: $query, after: $after) {
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+                edges {
+                    node {
+                        id
+                        customer {
+                            id
+                        }
+                        totalPriceSet {
+                            shopMoney {
+                                amount
+                            }
+                        }
+                        sourceName
+                        lineItems(first: 50) {
+                            edges {
+                                node {
+                                    product {
+                                        id
+                                        tags
+                                        collections(first: 10) {
+                                            edges {
+                                                node {
+                                                    id
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        has_next_page = True
+        cursor = None
+        max_pages = 10  # Limit pages to prevent timeout
+
+        while has_next_page and max_pages > 0:
+            variables = {'query': query_string, 'first': 100}
+            if cursor:
+                variables['after'] = cursor
+
+            try:
+                result = self.shopify_client._execute_query(graphql_query, variables)
+                orders_data = result.get('orders', {})
+            except Exception as e:
+                print(f"[StoreCreditEvents] Error fetching orders: {e}")
+                break
+
+            edges = orders_data.get('edges', [])
+            for edge in edges:
+                order = edge.get('node', {})
+                customer = order.get('customer')
+                if not customer:
+                    continue
+
+                customer_id = customer.get('id')
+                if customer_id not in customer_ids:
+                    continue
+
+                # Source filtering
+                source_name = (order.get('sourceName') or '').lower()
+                if sources:
+                    source_aliases = {
+                        'web': ['online store', 'web'],
+                        'pos': ['point of sale', 'pos'],
+                        'shop': ['shop app', 'shop'],
+                    }
+                    expanded_sources = set()
+                    for s in sources:
+                        s_lower = s.lower()
+                        expanded_sources.add(s_lower)
+                        if s_lower in source_aliases:
+                            expanded_sources.update(source_aliases[s_lower])
+
+                    if not any(src in source_name or source_name in expanded_sources for src in expanded_sources):
+                        continue
+
+                # Collection and product tag filtering
+                if collections or product_tags:
+                    line_items = order.get('lineItems', {}).get('edges', [])
+                    matches_filter = False
+
+                    for item_edge in line_items:
+                        product = item_edge.get('node', {}).get('product')
+                        if not product:
+                            continue
+
+                        # Check product tags
+                        if product_tags:
+                            item_tags = product.get('tags', [])
+                            if any(tag in item_tags for tag in product_tags):
+                                matches_filter = True
+                                break
+
+                        # Check collections
+                        if collections:
+                            item_collections = product.get('collections', {}).get('edges', [])
+                            item_collection_ids = [c.get('node', {}).get('id') for c in item_collections]
+                            if any(coll in item_collection_ids for coll in collections):
+                                matches_filter = True
+                                break
+
+                    if (collections or product_tags) and not matches_filter:
+                        continue
+
+                # Aggregate order totals
+                total = float(order.get('totalPriceSet', {}).get('shopMoney', {}).get('amount', 0))
+                customer_order_totals[customer_id] = customer_order_totals.get(customer_id, 0) + total
+
+                if customer_id not in customer_sources:
+                    customer_sources[customer_id] = set()
+                customer_sources[customer_id].add(source_name)
+
+            page_info = orders_data.get('pageInfo', {})
+            has_next_page = page_info.get('hasNextPage', False)
+            cursor = page_info.get('endCursor')
+            max_pages -= 1
+
+        # Apply min_spend filter
+        eligible_customer_ids = set(customer_order_totals.keys())
+        if min_spend:
+            eligible_customer_ids = {
+                cid for cid, total in customer_order_totals.items()
+                if total >= min_spend
+            }
+
+        # Return filtered customers
+        return [c for c in customers if c.get('id') in eligible_customer_ids]
 
     def _get_customer_tier(self, customer: Dict[str, Any]) -> str:
         """Extract tier from customer tags."""

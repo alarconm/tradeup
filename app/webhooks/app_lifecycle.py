@@ -42,6 +42,14 @@ def handle_app_uninstalled():
         if not tenant:
             return jsonify({'success': True, 'message': 'Tenant not found'})
 
+        # Verify webhook signature
+        if current_app.config.get('ENV') != 'development':
+            hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+            # For uninstall, we might use SHOPIFY_API_SECRET as webhook_secret could be cleared
+            secret = tenant.webhook_secret or current_app.config.get('SHOPIFY_API_SECRET')
+            if not verify_shopify_webhook(request.data, hmac_header, secret):
+                return jsonify({'error': 'Invalid signature'}), 401
+
         # Mark tenant as inactive
         tenant.status = 'uninstalled'
         tenant.uninstalled_at = datetime.utcnow()
@@ -93,6 +101,13 @@ def handle_shop_updated():
         if not tenant:
             return jsonify({'success': True, 'message': 'Tenant not found'})
 
+        # Verify webhook signature
+        if current_app.config.get('ENV') != 'development':
+            hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+            secret = tenant.webhook_secret or current_app.config.get('SHOPIFY_API_SECRET')
+            if not verify_shopify_webhook(request.data, hmac_header, secret):
+                return jsonify({'error': 'Invalid signature'}), 401
+
         # Update tenant info
         tenant.shop_name = shop_data.get('name', tenant.shop_name)
         tenant.shopify_domain = new_domain
@@ -135,6 +150,13 @@ def handle_shop_redact():
     shop_domain = request.headers.get('X-Shopify-Shop-Domain', '')
 
     current_app.logger.info(f'Shop redact request for {shop_domain}')
+
+    # Verify webhook signature using API secret (tenant webhook_secret may be cleared after uninstall)
+    if current_app.config.get('ENV') != 'development':
+        hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+        secret = current_app.config.get('SHOPIFY_API_SECRET')
+        if not verify_shopify_webhook(request.data, hmac_header, secret):
+            return jsonify({'error': 'Invalid signature'}), 401
 
     try:
         tenant = Tenant.query.filter_by(shopify_domain=shop_domain).first()
@@ -197,6 +219,13 @@ def handle_customer_redact():
 
         if not tenant:
             return jsonify({'success': True, 'message': 'Tenant not found'})
+
+        # Verify webhook signature
+        if current_app.config.get('ENV') != 'development':
+            hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+            secret = tenant.webhook_secret or current_app.config.get('SHOPIFY_API_SECRET')
+            if not verify_shopify_webhook(request.data, hmac_header, secret):
+                return jsonify({'error': 'Invalid signature'}), 401
 
         from ..models import Member
 
@@ -269,6 +298,13 @@ def handle_customer_data_request():
                 'success': True,
                 'message': 'No data stored for this shop'
             })
+
+        # Verify webhook signature
+        if current_app.config.get('ENV') != 'development':
+            hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+            secret = tenant.webhook_secret or current_app.config.get('SHOPIFY_API_SECRET')
+            if not verify_shopify_webhook(request.data, hmac_header, secret):
+                return jsonify({'error': 'Invalid signature'}), 401
 
         from ..models import Member, PointsTransaction, StoreCreditLedger, TradeInBatch, TradeInItem
 

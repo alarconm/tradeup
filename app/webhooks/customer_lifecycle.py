@@ -202,6 +202,12 @@ def handle_customer_deleted():
     if not tenant:
         return jsonify({'error': 'Unknown shop'}), 404
 
+    # Verify webhook signature (REQUIRED for security)
+    if current_app.config.get('ENV') != 'development':
+        hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+        if not verify_shopify_webhook(request.data, hmac_header, tenant.webhook_secret):
+            return jsonify({'error': 'Invalid signature'}), 401
+
     try:
         customer_data = request.json
         shopify_customer_id = str(customer_data.get('id'))

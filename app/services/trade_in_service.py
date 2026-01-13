@@ -553,3 +553,204 @@ class TradeInService:
             'trade_value': float(batch.total_trade_value or 0),
             'bonus': bonus_info
         }
+
+    def update_status(
+        self,
+        batch_id: int,
+        new_status: str,
+        reason: Optional[str] = None,
+        updated_by: str = 'system'
+    ) -> Dict[str, Any]:
+        """
+        Update trade-in batch status and sync to Shopify customer metafields.
+
+        Valid status transitions:
+        - pending -> under_review, approved, rejected, cancelled
+        - under_review -> approved, rejected
+        - approved -> completed, listed
+        - listed -> completed
+
+        Args:
+            batch_id: ID of the batch to update
+            new_status: New status value
+            reason: Optional reason for status change (useful for rejections)
+            updated_by: Who made the update
+
+        Returns:
+            Dict with update result
+        """
+        valid_statuses = ['pending', 'under_review', 'approved', 'rejected',
+                         'completed', 'listed', 'cancelled']
+
+        if new_status not in valid_statuses:
+            raise ValueError(f'Invalid status: {new_status}. Valid: {valid_statuses}')
+
+        batch = TradeInBatch.query.get(batch_id)
+        if not batch:
+            raise ValueError('Batch not found')
+        if batch.tenant_id != self.tenant_id:
+            raise ValueError('Batch not found')
+
+        old_status = batch.status
+
+        # Update the batch
+        batch.status = new_status
+        batch.updated_at = datetime.utcnow()
+
+        # Store rejection/cancellation reason in notes
+        if reason and new_status in ['rejected', 'cancelled']:
+            batch.notes = f"{batch.notes or ''}\n[{new_status.upper()}] {reason}".strip()
+
+        db.session.commit()
+
+        # Sync to Shopify customer metafields if member exists
+        member = batch.member
+        if member and member.shopify_customer_id:
+            self._sync_trade_in_status_to_shopify(member, batch)
+
+        # Send status notification email
+        try:
+            from .notification_service import notification_service
+            if new_status == 'approved':
+                notification_service.send_trade_in_approved(
+                    tenant_id=self.tenant_id,
+                    batch_id=batch.id
+                )
+            elif new_status == 'rejected':
+                notification_service.send_trade_in_rejected(
+                    tenant_id=self.tenant_id,
+                    batch_id=batch.id,
+                    reason=reason
+                )
+        except Exception as e:
+            print(f"Failed to send status notification: {e}")
+
+        return {
+            'success': True,
+            'batch_id': batch.id,
+            'batch_reference': batch.batch_reference,
+            'old_status': old_status,
+            'new_status': new_status,
+            'reason': reason,
+            'member_synced': member is not None and member.shopify_customer_id is not None
+        }
+
+    def _sync_trade_in_status_to_shopify(self, member: Member, batch: TradeInBatch) -> bool:
+        """
+        Sync trade-in status to Shopify customer metafields.
+
+        Updates metafields:
+        - tradeup.latest_trade_in_status: Current status
+        - tradeup.latest_trade_in_reference: Batch reference number
+        - tradeup.latest_trade_in_date: Date of trade-in
+        - tradeup.trade_in_count: Total number of trade-ins
+        - tradeup.trade_in_total_value: Lifetime trade-in value
+
+        Args:
+            member: Member whose metafields to update
+            batch: The trade-in batch
+
+        Returns:
+            True if sync succeeded
+        """
+        if not member.shopify_customer_id:
+            return False
+
+        try:
+            from .shopify_client import ShopifyClient
+            shopify_client = ShopifyClient(self.tenant_id)
+
+            # Build metafields to sync
+            metafields = [
+                {
+                    'namespace': 'tradeup',
+                    'key': 'latest_trade_in_status',
+                    'value': batch.status,
+                    'type': 'single_line_text_field'
+                },
+                {
+                    'namespace': 'tradeup',
+                    'key': 'latest_trade_in_reference',
+                    'value': batch.batch_reference,
+                    'type': 'single_line_text_field'
+                },
+                {
+                    'namespace': 'tradeup',
+                    'key': 'latest_trade_in_date',
+                    'value': batch.trade_in_date.isoformat() if batch.trade_in_date else '',
+                    'type': 'single_line_text_field'
+                },
+                {
+                    'namespace': 'tradeup',
+                    'key': 'trade_in_count',
+                    'value': str(member.total_trade_ins or 0),
+                    'type': 'number_integer'
+                },
+                {
+                    'namespace': 'tradeup',
+                    'key': 'trade_in_total_value',
+                    'value': str(float(member.total_trade_value or 0)),
+                    'type': 'number_decimal'
+                }
+            ]
+
+            result = shopify_client.set_customer_metafields(
+                customer_id=member.shopify_customer_id,
+                metafields=metafields
+            )
+
+            if result.get('success'):
+                current_app.logger.info(
+                    f"Synced trade-in status to Shopify for member {member.member_number}: {batch.status}"
+                )
+                return True
+            else:
+                current_app.logger.warning(
+                    f"Failed to sync trade-in metafields: {result.get('error')}"
+                )
+                return False
+
+        except Exception as e:
+            current_app.logger.error(
+                f"Error syncing trade-in status to Shopify: {e}"
+            )
+            return False
+
+    def get_member_trade_in_summary(self, member_id: int) -> Dict[str, Any]:
+        """
+        Get trade-in summary for a member (for customer account display).
+
+        Args:
+            member_id: Member ID
+
+        Returns:
+            Dict with trade-in summary
+        """
+        member = Member.query.get(member_id)
+        if not member or member.tenant_id != self.tenant_id:
+            return {'success': False, 'error': 'Member not found'}
+
+        # Get recent trade-ins
+        recent_batches = TradeInBatch.query.filter_by(
+            member_id=member_id
+        ).order_by(TradeInBatch.created_at.desc()).limit(5).all()
+
+        # Get counts by status
+        status_counts = db.session.query(
+            TradeInBatch.status,
+            db.func.count(TradeInBatch.id)
+        ).filter(
+            TradeInBatch.member_id == member_id
+        ).group_by(TradeInBatch.status).all()
+
+        counts = {status: count for status, count in status_counts}
+
+        return {
+            'success': True,
+            'member_id': member_id,
+            'total_trade_ins': member.total_trade_ins or 0,
+            'total_trade_value': float(member.total_trade_value or 0),
+            'total_bonus_earned': float(member.total_bonus_earned or 0),
+            'status_counts': counts,
+            'recent_trade_ins': [b.to_dict() for b in recent_batches]
+        }

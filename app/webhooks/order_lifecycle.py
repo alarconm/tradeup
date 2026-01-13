@@ -23,12 +23,302 @@ from decimal import Decimal
 from flask import Blueprint, request, jsonify, current_app
 from ..extensions import db
 from ..models import Tenant, Member, MembershipTier
+from ..models.referral import ReferralProgram, Referral
 from ..services.tier_service import TierService
 from ..services.membership_service import MembershipService
 from ..services.store_credit_service import store_credit_service
 
 
 order_lifecycle_bp = Blueprint('order_lifecycle', __name__)
+
+
+# ==================== REFERRAL TRACKING ====================
+
+def extract_referral_code_from_order(order_data: dict) -> str:
+    """
+    Extract referral code from order data.
+
+    Checks multiple sources:
+    1. Note attributes (custom cart attributes)
+    2. Discount codes
+    3. Order notes
+
+    Args:
+        order_data: Full order payload from Shopify
+
+    Returns:
+        Referral code if found, None otherwise
+    """
+    # Check note attributes (cart attributes)
+    note_attributes = order_data.get('note_attributes', [])
+    for attr in note_attributes:
+        name = attr.get('name', '').lower()
+        if name in ['referral_code', 'ref', 'referral', 'referred_by', 'ref_code']:
+            code = attr.get('value', '').strip().upper()
+            if code:
+                return code
+
+    # Check discount codes (sometimes referral codes are used as discounts)
+    discount_codes = order_data.get('discount_codes', [])
+    for discount in discount_codes:
+        code = discount.get('code', '').upper()
+        # Check if this discount code matches a referral code format
+        # Referral codes are typically 8 chars alphanumeric like "JOHN2025"
+        if code and len(code) <= 20:
+            # Verify it's actually a referral code
+            referrer = Member.query.filter_by(referral_code=code, status='active').first()
+            if referrer:
+                return code
+
+    # Check order notes
+    note = order_data.get('note', '')
+    if note:
+        # Look for referral code patterns in notes
+        import re
+        match = re.search(r'(?:ref|referral|referred by)[:\s]*([A-Z0-9]{4,20})', note.upper())
+        if match:
+            code = match.group(1)
+            # Verify it's actually a referral code
+            referrer = Member.query.filter_by(referral_code=code, status='active').first()
+            if referrer:
+                return code
+
+    return None
+
+
+def process_referral_on_order(tenant: Tenant, member: Member, order_data: dict) -> dict:
+    """
+    Process referral tracking for an order.
+
+    If the member was referred and this is their first purchase, complete the
+    referral and grant rewards based on the program configuration.
+
+    Args:
+        tenant: Tenant object
+        member: Member who placed the order
+        order_data: Full order payload from Shopify
+
+    Returns:
+        Dict with referral processing result
+    """
+    result = {'referral_processed': False}
+
+    # Get referral program configuration
+    program = ReferralProgram.query.filter_by(
+        tenant_id=tenant.id,
+        is_active=True
+    ).first()
+
+    if not program:
+        # No referral program - check legacy config
+        from ..api.referrals import ReferralConfig
+        program_grant_on = 'signup' if ReferralConfig.GRANT_ON_SIGNUP else 'first_purchase'
+        referrer_reward = ReferralConfig.REFERRER_CREDIT
+        referee_reward = ReferralConfig.REFEREE_CREDIT
+    else:
+        program_grant_on = program.grant_on
+        referrer_reward = program.referrer_reward_amount
+        referee_reward = program.referee_reward_amount
+
+    # ==========================================
+    # CASE 1: Member already has a referrer but rewards pending
+    # ==========================================
+    if member.referred_by_id:
+        referrer = Member.query.get(member.referred_by_id)
+        if not referrer:
+            return result
+
+        # Check if rewards have already been issued
+        existing_referral = Referral.query.filter_by(
+            referee_id=member.id,
+            referrer_id=referrer.id
+        ).first()
+
+        # If grant_on is 'first_purchase' and rewards not yet issued
+        if program_grant_on == 'first_purchase':
+            if existing_referral and not existing_referral.referrer_reward_issued:
+                # This is the first purchase - complete the referral
+                credits_granted = complete_referral_rewards(
+                    referrer=referrer,
+                    referee=member,
+                    referral=existing_referral,
+                    referrer_reward=referrer_reward,
+                    referee_reward=referee_reward
+                )
+                result['referral_processed'] = True
+                result['credits_granted'] = credits_granted
+                result['referrer_member_number'] = referrer.member_number
+                current_app.logger.info(
+                    f"Referral completed on first purchase: {member.member_number} referred by {referrer.member_number}"
+                )
+            elif not existing_referral:
+                # Create referral record and grant rewards
+                new_referral = Referral(
+                    program_id=program.id if program else None,
+                    referrer_id=referrer.id,
+                    referee_id=member.id,
+                    referral_code=referrer.referral_code or '',
+                    status='completed',
+                    completed_at=datetime.utcnow()
+                )
+                db.session.add(new_referral)
+                db.session.flush()
+
+                credits_granted = complete_referral_rewards(
+                    referrer=referrer,
+                    referee=member,
+                    referral=new_referral,
+                    referrer_reward=referrer_reward,
+                    referee_reward=referee_reward
+                )
+                result['referral_processed'] = True
+                result['credits_granted'] = credits_granted
+                result['referrer_member_number'] = referrer.member_number
+
+        return result
+
+    # ==========================================
+    # CASE 2: Check for referral code in order
+    # ==========================================
+    referral_code = extract_referral_code_from_order(order_data)
+    if not referral_code:
+        return result
+
+    # Find the referrer
+    referrer = Member.query.filter_by(
+        tenant_id=tenant.id,
+        referral_code=referral_code,
+        status='active'
+    ).first()
+
+    if not referrer:
+        return result
+
+    # Can't refer yourself
+    if referrer.id == member.id:
+        return result
+
+    # Link the referral
+    member.referred_by_id = referrer.id
+    referrer.referral_count = (referrer.referral_count or 0) + 1
+
+    # Create referral record
+    new_referral = Referral(
+        program_id=program.id if program else None,
+        referrer_id=referrer.id,
+        referee_id=member.id,
+        referral_code=referral_code,
+        status='completed' if program_grant_on == 'first_purchase' else 'pending',
+        completed_at=datetime.utcnow() if program_grant_on == 'first_purchase' else None
+    )
+    db.session.add(new_referral)
+    db.session.flush()
+
+    # Grant rewards if grant_on is 'first_purchase' or 'signup'
+    if program_grant_on in ['first_purchase', 'signup']:
+        credits_granted = complete_referral_rewards(
+            referrer=referrer,
+            referee=member,
+            referral=new_referral,
+            referrer_reward=referrer_reward,
+            referee_reward=referee_reward
+        )
+        result['referral_processed'] = True
+        result['credits_granted'] = credits_granted
+        result['referrer_member_number'] = referrer.member_number
+        current_app.logger.info(
+            f"Referral applied from order: {member.member_number} referred by {referrer.member_number} (code: {referral_code})"
+        )
+
+    return result
+
+
+def complete_referral_rewards(
+    referrer: Member,
+    referee: Member,
+    referral: Referral,
+    referrer_reward: Decimal,
+    referee_reward: Decimal
+) -> list:
+    """
+    Grant store credits for a completed referral.
+
+    Args:
+        referrer: Member who made the referral
+        referee: New member who was referred
+        referral: Referral record
+        referrer_reward: Amount to credit referrer
+        referee_reward: Amount to credit referee
+
+    Returns:
+        List of credits granted
+    """
+    credits_granted = []
+
+    try:
+        # Credit to referrer
+        if referrer_reward and referrer_reward > 0:
+            store_credit_service.add_credit(
+                member_id=referrer.id,
+                amount=referrer_reward,
+                event_type='referral_bonus',
+                description=f'Referral bonus - {referee.name or referee.email} made first purchase',
+                source_type='referral',
+                source_id=str(referee.id),
+                created_by='system:order_webhook'
+            )
+            referrer.referral_earnings = (
+                Decimal(str(referrer.referral_earnings or 0)) + referrer_reward
+            )
+            referral.referrer_reward_issued = True
+            referral.referrer_reward_amount = referrer_reward
+            referral.reward_issued_at = datetime.utcnow()
+            credits_granted.append({
+                'recipient': 'referrer',
+                'member_number': referrer.member_number,
+                'amount': float(referrer_reward)
+            })
+
+        # Credit to referee (new member)
+        if referee_reward and referee_reward > 0:
+            store_credit_service.add_credit(
+                member_id=referee.id,
+                amount=referee_reward,
+                event_type='referral_bonus',
+                description=f'Welcome bonus - referred by {referrer.name or referrer.member_number}',
+                source_type='referral',
+                source_id=str(referrer.id),
+                created_by='system:order_webhook'
+            )
+            referral.referee_reward_issued = True
+            referral.referee_reward_amount = referee_reward
+            credits_granted.append({
+                'recipient': 'referee',
+                'member_number': referee.member_number,
+                'amount': float(referee_reward)
+            })
+
+        # Update referral status
+        referral.status = 'completed'
+        referral.completed_at = datetime.utcnow()
+
+        # Send notification (non-blocking)
+        try:
+            from ..services.notification_service import notification_service
+            notification_service.send_referral_success_email(
+                tenant_id=referrer.tenant_id,
+                referrer_id=referrer.id,
+                referee_id=referee.id,
+                referrer_reward=float(referrer_reward) if referrer_reward else 0,
+                referee_reward=float(referee_reward) if referee_reward else 0
+            )
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send referral notification: {e}")
+
+    except Exception as e:
+        current_app.logger.error(f"Referral credit grant error: {e}")
+
+    return credits_granted
 
 
 def verify_shopify_webhook(data: bytes, hmac_header: str, secret: str) -> bool:
@@ -457,6 +747,20 @@ def handle_order_created():
             result['message'] = 'Member account not active'
             db.session.commit()  # Commit any membership changes
             return jsonify(result)
+
+        # ==========================================
+        # REFERRAL TRACKING
+        # ==========================================
+        try:
+            referral_result = process_referral_on_order(tenant, member, order_data)
+            if referral_result.get('referral_processed'):
+                result['referral'] = referral_result
+                current_app.logger.info(
+                    f'Referral processed for {member.member_number} on order #{order_number}'
+                )
+        except Exception as e:
+            # Don't fail the whole webhook if referral processing fails
+            current_app.logger.error(f'Referral processing failed for order #{order_number}: {e}')
 
         # ==========================================
         # PURCHASE CASHBACK (Store Credit)

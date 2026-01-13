@@ -157,6 +157,164 @@ def get_dashboard_stats():
         }), 200
 
 
+@dashboard_bp.route('/stats/period', methods=['GET'])
+@require_shopify_auth
+def get_dashboard_stats_for_period():
+    """
+    Get dashboard statistics for a specific time period.
+
+    Query params:
+    - start_date: ISO format date string (YYYY-MM-DD)
+    - end_date: ISO format date string (YYYY-MM-DD)
+    - period: 'today', 'week', 'month', 'quarter', 'year' (alternative to start/end)
+
+    Returns stats filtered to the specified date range.
+    """
+    try:
+        tenant_id = g.tenant_id
+
+        # Parse date range
+        period = request.args.get('period')
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+
+        now = datetime.utcnow()
+
+        if period:
+            # Use predefined period
+            if period == 'today':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = now
+            elif period == 'week':
+                start_date = now - timedelta(days=7)
+                end_date = now
+            elif period == 'month':
+                start_date = now - timedelta(days=30)
+                end_date = now
+            elif period == 'quarter':
+                start_date = now - timedelta(days=90)
+                end_date = now
+            elif period == 'year':
+                start_date = now - timedelta(days=365)
+                end_date = now
+            else:
+                return jsonify({'error': f'Invalid period: {period}'}), 400
+        elif start_date_str and end_date_str:
+            # Parse custom date range
+            try:
+                start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use ISO format (YYYY-MM-DD)'}), 400
+        else:
+            # Default to last 30 days
+            start_date = now - timedelta(days=30)
+            end_date = now
+
+        # Members created in period
+        new_members = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.created_at >= start_date,
+            Member.created_at <= end_date
+        ).count()
+
+        # Trade-in ledger stats for period
+        ledger_stats = db.session.query(
+            func.count(TradeInLedger.id).label('total_count'),
+            func.coalesce(func.sum(TradeInLedger.total_value), 0).label('total_value'),
+            func.coalesce(func.sum(TradeInLedger.cash_amount), 0).label('total_cash'),
+            func.coalesce(func.sum(TradeInLedger.credit_amount), 0).label('total_credit'),
+        ).filter(
+            TradeInLedger.tenant_id == tenant_id,
+            TradeInLedger.created_at >= start_date,
+            TradeInLedger.created_at <= end_date
+        ).first()
+
+        trade_ins_count = ledger_stats.total_count if ledger_stats else 0
+        trade_in_value = float(ledger_stats.total_value if ledger_stats else 0)
+        cash_paid = float(ledger_stats.total_cash if ledger_stats else 0)
+        credit_paid = float(ledger_stats.total_credit if ledger_stats else 0)
+
+        # Credits issued in period (positive amounts only)
+        credits_result = (
+            db.session.query(
+                func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            )
+            .join(Member, StoreCreditLedger.member_id == Member.id)
+            .filter(
+                Member.tenant_id == tenant_id,
+                StoreCreditLedger.amount > 0,
+                StoreCreditLedger.created_at >= start_date,
+                StoreCreditLedger.created_at <= end_date
+            )
+            .scalar()
+        )
+        credits_issued = float(credits_result or 0)
+
+        # Calculate comparison with previous period
+        period_length = (end_date - start_date).days
+        prev_start = start_date - timedelta(days=period_length)
+        prev_end = start_date
+
+        # Previous period trade-ins
+        prev_ledger_stats = db.session.query(
+            func.count(TradeInLedger.id).label('total_count'),
+            func.coalesce(func.sum(TradeInLedger.total_value), 0).label('total_value'),
+        ).filter(
+            TradeInLedger.tenant_id == tenant_id,
+            TradeInLedger.created_at >= prev_start,
+            TradeInLedger.created_at <= prev_end
+        ).first()
+
+        prev_trade_ins = prev_ledger_stats.total_count if prev_ledger_stats else 0
+        prev_trade_in_value = float(prev_ledger_stats.total_value if prev_ledger_stats else 0)
+
+        # Previous period members
+        prev_new_members = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.created_at >= prev_start,
+            Member.created_at <= prev_end
+        ).count()
+
+        # Calculate percentage changes
+        def calc_change(current, previous):
+            if previous == 0:
+                return 100 if current > 0 else 0
+            return round(((current - previous) / previous) * 100, 1)
+
+        return jsonify({
+            'period': {
+                'start': start_date.isoformat(),
+                'end': end_date.isoformat(),
+                'days': period_length
+            },
+            'current': {
+                'new_members': new_members,
+                'trade_ins': trade_ins_count,
+                'trade_in_value': trade_in_value,
+                'cash_paid': cash_paid,
+                'credit_paid': credit_paid,
+                'credits_issued': credits_issued,
+            },
+            'previous': {
+                'new_members': prev_new_members,
+                'trade_ins': prev_trade_ins,
+                'trade_in_value': prev_trade_in_value,
+            },
+            'changes': {
+                'new_members': calc_change(new_members, prev_new_members),
+                'trade_ins': calc_change(trade_ins_count, prev_trade_ins),
+                'trade_in_value': calc_change(trade_in_value, prev_trade_in_value),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[Dashboard] Error getting period stats: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @dashboard_bp.route('/trade-in-report', methods=['GET'])
 @require_shopify_auth
 def get_trade_in_report():

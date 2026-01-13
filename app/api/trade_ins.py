@@ -368,3 +368,63 @@ def complete_batch(batch_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Failed to complete batch: {str(e)}'}), 500
+
+
+@trade_ins_bp.route('/<int:batch_id>/status', methods=['PUT'])
+@require_shopify_auth
+def update_batch_status(batch_id):
+    """
+    Update trade-in batch status and sync to Shopify customer metafields.
+
+    Valid statuses: pending, under_review, approved, rejected, completed, listed, cancelled
+
+    Request body:
+        status: string - New status value
+        reason: string (optional) - Reason for status change (useful for rejections)
+
+    Returns:
+        Status update result with sync status
+    """
+    tenant_id = g.tenant_id
+    staff_email = request.headers.get('X-Staff-Email', 'API')
+
+    data = request.json or {}
+    new_status = data.get('status')
+    reason = data.get('reason')
+
+    if not new_status:
+        return jsonify({'error': 'status is required'}), 400
+
+    service = TradeInService(tenant_id)
+
+    try:
+        result = service.update_status(
+            batch_id=batch_id,
+            new_status=new_status,
+            reason=reason,
+            updated_by=staff_email
+        )
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to update status: {str(e)}'}), 500
+
+
+@trade_ins_bp.route('/member/<int:member_id>/summary', methods=['GET'])
+@require_shopify_auth
+def get_member_trade_in_summary(member_id):
+    """
+    Get trade-in summary for a member (for customer account display).
+
+    Returns:
+        Trade-in summary with recent batches and stats
+    """
+    tenant_id = g.tenant_id
+    service = TradeInService(tenant_id)
+
+    result = service.get_member_trade_in_summary(member_id)
+    if result.get('success'):
+        return jsonify(result)
+    else:
+        return jsonify(result), 404

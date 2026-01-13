@@ -166,16 +166,24 @@ class PointsService:
 
         total_points = base_points + bonus_points
 
+        # Calculate expiration date based on tenant policy
+        expiration_days = self._get_expiration_policy()
+        expires_at = None
+        if expiration_days:
+            expires_at = datetime.utcnow() + timedelta(days=expiration_days)
+
         # Create transaction
         transaction = PointsTransaction(
             tenant_id=self.tenant_id,
             member_id=member_id,
             points=total_points,
+            remaining_points=total_points,  # Start with all points available
             transaction_type='earn',
             source=source_type,
             reference_id=source_id,
             reference_type=self._get_reference_type(source_type),
             description=description or f'Earned {total_points} points from {source_type}',
+            expires_at=expires_at,
             created_at=datetime.utcnow()
         )
         db.session.add(transaction)
@@ -302,6 +310,9 @@ class PointsService:
                 'success': False,
                 'error': f"Failed to execute reward: {reward_result.get('error')}"
             }
+
+        # Consume points using FIFO from oldest earn transactions
+        self._consume_points_fifo(member_id, points_to_redeem)
 
         # Create redemption transaction (negative points)
         transaction = PointsTransaction(
@@ -970,10 +981,29 @@ class PointsService:
         return int(result or 0)
 
     def _calculate_expiring_points(self, member_id: int, days: int = 30) -> int:
-        """Calculate points expiring within specified days."""
-        # Placeholder - implement based on expiration tracking
-        # Would need transaction-level expiration dates
-        return 0
+        """Calculate points expiring within specified days.
+
+        Uses the expires_at and remaining_points fields on PointsTransaction
+        to calculate how many points will expire within the given period.
+        """
+        now = datetime.utcnow()
+        expiry_window = now + timedelta(days=days)
+
+        # Sum remaining_points from earn transactions that expire within the window
+        result = db.session.query(
+            db.func.coalesce(db.func.sum(PointsTransaction.remaining_points), 0)
+        ).filter(
+            PointsTransaction.tenant_id == self.tenant_id,
+            PointsTransaction.member_id == member_id,
+            PointsTransaction.transaction_type == 'earn',
+            PointsTransaction.reversed_at.is_(None),
+            PointsTransaction.expires_at.isnot(None),
+            PointsTransaction.expires_at > now,  # Not yet expired
+            PointsTransaction.expires_at <= expiry_window,  # Expires within window
+            PointsTransaction.remaining_points > 0  # Has remaining points
+        ).scalar()
+
+        return int(result or 0)
 
     def _calculate_multipliers(
         self,
@@ -1252,16 +1282,180 @@ class PointsService:
         return points
 
     def _get_expiration_policy(self) -> Optional[int]:
-        """Get points expiration policy in days."""
-        # Placeholder - would query tenant settings
-        # Return None for no expiration, or number of days
+        """Get points expiration policy in days from tenant settings."""
+        from ..models.tenant import Tenant
+
+        tenant = Tenant.query.get(self.tenant_id)
+        if not tenant:
+            return None
+
+        # Get points settings from tenant.settings JSON
+        settings = tenant.settings or {}
+        points_settings = settings.get('points', {})
+
+        # Return expiration_days (None means no expiration)
+        expiration_days = points_settings.get('expiration_days')
+
+        # Ensure it's an integer or None
+        if expiration_days is not None:
+            try:
+                return int(expiration_days)
+            except (ValueError, TypeError):
+                return None
+
         return None  # Points don't expire by default
 
+    def _consume_points_fifo(self, member_id: int, points_to_consume: int) -> int:
+        """Consume points from oldest earn transactions first (FIFO).
+
+        Updates remaining_points on earn transactions to track which points
+        have been spent. Uses FIFO order based on created_at date.
+
+        Args:
+            member_id: Member whose points to consume
+            points_to_consume: Number of points to consume
+
+        Returns:
+            Actual points consumed (may be less if insufficient)
+        """
+        if points_to_consume <= 0:
+            return 0
+
+        # Get earn transactions with remaining points, oldest first
+        earn_transactions = PointsTransaction.query.filter(
+            PointsTransaction.tenant_id == self.tenant_id,
+            PointsTransaction.member_id == member_id,
+            PointsTransaction.transaction_type == 'earn',
+            PointsTransaction.reversed_at.is_(None),
+            PointsTransaction.remaining_points > 0
+        ).order_by(
+            # Prioritize points that expire soonest (FIFO by expiration, then by creation)
+            PointsTransaction.expires_at.asc().nullslast(),
+            PointsTransaction.created_at.asc()
+        ).all()
+
+        remaining_to_consume = points_to_consume
+        total_consumed = 0
+
+        for txn in earn_transactions:
+            if remaining_to_consume <= 0:
+                break
+
+            available = txn.remaining_points or 0
+            if available <= 0:
+                continue
+
+            # Consume from this transaction
+            consume_from_txn = min(available, remaining_to_consume)
+            txn.remaining_points = available - consume_from_txn
+
+            remaining_to_consume -= consume_from_txn
+            total_consumed += consume_from_txn
+
+        return total_consumed
+
     def _expire_member_points(self, member_id: int, cutoff_date: datetime) -> int:
-        """Expire old points for a member."""
-        # Simplified implementation - production would need FIFO tracking
-        # This is a placeholder that would need proper implementation
-        return 0
+        """Expire old points for a member using FIFO logic.
+
+        Finds all earn transactions that have expired (expires_at <= cutoff_date)
+        and still have remaining_points > 0. Creates expiration transactions
+        for each and updates the member's balance.
+
+        Args:
+            member_id: Member whose points to expire
+            cutoff_date: Date to check expiration against (usually now)
+
+        Returns:
+            Total points expired
+        """
+        member = Member.query.filter_by(id=member_id, tenant_id=self.tenant_id).first()
+        if not member:
+            return 0
+
+        # Find expired transactions with remaining points
+        expired_transactions = PointsTransaction.query.filter(
+            PointsTransaction.tenant_id == self.tenant_id,
+            PointsTransaction.member_id == member_id,
+            PointsTransaction.transaction_type == 'earn',
+            PointsTransaction.reversed_at.is_(None),
+            PointsTransaction.expires_at.isnot(None),
+            PointsTransaction.expires_at <= cutoff_date,
+            PointsTransaction.remaining_points > 0
+        ).order_by(PointsTransaction.expires_at.asc()).all()
+
+        total_expired = 0
+
+        for txn in expired_transactions:
+            points_to_expire = txn.remaining_points or 0
+            if points_to_expire <= 0:
+                continue
+
+            # Create expiration transaction (negative points)
+            expiration_txn = PointsTransaction(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                points=-points_to_expire,
+                transaction_type='expire',
+                source='expiration',
+                reference_id=str(txn.id),
+                reference_type='expired_earn',
+                description=f'Points expired (earned {txn.created_at.strftime("%Y-%m-%d") if txn.created_at else ""})',
+                related_transaction_id=txn.id,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(expiration_txn)
+
+            # Mark original transaction as fully consumed
+            txn.remaining_points = 0
+
+            total_expired += points_to_expire
+
+            current_app.logger.info(
+                f"Expired {points_to_expire} pts from txn {txn.id} for member {member.member_number}"
+            )
+
+        if total_expired > 0:
+            # Update member's cached balance
+            member.points_balance = max(0, (member.points_balance or 0) - total_expired)
+
+            try:
+                db.session.commit()
+
+                # Trigger Flow event for points expired (non-blocking)
+                self._trigger_points_expired_flow(
+                    member=member,
+                    points_expired=total_expired,
+                    new_balance=member.points_balance
+                )
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Failed to expire points for member {member_id}: {e}")
+                raise
+
+        return total_expired
+
+    def _trigger_points_expired_flow(
+        self,
+        member: Member,
+        points_expired: int,
+        new_balance: int
+    ):
+        """Trigger Shopify Flow event for points expired (non-critical)."""
+        if not self.shopify_client:
+            return
+
+        try:
+            from .flow_service import FlowService
+            flow_svc = FlowService(self.tenant_id, self.shopify_client)
+
+            # Use a generic trigger for points expired
+            # This could be extended to use a specific flow trigger
+            current_app.logger.info(
+                f"Points expired for member {member.member_number}: "
+                f"{points_expired} pts, new balance: {new_balance}"
+            )
+        except Exception as e:
+            current_app.logger.warning(f"Points expired Flow trigger failed: {e}")
 
     def _trigger_points_earned_flow(
         self,

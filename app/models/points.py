@@ -41,6 +41,10 @@ class PointsTransaction(db.Model):
     reversed_at = db.Column(db.DateTime)
     reversed_reason = db.Column(db.String(200))
 
+    # Expiration tracking
+    expires_at = db.Column(db.DateTime, index=True)  # When these points expire (null = never)
+    remaining_points = db.Column(db.Integer)  # Points not yet spent/expired (for FIFO tracking)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -57,10 +61,12 @@ class PointsTransaction(db.Model):
             'id': self.id,
             'member_id': self.member_id,
             'points': self.points,
+            'remaining_points': self.remaining_points,
             'transaction_type': self.transaction_type,
             'source': self.source,
             'reference_id': self.reference_id,
             'description': self.description,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

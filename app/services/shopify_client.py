@@ -2468,6 +2468,239 @@ class ShopifyClient:
                 'error': str(e)
             }
 
+    def create_reward_discount_code(
+        self,
+        code: str,
+        title: str,
+        discount_type: str = 'fixed',
+        discount_value: float = 0,
+        min_purchase: float = None,
+        usage_limit: int = 1,
+        customer_id: str = None,
+        expires_days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Create a discount code for a redeemed reward.
+
+        This creates a single-use discount code that can be used at checkout.
+
+        Args:
+            code: The discount code string (e.g., "REWARD-ABC123")
+            title: Discount title for admin display
+            discount_type: 'percentage', 'fixed', or 'free_shipping'
+            discount_value: Discount amount (percentage as 10 for 10%, fixed as dollar amount)
+            min_purchase: Minimum purchase amount to qualify (optional)
+            usage_limit: Number of times code can be used (default: 1)
+            customer_id: Shopify customer ID to restrict to (optional)
+            expires_days: Days until code expires (default: 30)
+
+        Returns:
+            Dict with discount code details or error
+        """
+        from datetime import datetime, timedelta
+
+        # Calculate expiration date
+        starts_at = datetime.utcnow()
+        ends_at = starts_at + timedelta(days=expires_days)
+
+        # Build customer selection
+        if customer_id:
+            if not str(customer_id).startswith('gid://'):
+                customer_gid = f'gid://shopify/Customer/{customer_id}'
+            else:
+                customer_gid = customer_id
+            customer_selection = {
+                'customers': {
+                    'add': [customer_gid]
+                }
+            }
+        else:
+            customer_selection = {
+                'all': True
+            }
+
+        # Build the discount value based on type
+        if discount_type == 'free_shipping':
+            # Free shipping discount
+            mutation = """
+            mutation discountCodeFreeShippingCreate($freeShippingCodeDiscount: DiscountCodeFreeShippingInput!) {
+                discountCodeFreeShippingCreate(freeShippingCodeDiscount: $freeShippingCodeDiscount) {
+                    codeDiscountNode {
+                        id
+                        codeDiscount {
+                            ... on DiscountCodeFreeShipping {
+                                title
+                                status
+                                codes(first: 1) {
+                                    nodes {
+                                        code
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+
+            variables = {
+                'freeShippingCodeDiscount': {
+                    'title': title,
+                    'code': code,
+                    'startsAt': starts_at.isoformat() + 'Z',
+                    'endsAt': ends_at.isoformat() + 'Z',
+                    'usageLimit': usage_limit,
+                    'customerSelection': customer_selection,
+                    'destination': {
+                        'all': True
+                    },
+                    'combinesWith': {
+                        'productDiscounts': True,
+                        'orderDiscounts': False,
+                        'shippingDiscounts': False
+                    }
+                }
+            }
+
+            if min_purchase:
+                variables['freeShippingCodeDiscount']['minimumRequirement'] = {
+                    'subtotal': {
+                        'greaterThanOrEqualToSubtotal': str(min_purchase)
+                    }
+                }
+
+            try:
+                result = self._execute_query(mutation, variables)
+                data = result.get('discountCodeFreeShippingCreate', {})
+                errors = data.get('userErrors', [])
+
+                if errors:
+                    return {'success': False, 'errors': errors}
+
+                node = data.get('codeDiscountNode', {})
+                discount = node.get('codeDiscount', {})
+                codes = discount.get('codes', {}).get('nodes', [])
+
+                return {
+                    'success': True,
+                    'discount_id': node.get('id'),
+                    'title': discount.get('title'),
+                    'code': codes[0].get('code') if codes else code,
+                    'type': 'free_shipping'
+                }
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+
+        else:
+            # Percentage or fixed amount discount
+            mutation = """
+            mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
+                discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
+                    codeDiscountNode {
+                        id
+                        codeDiscount {
+                            ... on DiscountCodeBasic {
+                                title
+                                status
+                                codes(first: 1) {
+                                    nodes {
+                                        code
+                                    }
+                                }
+                                customerGets {
+                                    value {
+                                        ... on DiscountPercentage {
+                                            percentage
+                                        }
+                                        ... on DiscountAmount {
+                                            amount {
+                                                amount
+                                                currencyCode
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+
+            # Build customer gets value
+            if discount_type == 'percentage':
+                customer_gets_value = {
+                    'percentage': discount_value / 100  # Convert to decimal
+                }
+            else:
+                # Fixed amount
+                customer_gets_value = {
+                    'discountAmount': {
+                        'amount': str(discount_value),
+                        'appliesOnEachItem': False
+                    }
+                }
+
+            variables = {
+                'basicCodeDiscount': {
+                    'title': title,
+                    'code': code,
+                    'startsAt': starts_at.isoformat() + 'Z',
+                    'endsAt': ends_at.isoformat() + 'Z',
+                    'usageLimit': usage_limit,
+                    'customerSelection': customer_selection,
+                    'customerGets': {
+                        'value': customer_gets_value,
+                        'items': {
+                            'all': True
+                        }
+                    },
+                    'combinesWith': {
+                        'productDiscounts': False,
+                        'orderDiscounts': False,
+                        'shippingDiscounts': True
+                    }
+                }
+            }
+
+            if min_purchase:
+                variables['basicCodeDiscount']['minimumRequirement'] = {
+                    'subtotal': {
+                        'greaterThanOrEqualToSubtotal': str(min_purchase)
+                    }
+                }
+
+            try:
+                result = self._execute_query(mutation, variables)
+                data = result.get('discountCodeBasicCreate', {})
+                errors = data.get('userErrors', [])
+
+                if errors:
+                    return {'success': False, 'errors': errors}
+
+                node = data.get('codeDiscountNode', {})
+                discount = node.get('codeDiscount', {})
+                codes = discount.get('codes', {}).get('nodes', [])
+
+                return {
+                    'success': True,
+                    'discount_id': node.get('id'),
+                    'title': discount.get('title'),
+                    'code': codes[0].get('code') if codes else code,
+                    'type': discount_type,
+                    'value': discount_value
+                }
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+
     def delete_discount(self, discount_id: str) -> Dict[str, Any]:
         """Delete a discount by ID."""
         # Determine if it's automatic or code-based by the ID format

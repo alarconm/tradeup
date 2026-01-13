@@ -50,6 +50,66 @@ def get_template(template_id):
     })
 
 
+@email_bp.route('/templates/<template_id>', methods=['PUT'])
+@require_shopify_auth
+def update_template(template_id):
+    """
+    Update/customize an email template.
+
+    Request body:
+    {
+        "name": "Custom Welcome",
+        "subject": "Welcome to {{program_name}}!",
+        "body": "Hi {{member_name}}, ..."
+    }
+    """
+    tenant_id = request.tenant_id
+    data = request.get_json()
+
+    if not data.get('subject') or not data.get('body'):
+        return jsonify({'error': 'subject and body are required'}), 400
+
+    result = email_service.save_custom_template(
+        template_key=template_id,
+        tenant_id=tenant_id,
+        name=data.get('name', template_id),
+        subject=data['subject'],
+        body=data['body'],
+        category=data.get('category')
+    )
+
+    if result.get('success'):
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@email_bp.route('/templates/<template_id>/reset', methods=['POST'])
+@require_shopify_auth
+def reset_template(template_id):
+    """Reset a customized template back to the default."""
+    tenant_id = request.tenant_id
+
+    result = email_service.reset_template_to_default(template_id, tenant_id)
+
+    if result.get('success'):
+        # Return the default template
+        default_template = email_service.DEFAULT_TEMPLATES.get(template_id)
+        if default_template:
+            return jsonify({
+                'success': True,
+                'message': result.get('message'),
+                'template': {
+                    'id': template_id,
+                    **default_template,
+                    'is_custom': False,
+                }
+            })
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
 @email_bp.route('/preview', methods=['POST'])
 @require_shopify_auth
 def preview_template():
@@ -205,14 +265,21 @@ def send_test_email():
 @email_bp.route('/settings', methods=['GET'])
 @require_shopify_auth
 def get_email_settings():
-    """Get email notification settings for the tenant."""
-    tenant_id = request.tenant_id
+    """Get email notification settings for the tenant from database."""
+    from ..extensions import db
 
-    # Default settings - TODO: Store in database
-    settings = {
+    tenant_id = request.tenant_id
+    tenant = Tenant.query.get(tenant_id)
+
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    # Default settings
+    default_settings = {
         'enabled': True,
-        'from_name': 'TradeUp Rewards',
+        'from_name': tenant.shop_name or 'TradeUp Rewards',
         'from_email': 'noreply@tradeup.io',
+        'reply_to': '',
         'triggers': {
             'welcome': True,
             'trade_in_received': True,
@@ -227,19 +294,56 @@ def get_email_settings():
         },
     }
 
+    # Get stored settings from tenant.settings JSON
+    tenant_settings = tenant.settings or {}
+    email_settings = tenant_settings.get('email', {})
+
+    # Merge with defaults (stored settings override defaults)
+    settings = {**default_settings}
+    if email_settings:
+        settings['enabled'] = email_settings.get('enabled', default_settings['enabled'])
+        settings['from_name'] = email_settings.get('from_name', default_settings['from_name'])
+        settings['from_email'] = email_settings.get('from_email', default_settings['from_email'])
+        settings['reply_to'] = email_settings.get('reply_to', default_settings['reply_to'])
+        # Merge triggers
+        stored_triggers = email_settings.get('triggers', {})
+        settings['triggers'] = {**default_settings['triggers'], **stored_triggers}
+
     return jsonify(settings)
 
 
 @email_bp.route('/settings', methods=['PUT'])
 @require_shopify_auth
 def update_email_settings():
-    """Update email notification settings."""
+    """Update email notification settings and persist to database."""
+    from ..extensions import db
+
     tenant_id = request.tenant_id
     data = request.get_json()
 
-    # TODO: Store in database
-    # For now, just return success
+    tenant = Tenant.query.get(tenant_id)
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    # Initialize settings if not exists
+    if tenant.settings is None:
+        tenant.settings = {}
+
+    # Update email settings in tenant.settings JSON
+    email_settings = {
+        'enabled': data.get('enabled', True),
+        'from_name': data.get('from_name', tenant.shop_name or 'TradeUp Rewards'),
+        'from_email': data.get('from_email', 'noreply@tradeup.io'),
+        'reply_to': data.get('reply_to', ''),
+        'triggers': data.get('triggers', {}),
+    }
+
+    # Store in tenant settings
+    tenant.settings = {**tenant.settings, 'email': email_settings}
+    db.session.commit()
+
     return jsonify({
         'success': True,
         'message': 'Email settings updated',
+        'settings': email_settings,
     })

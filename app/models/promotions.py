@@ -680,3 +680,145 @@ def seed_tier_configurations():
         # Table may not exist yet - that's ok, will be created by migration
         db.session.rollback()
         print(f"[Promotions] Could not seed tier configurations: {e}")
+
+
+# ==================== Store Credit Events ====================
+
+class StoreCreditEventStatus(str, Enum):
+    """Status of a store credit event."""
+    DRAFT = 'draft'            # Created but not executed
+    PENDING = 'pending'        # Queued for execution
+    RUNNING = 'running'        # Currently executing
+    COMPLETED = 'completed'    # Successfully completed
+    FAILED = 'failed'          # Failed during execution
+    CANCELLED = 'cancelled'    # Cancelled by user
+
+
+class StoreCreditEvent(db.Model):
+    """
+    Persisted store credit event for bulk credit operations.
+
+    Stores event configuration, execution results, and audit trail.
+    Replaces in-memory storage in StoreCreditEventService.
+    """
+    __tablename__ = 'store_credit_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)
+
+    # Event identification
+    event_uuid = db.Column(db.String(36), unique=True, nullable=False, index=True)  # UUID for external reference
+
+    # Basic info
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+    # Credit configuration
+    credit_amount = db.Column(db.Numeric(10, 2), nullable=False)  # Flat amount per customer
+    credit_percent = db.Column(db.Numeric(5, 2))  # Optional percentage-based credit
+
+    # Filters (stored as JSON)
+    filters = db.Column(db.Text)  # JSON: {date_range, sources, collections, product_tags, customer_tags, tiers, min_spend}
+
+    # Date range for order-based events
+    date_range_start = db.Column(db.DateTime)
+    date_range_end = db.Column(db.DateTime)
+
+    # Execution status
+    status = db.Column(db.String(20), default='draft', index=True)  # StoreCreditEventStatus
+
+    # Execution results
+    customers_targeted = db.Column(db.Integer, default=0)     # Total customers matching filters
+    customers_processed = db.Column(db.Integer, default=0)    # Successfully processed
+    customers_skipped = db.Column(db.Integer, default=0)      # Skipped (already received, etc.)
+    customers_failed = db.Column(db.Integer, default=0)       # Failed to credit
+
+    total_credit_amount = db.Column(db.Numeric(12, 2), default=0)  # Total credits issued
+
+    # Execution details (stored as JSON for detailed tracking)
+    execution_results = db.Column(db.Text)  # JSON array of individual results
+
+    # Idempotency
+    idempotency_tag = db.Column(db.String(100))  # Tag added to customers to prevent duplicate credits
+
+    # Error tracking
+    error_message = db.Column(db.Text)
+
+    # Expiration (optional)
+    credit_expires_at = db.Column(db.DateTime)  # When issued credits expire
+
+    # Audit trail
+    created_by = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    executed_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<StoreCreditEvent {self.event_uuid}: {self.name}>'
+
+    @property
+    def filters_dict(self) -> Dict[str, Any]:
+        """Parse filters JSON to dictionary."""
+        import json
+        if not self.filters:
+            return {}
+        try:
+            return json.loads(self.filters)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    @filters_dict.setter
+    def filters_dict(self, value: Dict[str, Any]):
+        """Set filters from dictionary."""
+        import json
+        self.filters = json.dumps(value) if value else None
+
+    @property
+    def execution_results_list(self) -> List[Dict[str, Any]]:
+        """Parse execution results JSON to list."""
+        import json
+        if not self.execution_results:
+            return []
+        try:
+            return json.loads(self.execution_results)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @execution_results_list.setter
+    def execution_results_list(self, value: List[Dict[str, Any]]):
+        """Set execution results from list."""
+        import json
+        self.execution_results = json.dumps(value) if value else None
+
+    def to_dict(self, include_results: bool = False) -> Dict[str, Any]:
+        """Serialize event to dictionary."""
+        result = {
+            'id': self.id,
+            'event_uuid': self.event_uuid,
+            'name': self.name,
+            'description': self.description,
+            'credit_amount': float(self.credit_amount) if self.credit_amount else 0,
+            'credit_percent': float(self.credit_percent) if self.credit_percent else None,
+            'filters': self.filters_dict,
+            'date_range_start': self.date_range_start.isoformat() if self.date_range_start else None,
+            'date_range_end': self.date_range_end.isoformat() if self.date_range_end else None,
+            'status': self.status,
+            'customers_targeted': self.customers_targeted,
+            'customers_processed': self.customers_processed,
+            'customers_skipped': self.customers_skipped,
+            'customers_failed': self.customers_failed,
+            'total_credit_amount': float(self.total_credit_amount) if self.total_credit_amount else 0,
+            'idempotency_tag': self.idempotency_tag,
+            'credit_expires_at': self.credit_expires_at.isoformat() if self.credit_expires_at else None,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'executed_at': self.executed_at.isoformat() if self.executed_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+        if include_results:
+            result['execution_results'] = self.execution_results_list
+            result['error_message'] = self.error_message
+
+        return result

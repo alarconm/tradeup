@@ -492,6 +492,7 @@ def redeem_reward(reward_id):
     try:
         # Generate discount code if applicable
         discount_code = None
+        shopify_discount_id = None
         if reward.reward_type in ['discount', 'store_credit', 'free_shipping']:
             import secrets
             import string
@@ -499,8 +500,42 @@ def redeem_reward(reward_id):
             random_part = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
             discount_code = f"{prefix}-{random_part}"
 
-            # TODO: Create discount code in Shopify via GraphQL
-            # This would call ShopifyClient.create_discount_code()
+            # Create discount code in Shopify via GraphQL
+            try:
+                from ..services.shopify_client import ShopifyClient
+                shopify_client = ShopifyClient(tenant_id)
+
+                # Determine discount value and type
+                if reward.reward_type == 'free_shipping':
+                    # Create free shipping discount
+                    shopify_result = shopify_client.create_reward_discount_code(
+                        code=discount_code,
+                        title=f"Reward: {reward.name}",
+                        discount_type='free_shipping',
+                        usage_limit=1,  # Single use
+                        customer_id=member.shopify_customer_id
+                    )
+                else:
+                    # Create percentage or fixed amount discount
+                    shopify_result = shopify_client.create_reward_discount_code(
+                        code=discount_code,
+                        title=f"Reward: {reward.name}",
+                        discount_type=reward.discount_type or 'fixed',
+                        discount_value=float(reward.reward_value) if reward.reward_value else 0,
+                        min_purchase=float(reward.min_purchase_amount) if reward.min_purchase_amount else None,
+                        usage_limit=1,  # Single use
+                        customer_id=member.shopify_customer_id
+                    )
+
+                if shopify_result.get('success'):
+                    shopify_discount_id = shopify_result.get('discount_id')
+                    current_app.logger.info(f"Created Shopify discount code {discount_code} for reward {reward.name}")
+                else:
+                    current_app.logger.warning(f"Failed to create Shopify discount: {shopify_result.get('error')}")
+                    # Continue anyway - member still gets the code, it just won't work in Shopify
+            except Exception as e:
+                current_app.logger.error(f"Error creating Shopify discount code: {e}")
+                # Continue with local discount code - merchant can manually create if needed
 
         # Create points deduction transaction
         points_transaction = PointsTransaction(

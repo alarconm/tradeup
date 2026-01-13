@@ -323,24 +323,184 @@ The TradeUp Team
     def get_template(self, template_key: str, tenant_id: int) -> Optional[Dict[str, Any]]:
         """
         Get an email template by key.
-        First checks for custom tenant template, falls back to default.
+        First checks for custom tenant template in database, falls back to default.
         """
-        # TODO: Check for custom template in database
-        # For now, return default template
+        # Check for custom template in tenant settings
+        custom_template = self._get_custom_template(template_key, tenant_id)
+        if custom_template:
+            return custom_template
+
+        # Fall back to default template
         return self.DEFAULT_TEMPLATES.get(template_key)
 
+    def _get_custom_template(self, template_key: str, tenant_id: int) -> Optional[Dict[str, Any]]:
+        """Get a custom template from the database if it exists."""
+        try:
+            from flask import has_app_context
+            if not has_app_context():
+                return None
+
+            from ..models.tenant import Tenant
+            tenant = Tenant.query.get(tenant_id)
+            if not tenant or not tenant.settings:
+                return None
+
+            # Custom templates stored in tenant.settings['email_templates'][template_key]
+            email_templates = tenant.settings.get('email_templates', {})
+            custom = email_templates.get(template_key)
+
+            if custom:
+                # Merge with default to ensure all required fields exist
+                default = self.DEFAULT_TEMPLATES.get(template_key, {})
+                return {
+                    'name': custom.get('name', default.get('name', template_key)),
+                    'subject': custom.get('subject', default.get('subject', '')),
+                    'body': custom.get('body', default.get('body', '')),
+                    'category': custom.get('category', default.get('category', 'general')),
+                    'is_custom': True,
+                }
+            return None
+        except Exception:
+            return None
+
+    def save_custom_template(
+        self,
+        template_key: str,
+        tenant_id: int,
+        name: str,
+        subject: str,
+        body: str,
+        category: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Save a custom email template for a tenant.
+
+        Args:
+            template_key: Template identifier (e.g., 'welcome', 'trade_in_approved')
+            tenant_id: Tenant ID
+            name: Display name for the template
+            subject: Email subject (supports {{variable}} placeholders)
+            body: Email body (supports {{variable}} placeholders)
+            category: Optional category for grouping
+
+        Returns:
+            Dict with success status and the saved template
+        """
+        try:
+            from ..models.tenant import Tenant
+            from ..extensions import db
+
+            tenant = Tenant.query.get(tenant_id)
+            if not tenant:
+                return {'success': False, 'error': 'Tenant not found'}
+
+            # Initialize settings if needed
+            if tenant.settings is None:
+                tenant.settings = {}
+
+            # Initialize email_templates if needed
+            if 'email_templates' not in tenant.settings:
+                tenant.settings = {**tenant.settings, 'email_templates': {}}
+
+            # Get default category if not provided
+            if not category:
+                default = self.DEFAULT_TEMPLATES.get(template_key, {})
+                category = default.get('category', 'general')
+
+            # Save the custom template
+            email_templates = tenant.settings.get('email_templates', {})
+            email_templates[template_key] = {
+                'name': name,
+                'subject': subject,
+                'body': body,
+                'category': category,
+                'updated_at': datetime.utcnow().isoformat(),
+            }
+
+            tenant.settings = {**tenant.settings, 'email_templates': email_templates}
+            db.session.commit()
+
+            return {
+                'success': True,
+                'template': {
+                    'id': template_key,
+                    **email_templates[template_key],
+                    'is_custom': True,
+                }
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def reset_template_to_default(self, template_key: str, tenant_id: int) -> Dict[str, Any]:
+        """
+        Reset a custom template back to the default.
+
+        Args:
+            template_key: Template identifier
+            tenant_id: Tenant ID
+
+        Returns:
+            Dict with success status
+        """
+        try:
+            from ..models.tenant import Tenant
+            from ..extensions import db
+
+            tenant = Tenant.query.get(tenant_id)
+            if not tenant or not tenant.settings:
+                return {'success': True, 'message': 'No custom template to reset'}
+
+            email_templates = tenant.settings.get('email_templates', {})
+            if template_key in email_templates:
+                del email_templates[template_key]
+                tenant.settings = {**tenant.settings, 'email_templates': email_templates}
+                db.session.commit()
+
+            return {'success': True, 'message': f'Template {template_key} reset to default'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
     def get_all_templates(self, tenant_id: int) -> List[Dict[str, Any]]:
-        """Get all available email templates for a tenant."""
+        """Get all available email templates for a tenant, with custom overrides."""
         templates = []
+
+        # Get custom templates from database
+        custom_templates = {}
+        try:
+            from flask import has_app_context
+            if has_app_context():
+                from ..models.tenant import Tenant
+                tenant = Tenant.query.get(tenant_id)
+                if tenant and tenant.settings:
+                    custom_templates = tenant.settings.get('email_templates', {})
+        except Exception:
+            pass
+
+        # Build template list with custom overrides
         for key, template in self.DEFAULT_TEMPLATES.items():
-            templates.append({
-                'id': key,
-                'name': template['name'],
-                'subject': template['subject'],
-                'body': template['body'],
-                'category': template['category'],
-                'is_custom': False,
-            })
+            if key in custom_templates:
+                # Use custom template
+                custom = custom_templates[key]
+                templates.append({
+                    'id': key,
+                    'name': custom.get('name', template['name']),
+                    'subject': custom.get('subject', template['subject']),
+                    'body': custom.get('body', template['body']),
+                    'category': custom.get('category', template['category']),
+                    'is_custom': True,
+                    'updated_at': custom.get('updated_at'),
+                })
+            else:
+                # Use default template
+                templates.append({
+                    'id': key,
+                    'name': template['name'],
+                    'subject': template['subject'],
+                    'body': template['body'],
+                    'category': template['category'],
+                    'is_custom': False,
+                })
+
         return templates
 
     def render_template(self, template: Dict[str, Any], data: Dict[str, Any]) -> Dict[str, str]:
