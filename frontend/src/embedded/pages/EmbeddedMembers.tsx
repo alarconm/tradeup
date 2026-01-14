@@ -141,6 +141,18 @@ function useIsMobile(breakpoint: number = 768) {
   return isMobile;
 }
 
+// Custom hook for debouncing a value
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function EmbeddedMembers({ shop }: MembersProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -151,10 +163,15 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  // Debounce search to prevent too many API calls
+  const debouncedSearch = useDebouncedValue(search, 300);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['members', shop, page, search, selectedTier[0]],
-    queryFn: () => fetchMembers(shop, page, search, selectedTier[0] || ''),
+    queryKey: ['members', shop, page, debouncedSearch, selectedTier[0]],
+    queryFn: () => fetchMembers(shop, page, debouncedSearch, selectedTier[0] || ''),
     enabled: !!shop,
+    retry: 1, // Only retry once on failure
+    staleTime: 10000, // Cache for 10 seconds
   });
 
   // Fetch tiers for filter dropdown
