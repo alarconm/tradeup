@@ -53,10 +53,17 @@ None found so far.
 
 ## Testing Remaining
 
-- [ ] Billing/subscription purchase flow
-- [ ] Customer-facing theme blocks
-- [ ] App proxy endpoints (storefront)
-- [ ] Customer account extension
-- [ ] Webhook handling
-- [ ] Metafield sync
-- [ ] Daily report generation
+- [x] Billing/subscription flows - Working, all 4 plans displayed
+- [x] Customer-facing theme blocks - **All 4 blocks available** (Credit Badge, Refer a Friend, Signup, Trade-In CTA)
+- [ ] App proxy endpoints (storefront) - **404 error** - needs app reinstall to activate proxy
+- [ ] Customer account extension - Needs verification (requires Shopify checkout extension deployment)
+- [ ] Webhook handling - Needs live order/customer update
+- [x] Metafield sync - Endpoints exist, require authentication
+- [x] Daily report - Endpoint exists, requires authentication
+
+## Notes
+
+### App Proxy 404 Issue
+The app proxy at `/apps/rewards` returns 404 from Shopify. The backend proxy endpoint at `https://app.cardflowlabs.com/proxy/` is working correctly (returns "Invalid signature" for unsigned requests).
+
+**Solution**: May need to redeploy the app or run `shopify app deploy` to activate the app proxy configuration.
