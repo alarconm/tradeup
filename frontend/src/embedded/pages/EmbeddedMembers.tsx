@@ -163,15 +163,16 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // Debounce search to prevent too many API calls
-  const debouncedSearch = useDebouncedValue(search, 300);
+  // Fast debounce for instant search feel (like Shopify POS)
+  const debouncedSearch = useDebouncedValue(search, 150);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ['members', shop, page, debouncedSearch, selectedTier[0]],
     queryFn: () => fetchMembers(shop, page, debouncedSearch, selectedTier[0] || ''),
     enabled: !!shop,
-    retry: 1, // Only retry once on failure
-    staleTime: 10000, // Cache for 10 seconds
+    retry: 1,
+    staleTime: 5000, // Short cache for fresh results
+    placeholderData: (previousData) => previousData, // Keep showing previous results while loading
   });
 
   // Fetch tiers for filter dropdown
@@ -314,7 +315,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       </TitleBar>
       <Page
         title="Members"
-        subtitle={`${data?.total || 0} total members`}
+        subtitle={isFetching && search ? `Searching...` : `${data?.total || 0} total members`}
         primaryAction={{
           content: 'Add Member',
           icon: PlusIcon,
