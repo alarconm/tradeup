@@ -660,7 +660,7 @@ def suspend_member(member_id):
     """
     tenant_id = g.tenant_id
     member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     if member.status == 'suspended':
         return jsonify({'error': 'Member is already suspended'}), 400
@@ -703,7 +703,7 @@ def reactivate_member(member_id):
     """
     tenant_id = g.tenant_id
     member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     # Allow reactivation from suspended, paused, or expired status
     if member.status not in ('suspended', 'paused', 'expired'):
@@ -751,7 +751,7 @@ def cancel_member(member_id):
     from datetime import date
     tenant_id = g.tenant_id
     member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     if member.status == 'cancelled':
         return jsonify({'error': 'Member is already cancelled'}), 400
