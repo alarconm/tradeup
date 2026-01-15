@@ -274,6 +274,8 @@ export default function SupportChatWidget({
 
 /**
  * Floating support button that opens the widget
+ * - On desktop: Full "Help" button at bottom-right
+ * - On mobile: Icon-only button moved higher to avoid overlapping content
  */
 export function SupportButton({
   shopDomain,
@@ -281,24 +283,61 @@ export function SupportButton({
   plan,
 }: Omit<SupportChatWidgetProps, 'onClose'>) {
   const [showWidget, setShowWidget] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  // Listen for window resize to toggle mobile view
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <>
       <div
         style={{
           position: 'fixed',
-          bottom: '20px',
-          right: '20px',
+          // On mobile: move higher (100px from bottom) to avoid overlapping content
+          // On desktop: standard 20px from bottom
+          bottom: isMobile ? '100px' : '20px',
+          right: isMobile ? '16px' : '20px',
           zIndex: 1000,
         }}
       >
-        <Button
-          icon={ChatIcon}
-          onClick={() => setShowWidget(true)}
-          variant="primary"
-        >
-          Help
-        </Button>
+        {isMobile ? (
+          // Mobile: Icon-only circular button to save space
+          <button
+            onClick={() => setShowWidget(true)}
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              backgroundColor: '#2c6ecb',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+            }}
+            aria-label="Open help"
+          >
+            <span style={{ color: 'white', display: 'flex' }}>
+              <Icon source={ChatIcon} />
+            </span>
+          </button>
+        ) : (
+          // Desktop: Full button with text
+          <Button
+            icon={ChatIcon}
+            onClick={() => setShowWidget(true)}
+            variant="primary"
+          >
+            Help
+          </Button>
+        )}
       </div>
 
       {showWidget && (
