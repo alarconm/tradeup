@@ -36,6 +36,7 @@ import { EmbeddedBenchmarks } from './pages/EmbeddedBenchmarks';
 import { EmbeddedGamification } from './pages/EmbeddedGamification';
 import { EmbeddedPageBuilder } from './pages/EmbeddedPageBuilder';
 import { EmbeddedWidgetBuilder } from './pages/EmbeddedWidgetBuilder';
+import { EmbeddedStoreCreditEvents } from './pages/EmbeddedStoreCreditEvents';
 
 // Components
 import { SupportButton } from './components/SupportChatWidget';
@@ -80,6 +81,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Link to="/app/dashboard" rel="home">Dashboard</Link>
         <Link to="/app/members">Members</Link>
         <Link to="/app/trade-ins">Trade-Ins</Link>
+        <Link to="/app/bonus-events">Bonus Events</Link>
         {showAdvanced && <Link to="/app/promotions">Promotions</Link>}
         {showAdvanced && <Link to="/app/cashback">Cashback</Link>}
         {showAdvanced && <Link to="/app/points">Points & Rewards</Link>}
@@ -100,6 +102,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         {/* Legacy routes redirect to new ledger */}
         <Route path="/trade-ins/new" element={<Navigate to="/app/trade-ins" replace />} />
         <Route path="/trade-ins/categories" element={<Navigate to="/app/trade-ins" replace />} />
+        <Route path="/bonus-events" element={<EmbeddedStoreCreditEvents shop={shop} />} />
         <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
         <Route path="/cashback" element={<EmbeddedCashback shop={shop} />} />
         <Route path="/points" element={<EmbeddedPoints shop={shop} />} />
