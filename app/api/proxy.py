@@ -1082,11 +1082,15 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
     - Social sharing buttons
     - Strong CTA to shop
     """
+    # Pre-format reward amounts to avoid f-string issues
+    referee_reward_str = f"${referee_reward:.0f}"
+    referrer_reward_str = f"${referrer_reward:.0f}"
+
     # Get customization from config or use defaults
     headline = page_config.get('headline', f'{referrer_name} sent you a gift!')
     description = page_config.get('description',
-        f'Shop now and get {dollar}{referee_reward:.0f} off your first order. '
-        f'{referrer_name} will get {dollar}{referrer_reward:.0f} too!')
+        f'Shop now and get {referee_reward_str} off your first order. '
+        f'{referrer_name} will get {referrer_reward_str} too!')
     background_color = page_config.get('background_color', '#6366f1')
     cta_text = page_config.get('cta_text', 'Shop Now')
 
@@ -1099,17 +1103,14 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         description = "This referral code doesn't seem to be valid. Check with your friend for the correct link!"
         cta_text = 'Browse Store'
 
-    # Dollar sign for f-string formatting (avoid nested f-string issues)
-    dollar = "$"
-
     html = f'''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>You're Invited! - Get {dollar}{referee_reward:.0f} Off</title>
+    <title>You're Invited! - Get {referee_reward_str} Off</title>
     <meta property="og:title" content="{referrer_name} sent you a gift!">
-    <meta property="og:description" content="Get {dollar}{referee_reward:.0f} off your first order">
+    <meta property="og:description" content="Get {referee_reward_str} off your first order">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <style>
@@ -1306,12 +1307,12 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         {'<div class="rewards-display">' if valid_code else ''}
         {f'''
             <div class="reward-item">
-                <span class="reward-amount">{dollar}{referee_reward:.0f}</span>
+                <span class="reward-amount">{referee_reward_str}</span>
                 <span class="reward-label">for you</span>
             </div>
             <div class="reward-divider">+</div>
             <div class="reward-item">
-                <span class="reward-amount">{dollar}{referrer_reward:.0f}</span>
+                <span class="reward-amount">{referrer_reward_str}</span>
                 <span class="reward-label">for {referrer_name}</span>
             </div>
         ''' if valid_code else ''}
@@ -1335,9 +1336,9 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         {'<div class="social-share">' if valid_code else ''}
         {f'''
             <a href="https://www.facebook.com/sharer/sharer.php?u={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-facebook" title="Share on Facebook">f</a>
-            <a href="https://twitter.com/intent/tweet?text=Get%20{dollar}{referee_reward:.0f}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
-            <a href="https://wa.me/?text=Get%20{dollar}{referee_reward:.0f}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
-            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{dollar}{referee_reward:.0f}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
+            <a href="https://twitter.com/intent/tweet?text=Get%20{referee_reward_str}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
+            <a href="https://wa.me/?text=Get%20{referee_reward_str}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
+            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{referee_reward_str}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
         ''' if valid_code else ''}
         {'</div>' if valid_code else ''}
     </div>
