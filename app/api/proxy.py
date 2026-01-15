@@ -62,7 +62,7 @@ def get_tenant_from_shop(shop_domain: str):
     """Get tenant from shop domain."""
     if not shop_domain:
         return None
-    return Tenant.query.filter_by(shop_domain=shop_domain).first()
+    return Tenant.query.filter_by(shopify_domain=shop_domain).first()
 
 
 def get_customer_member(tenant_id: int):
