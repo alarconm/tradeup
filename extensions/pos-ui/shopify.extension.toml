@@ -1,0 +1,35 @@
+# TradeUp Loyalty - POS Extension
+# https://shopify.dev/docs/api/pos-ui-extensions
+# Look up members, check balances, and issue credit from POS terminal
+
+api_version = "2025-01"
+
+[[extensions]]
+type = "pos_ui_extension"
+name = "TradeUp Loyalty"
+handle = "tradeup-pos"
+
+[[extensions.targeting]]
+target = "pos.home.tile.render"
+module = "./src/SmartGridTile.tsx"
+
+[[extensions.targeting]]
+target = "pos.home.modal.render"
+module = "./src/MemberModal.tsx"
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+
+[extensions.settings]
+[[extensions.settings.fields]]
+key = "enable_quick_credit"
+type = "boolean"
+name = "Enable Quick Credit"
+description = "Allow staff to quickly issue small amounts of store credit"
+
+[[extensions.settings.fields]]
+key = "quick_credit_limit"
+type = "number_integer"
+name = "Quick Credit Limit"
+description = "Maximum credit amount staff can issue without approval"

@@ -29,6 +29,7 @@ import {
   List,
   Thumbnail,
   Divider,
+  Icon,
 } from '@shopify/polaris';
 import { ExportIcon, EmailIcon, PlusIcon, SearchIcon, ImportIcon } from '@shopify/polaris-icons';
 import { TitleBar } from '@shopify/app-bridge-react';
@@ -1512,8 +1513,10 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
   const [selectedTierId, setSelectedTierId] = useState<string>('');
   const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
   const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Instant search with fast debounce (like Shopify POS)
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 150);
 
   // Create new customer mode
   const [createNewMode, setCreateNewMode] = useState(false);
@@ -1534,27 +1537,34 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     enabled: !!shop && open,
   });
 
-  // Search Shopify customers
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery || searchQuery.length < 2) return;
-
-    setSearching(true);
-    setHasSearched(true);
-    try {
-      const response = await authFetch(
-        `${getApiUrl()}/members/search-shopify?q=${encodeURIComponent(searchQuery)}`,
-        shop
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.customers || []);
+  // Instant search triggered by debounced query (like Shopify POS)
+  useEffect(() => {
+    const searchCustomers = async () => {
+      // Only search if we have at least 2 characters
+      if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
+        setSearchResults([]);
+        return;
       }
-    } catch (err) {
-      console.error('Search failed:', err);
-    } finally {
-      setSearching(false);
-    }
-  }, [searchQuery, shop]);
+
+      setSearching(true);
+      try {
+        const response = await authFetch(
+          `${getApiUrl()}/members/search-shopify?q=${encodeURIComponent(debouncedSearchQuery)}`,
+          shop
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.customers || []);
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    searchCustomers();
+  }, [debouncedSearchQuery, shop]);
 
   // Enroll existing customer as member
   const enrollMutation = useMutation({
@@ -1614,7 +1624,6 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     setSelectedCustomer(null);
     setSelectedTierId('');
     setSearchResults([]);
-    setHasSearched(false);
     setSuccess(false);
     setCreateNewMode(false);
     setNewEmail('');
@@ -1775,13 +1784,18 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                 <Text as="p" tone="subdued">
                   {selectedCustomer.email}
                 </Text>
-                <InlineStack gap="400">
+                <InlineStack gap="400" wrap>
                   <Text as="span" variant="bodySm">
                     {selectedCustomer.numberOfOrders || selectedCustomer.ordersCount || 0} orders
                   </Text>
                   <Text as="span" variant="bodySm">
-                    ${selectedCustomer.amountSpent || selectedCustomer.totalSpent || 0} spent
+                    ${Number(selectedCustomer.amountSpent || selectedCustomer.totalSpent || 0).toFixed(2)} spent
                   </Text>
+                  {(selectedCustomer.storeCredit ?? 0) > 0 && (
+                    <Badge tone="info" size="small">
+                      {`$${Number(selectedCustomer.storeCredit).toFixed(2)} store credit`}
+                    </Badge>
+                  )}
                 </InlineStack>
               </BlockStack>
             </Card>
@@ -1798,27 +1812,19 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
       ) : (
         <Modal.Section>
           <BlockStack gap="400">
-            <InlineStack gap="200">
-              <div style={{ flex: 1 }}>
-                <TextField
-                  label="Search Shopify Customers"
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Search by name or email..."
-                  autoComplete="off"
-                  onBlur={() => {}}
-                  connectedRight={
-                    <Button
-                      onClick={handleSearch}
-                      loading={searching}
-                      icon={SearchIcon}
-                    >
-                      Search
-                    </Button>
-                  }
-                />
-              </div>
-            </InlineStack>
+            <TextField
+              label="Search Shopify Customers"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Type to search by name, email, or phone..."
+              autoComplete="off"
+              autoFocus
+              clearButton
+              onClearButtonClick={() => setSearchQuery('')}
+              prefix={<Icon source={SearchIcon} />}
+              suffix={searching ? <Spinner size="small" /> : null}
+              helpText={searchQuery.length > 0 && searchQuery.length < 2 ? "Type at least 2 characters" : undefined}
+            />
 
             {searchResults.length > 0 ? (
               <BlockStack gap="200">
@@ -1854,12 +1860,19 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                         </Text>
                       </BlockStack>
                       <BlockStack gap="050" inlineAlign="end">
-                        <Text as="span" variant="bodySm">
-                          {customer.numberOfOrders || customer.ordersCount || 0} orders
-                        </Text>
-                        <Text as="span" variant="bodySm" tone="subdued">
-                          ${customer.amountSpent || customer.totalSpent || 0}
-                        </Text>
+                        <InlineStack gap="200">
+                          <Text as="span" variant="bodySm">
+                            {customer.numberOfOrders || customer.ordersCount || 0} orders
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            ${Number(customer.amountSpent || customer.totalSpent || 0).toFixed(2)} spent
+                          </Text>
+                        </InlineStack>
+                        {(customer.storeCredit ?? 0) > 0 && (
+                          <Badge tone="info" size="small">
+                            {`$${Number(customer.storeCredit).toFixed(2)} credit`}
+                          </Badge>
+                        )}
                       </BlockStack>
                     </InlineStack>
                     </Box>
@@ -1874,10 +1887,10 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                   Or create a new customer
                 </Button>
               </BlockStack>
-            ) : hasSearched && !searching ? (
+            ) : debouncedSearchQuery.length >= 2 && !searching ? (
               <BlockStack gap="300">
                 <Banner tone="info">
-                  <Text as="p">No customers found matching "{searchQuery}"</Text>
+                  <Text as="p">No customers found matching "{debouncedSearchQuery}"</Text>
                 </Banner>
                 <Button
                   variant="primary"
@@ -1896,7 +1909,14 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
             ) : (
               <BlockStack gap="300">
                 <Text as="p" tone="subdued" alignment="center">
-                  Search for a Shopify customer to enroll as a member, or create a new customer.
+                  {searching ? (
+                    <InlineStack gap="200" align="center">
+                      <Spinner size="small" />
+                      <span>Searching...</span>
+                    </InlineStack>
+                  ) : (
+                    'Start typing to search for Shopify customers, or create a new customer.'
+                  )}
                 </Text>
                 <Button
                   variant="plain"

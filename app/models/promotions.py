@@ -44,6 +44,7 @@ class CreditEventType(str, Enum):
     REFERRAL = 'referral'             # Referral bonus
     REDEMPTION = 'redemption'         # Used credit (negative)
     EXPIRATION = 'expiration'         # Expired credit (negative)
+    BIRTHDAY_REWARD = 'birthday'      # Birthday reward
 
 
 # ==================== Tier Cashback Configuration ====================

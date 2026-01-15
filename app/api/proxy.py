@@ -167,6 +167,72 @@ def rewards_page():
     return Response(html, mimetype='text/html')
 
 
+@proxy_bp.route('/refer/<code>', methods=['GET'])
+def referral_landing_page(code):
+    """
+    Dedicated referral landing page.
+    Accessible at: store.myshopify.com/apps/rewards/refer/ABC123
+
+    Shows personalized referral page with:
+    - Referrer's name (first name only for privacy)
+    - What the new customer gets
+    - What the referrer gets
+    - CTA to shop now
+    """
+    # Verify signature in production
+    if os.getenv('FLASK_ENV') == 'production':
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            return Response('Invalid signature', status=401)
+    else:
+        shop = request.args.get('shop', '')
+
+    tenant = get_tenant_from_shop(shop)
+    if not tenant:
+        return Response('Store not found', status=404)
+
+    # Find the referrer by code
+    referrer = Member.query.filter_by(
+        tenant_id=tenant.id,
+        referral_code=code.upper()
+    ).first()
+
+    # Get referral program settings
+    referral_program = ReferralProgram.query.filter_by(
+        tenant_id=tenant.id,
+        is_active=True
+    ).first()
+
+    # Get page customization from tenant settings
+    page_config = {}
+    if tenant.settings and 'referral_page' in tenant.settings:
+        page_config = tenant.settings['referral_page']
+
+    # Default values
+    referrer_name = 'a friend'
+    if referrer and referrer.name:
+        referrer_name = referrer.name.split()[0]  # First name only
+
+    referrer_reward = 10
+    referee_reward = 10
+    if referral_program:
+        referrer_reward = float(referral_program.referrer_reward_amount or 10)
+        referee_reward = float(referral_program.referred_reward_amount or 10)
+
+    html = render_referral_landing_page(
+        shop=shop,
+        tenant=tenant,
+        code=code,
+        referrer_name=referrer_name,
+        referrer_reward=referrer_reward,
+        referee_reward=referee_reward,
+        valid_code=referrer is not None,
+        page_config=page_config
+    )
+
+    return Response(html, mimetype='text/html')
+
+
 @proxy_bp.route('/balance', methods=['GET'])
 def get_balance():
     """
@@ -1000,5 +1066,277 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
 </body>
 </html>
 '''
+
+    return html
+
+
+def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_reward, referee_reward, valid_code, page_config):
+    """
+    Render a dedicated referral landing page.
+
+    Features:
+    - Personalized greeting with referrer's name
+    - Clear value proposition (what both parties get)
+    - Social sharing buttons
+    - Strong CTA to shop
+    """
+    # Get customization from config or use defaults
+    headline = page_config.get('headline', f'{referrer_name} sent you a gift!')
+    description = page_config.get('description',
+        f'Shop now and get ${referee_reward:.0f} off your first order. '
+        f'{referrer_name} will get ${referrer_reward:.0f} too!')
+    background_color = page_config.get('background_color', '#6366f1')
+    cta_text = page_config.get('cta_text', 'Shop Now')
+
+    # Build the shop URL
+    shop_url = f'https://{shop}' if shop else '/'
+
+    # Error state for invalid codes
+    if not valid_code:
+        headline = 'Oops! Code Not Found'
+        description = "This referral code doesn't seem to be valid. Check with your friend for the correct link!"
+        cta_text = 'Browse Store'
+
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>You're Invited! - Get ${referee_reward:.0f} Off</title>
+    <meta property="og:title" content="{referrer_name} sent you a gift!">
+    <meta property="og:description" content="Get ${referee_reward:.0f} off your first order">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <style>
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }}
+
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, {background_color} 0%, #4f46e5 100%);
+            padding: 20px;
+        }}
+
+        .referral-container {{
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+            text-align: center;
+        }}
+
+        .referral-header {{
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            padding: 40px 30px;
+            color: #1f2937;
+        }}
+
+        .gift-icon {{
+            font-size: 4rem;
+            margin-bottom: 16px;
+            display: block;
+        }}
+
+        .referral-header h1 {{
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            line-height: 1.2;
+        }}
+
+        .referral-header p {{
+            font-size: 1.125rem;
+            opacity: 0.9;
+        }}
+
+        .rewards-display {{
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 40px 30px;
+            background: #f9fafb;
+        }}
+
+        .reward-item {{
+            text-align: center;
+        }}
+
+        .reward-amount {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #059669;
+            display: block;
+        }}
+
+        .reward-label {{
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 4px;
+        }}
+
+        .reward-divider {{
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            color: #d1d5db;
+        }}
+
+        .referral-body {{
+            padding: 30px;
+        }}
+
+        .cta-button {{
+            display: inline-block;
+            background: linear-gradient(135deg, {background_color} 0%, #4f46e5 100%);
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 600;
+            padding: 16px 48px;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }}
+
+        .cta-button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }}
+
+        .referral-code-display {{
+            background: #f3f4f6;
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }}
+
+        .referral-code-label {{
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+
+        .referral-code-value {{
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            font-family: monospace;
+        }}
+
+        .terms {{
+            font-size: 0.75rem;
+            color: #9ca3af;
+            line-height: 1.5;
+        }}
+
+        .social-share {{
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 20px 30px;
+            border-top: 1px solid #e5e7eb;
+        }}
+
+        .social-btn {{
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: white;
+            font-size: 1.25rem;
+            transition: transform 0.2s;
+        }}
+
+        .social-btn:hover {{
+            transform: scale(1.1);
+        }}
+
+        .social-facebook {{ background: #1877f2; }}
+        .social-twitter {{ background: #1da1f2; }}
+        .social-whatsapp {{ background: #25d366; }}
+        .social-email {{ background: #6b7280; }}
+
+        @media (max-width: 480px) {{
+            .referral-header h1 {{
+                font-size: 1.5rem;
+            }}
+
+            .rewards-display {{
+                flex-direction: column;
+                gap: 20px;
+            }}
+
+            .reward-divider {{
+                transform: rotate(90deg);
+            }}
+
+            .reward-amount {{
+                font-size: 2rem;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="referral-container">
+        <div class="referral-header">
+            <span class="gift-icon">&#127873;</span>
+            <h1>{headline}</h1>
+            <p>{description}</p>
+        </div>
+
+        {'<div class="rewards-display">' if valid_code else ''}
+        {f'''
+            <div class="reward-item">
+                <span class="reward-amount">${referee_reward:.0f}</span>
+                <span class="reward-label">for you</span>
+            </div>
+            <div class="reward-divider">+</div>
+            <div class="reward-item">
+                <span class="reward-amount">${referrer_reward:.0f}</span>
+                <span class="reward-label">for {referrer_name}</span>
+            </div>
+        ''' if valid_code else ''}
+        {'</div>' if valid_code else ''}
+
+        <div class="referral-body">
+            {f'''
+            <div class="referral-code-display">
+                <div class="referral-code-label">Your referral code</div>
+                <div class="referral-code-value">{code.upper()}</div>
+            </div>
+            ''' if valid_code else ''}
+
+            <a href="{shop_url}{'?ref=' + code if valid_code else ''}" class="cta-button">{cta_text}</a>
+
+            <p class="terms">
+                {'Code will be automatically applied at checkout. Valid for new customers only. Cannot be combined with other offers.' if valid_code else 'Visit our store to browse our collection.'}
+            </p>
+        </div>
+
+        {'<div class="social-share">' if valid_code else ''}
+        {f'''
+            <a href="https://www.facebook.com/sharer/sharer.php?u={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-facebook" title="Share on Facebook">f</a>
+            <a href="https://twitter.com/intent/tweet?text=Get%20${referee_reward:.0f}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
+            <a href="https://wa.me/?text=Get%20${referee_reward:.0f}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
+            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20${referee_reward:.0f}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
+        ''' if valid_code else ''}
+        {'</div>' if valid_code else ''}
+    </div>
+</body>
+</html>'''
 
     return html

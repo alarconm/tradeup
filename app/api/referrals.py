@@ -313,3 +313,140 @@ def get_public_referral_info():
                           f'get ${ReferralConfig.REFERRER_CREDIT} for yourself!'
         }
     })
+
+
+# ==================== REFERRAL PAGE CONFIGURATION ====================
+
+@referrals_bp.route('/page-config', methods=['GET'])
+@require_shopify_auth
+def get_referral_page_config():
+    """
+    Get referral landing page customization settings.
+    """
+    from ..models.tenant import Tenant
+    from sqlalchemy.orm.attributes import flag_modified
+
+    tenant = g.tenant
+
+    # Get existing config or return defaults
+    page_config = {}
+    if tenant.settings and 'referral_page' in tenant.settings:
+        page_config = tenant.settings['referral_page']
+
+    # Merge with defaults
+    defaults = {
+        'enabled': True,
+        'headline': 'Give $10, Get $10',
+        'description': 'Share with friends and earn rewards when they make their first purchase.',
+        'background_color': '#6366f1',
+        'cta_text': 'Shop Now',
+        'show_social_sharing': True,
+        'social_platforms': ['facebook', 'twitter', 'whatsapp', 'email', 'copy']
+    }
+
+    config = {**defaults, **page_config}
+
+    return jsonify({
+        'success': True,
+        'config': config
+    })
+
+
+@referrals_bp.route('/page-config', methods=['PUT'])
+@require_shopify_auth
+def update_referral_page_config():
+    """
+    Update referral landing page customization settings.
+
+    Request body:
+    {
+        "headline": "Give $10, Get $10",
+        "description": "Share with friends...",
+        "background_color": "#6366f1",
+        "cta_text": "Shop Now",
+        "show_social_sharing": true,
+        "social_platforms": ["facebook", "twitter", "whatsapp", "email", "copy"]
+    }
+    """
+    from ..models.tenant import Tenant
+    from sqlalchemy.orm.attributes import flag_modified
+
+    data = request.json or {}
+    tenant = g.tenant
+
+    # Initialize settings if needed
+    if tenant.settings is None:
+        tenant.settings = {}
+
+    # Get existing config
+    page_config = tenant.settings.get('referral_page', {})
+
+    # Update allowed fields
+    allowed_fields = [
+        'enabled', 'headline', 'description', 'background_color',
+        'cta_text', 'show_social_sharing', 'social_platforms',
+        'background_image', 'logo_url', 'custom_css'
+    ]
+
+    for field in allowed_fields:
+        if field in data:
+            page_config[field] = data[field]
+
+    # Save back to settings
+    tenant.settings['referral_page'] = page_config
+    flag_modified(tenant, 'settings')
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'config': page_config
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@referrals_bp.route('/share-links/<int:member_id>', methods=['GET'])
+@require_shopify_auth
+def get_member_share_links(member_id: int):
+    """
+    Get pre-formatted share links for a member's referral code.
+    """
+    from ..models.tenant import Tenant
+
+    member = Member.query.get(member_id)
+    if not member:
+        return jsonify({'error': 'Member not found'}), 404
+
+    # Ensure member has a referral code
+    code = member.ensure_referral_code()
+    db.session.commit()
+
+    tenant = g.tenant
+    shop_url = f'https://{tenant.shop_domain}'
+    referral_url = f'{shop_url}/apps/rewards/refer/{code}'
+
+    # Get reward amounts
+    referrer_reward = float(ReferralConfig.REFERRER_CREDIT)
+    referee_reward = float(ReferralConfig.REFEREE_CREDIT)
+
+    # Build share messages
+    share_text = f"Get ${referee_reward:.0f} off your first order!"
+    share_body = f"I've been shopping at {tenant.shop_name or 'this store'} and thought you'd love it too! Use my link to get ${referee_reward:.0f} off your first order: {referral_url}"
+
+    return jsonify({
+        'success': True,
+        'referral_code': code,
+        'referral_url': referral_url,
+        'share_links': {
+            'facebook': f'https://www.facebook.com/sharer/sharer.php?u={referral_url}',
+            'twitter': f'https://twitter.com/intent/tweet?text={share_text}&url={referral_url}',
+            'whatsapp': f'https://wa.me/?text={share_body}',
+            'email': f'mailto:?subject=You%27re%20Invited!&body={share_body}',
+            'copy': referral_url
+        },
+        'share_text': share_text,
+        'reward_you': referrer_reward,
+        'reward_friend': referee_reward
+    })

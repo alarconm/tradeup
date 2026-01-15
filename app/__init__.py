@@ -394,6 +394,46 @@ def register_blueprints(app: Flask) -> None:
     from .api.segments import segments_bp
     app.register_blueprint(segments_bp, url_prefix='/api/segments')
 
+    # Cashback Campaigns
+    from .api.cashback import cashback_bp
+    app.register_blueprint(cashback_bp, url_prefix='/api/cashback')
+
+    # Third-Party Integrations (Klaviyo, SMS, etc.)
+    from .api.integrations.klaviyo import klaviyo_bp
+    from .api.integrations.sms import sms_bp
+    from .api.integrations.thirdparty import thirdparty_bp
+    app.register_blueprint(klaviyo_bp, url_prefix='/api/integrations/klaviyo')
+    app.register_blueprint(sms_bp, url_prefix='/api/integrations/sms')
+    app.register_blueprint(thirdparty_bp, url_prefix='/api/integrations')
+
+    # Benchmark Reports
+    from .api.benchmarks import benchmarks_bp
+    app.register_blueprint(benchmarks_bp, url_prefix='/api/benchmarks')
+
+    # Gamification (Badges, Achievements, Streaks)
+    from .api.gamification import gamification_bp
+    app.register_blueprint(gamification_bp, url_prefix='/api/gamification')
+
+    # Birthday Rewards
+    from .api.birthday import birthday_bp
+    app.register_blueprint(birthday_bp, url_prefix='/api/birthday')
+
+    # Nudges & Reminders
+    from .api.nudges import nudges_bp
+    app.register_blueprint(nudges_bp, url_prefix='/api/nudges')
+
+    # Loyalty Page Builder
+    from .api.page_builder import page_builder_bp
+    app.register_blueprint(page_builder_bp, url_prefix='/api/page-builder')
+
+    # Widget Visual Builder
+    from .api.widget_builder import widget_builder_bp
+    app.register_blueprint(widget_builder_bp, url_prefix='/api/widget-builder')
+
+    # Guest Checkout Points
+    from .api.guest_points import guest_points_bp
+    app.register_blueprint(guest_points_bp, url_prefix='/api/guest-points')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers."""

@@ -46,6 +46,9 @@ from .loyalty_points import (
     DEFAULT_EARNING_RULES,
     DEFAULT_REWARDS,
 )
+from .cashback_campaign import CashbackCampaign, CashbackRedemption
+from .gamification import Badge, MemberBadge, MemberStreak, Milestone, MemberMilestone
+from .guest_points import GuestPoints
 
 __all__ = [
     'Tenant',
@@ -94,4 +97,15 @@ __all__ = [
     'seed_points_program',
     'DEFAULT_EARNING_RULES',
     'DEFAULT_REWARDS',
+    # Cashback Campaigns
+    'CashbackCampaign',
+    'CashbackRedemption',
+    # Gamification
+    'Badge',
+    'MemberBadge',
+    'MemberStreak',
+    'Milestone',
+    'MemberMilestone',
+    # Guest Points
+    'GuestPoints',
 ]

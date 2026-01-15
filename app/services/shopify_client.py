@@ -2751,3 +2751,233 @@ class ShopifyClient:
                 'success': False,
                 'error': str(e)
             }
+
+    # =========================================
+    # Gift Card Operations
+    # =========================================
+
+    def create_gift_card(
+        self,
+        initial_value: float,
+        customer_id: str = None,
+        note: str = None,
+        expires_on: str = None,
+        template_suffix: str = None
+    ) -> Dict[str, Any]:
+        """
+        Create a Shopify gift card.
+
+        API Documentation: https://shopify.dev/docs/api/admin-graphql/latest/mutations/giftCardCreate
+
+        Args:
+            initial_value: Initial gift card balance
+            customer_id: Optional Shopify customer ID (GID or numeric)
+            note: Optional internal note
+            expires_on: Optional expiration date (YYYY-MM-DD)
+            template_suffix: Optional email template suffix
+
+        Returns:
+            Dict with gift card details including code
+        """
+        mutation = """
+        mutation giftCardCreate($input: GiftCardCreateInput!) {
+            giftCardCreate(input: $input) {
+                giftCard {
+                    id
+                    balance {
+                        amount
+                        currencyCode
+                    }
+                    initialValue {
+                        amount
+                        currencyCode
+                    }
+                    lastCharacters
+                    maskedCode
+                    expiresOn
+                    createdAt
+                    customer {
+                        id
+                        email
+                    }
+                }
+                giftCardCode
+                userErrors {
+                    field
+                    message
+                    code
+                }
+            }
+        }
+        """
+
+        # Build input
+        input_data = {
+            'initialValue': str(initial_value)
+        }
+
+        if customer_id:
+            # Convert to GID if needed
+            if not customer_id.startswith('gid://'):
+                customer_id = f'gid://shopify/Customer/{customer_id}'
+            input_data['customerId'] = customer_id
+
+        if note:
+            input_data['note'] = note
+
+        if expires_on:
+            input_data['expiresOn'] = expires_on
+
+        if template_suffix:
+            input_data['templateSuffix'] = template_suffix
+
+        try:
+            result = self._execute_query(mutation, {'input': input_data})
+
+            mutation_result = result.get('giftCardCreate', {})
+            user_errors = mutation_result.get('userErrors', [])
+
+            if user_errors:
+                return {
+                    'success': False,
+                    'errors': user_errors,
+                    'error': user_errors[0].get('message') if user_errors else 'Unknown error'
+                }
+
+            gift_card = mutation_result.get('giftCard', {})
+            gift_card_code = mutation_result.get('giftCardCode')
+
+            return {
+                'success': True,
+                'id': gift_card.get('id'),
+                'code': gift_card_code,
+                'masked_code': gift_card.get('maskedCode'),
+                'last_characters': gift_card.get('lastCharacters'),
+                'initial_value': float(gift_card.get('initialValue', {}).get('amount', 0)),
+                'balance': float(gift_card.get('balance', {}).get('amount', 0)),
+                'currency': gift_card.get('balance', {}).get('currencyCode'),
+                'expires_on': gift_card.get('expiresOn'),
+                'created_at': gift_card.get('createdAt'),
+                'customer': gift_card.get('customer')
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def get_gift_card(self, gift_card_id: str) -> Dict[str, Any]:
+        """
+        Get gift card details by ID.
+
+        Args:
+            gift_card_id: Shopify gift card ID (GID or numeric)
+
+        Returns:
+            Dict with gift card details
+        """
+        if not gift_card_id.startswith('gid://'):
+            gift_card_id = f'gid://shopify/GiftCard/{gift_card_id}'
+
+        query = """
+        query getGiftCard($id: ID!) {
+            giftCard(id: $id) {
+                id
+                balance {
+                    amount
+                    currencyCode
+                }
+                initialValue {
+                    amount
+                    currencyCode
+                }
+                lastCharacters
+                maskedCode
+                expiresOn
+                createdAt
+                enabled
+                note
+                customer {
+                    id
+                    email
+                    displayName
+                }
+            }
+        }
+        """
+
+        try:
+            result = self._execute_query(query, {'id': gift_card_id})
+            gift_card = result.get('giftCard')
+
+            if not gift_card:
+                return {'success': False, 'error': 'Gift card not found'}
+
+            return {
+                'success': True,
+                'id': gift_card.get('id'),
+                'masked_code': gift_card.get('maskedCode'),
+                'last_characters': gift_card.get('lastCharacters'),
+                'initial_value': float(gift_card.get('initialValue', {}).get('amount', 0)),
+                'balance': float(gift_card.get('balance', {}).get('amount', 0)),
+                'currency': gift_card.get('balance', {}).get('currencyCode'),
+                'expires_on': gift_card.get('expiresOn'),
+                'created_at': gift_card.get('createdAt'),
+                'enabled': gift_card.get('enabled'),
+                'note': gift_card.get('note'),
+                'customer': gift_card.get('customer')
+            }
+
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def disable_gift_card(self, gift_card_id: str) -> Dict[str, Any]:
+        """
+        Disable a gift card.
+
+        Args:
+            gift_card_id: Shopify gift card ID (GID or numeric)
+
+        Returns:
+            Dict with success status
+        """
+        if not gift_card_id.startswith('gid://'):
+            gift_card_id = f'gid://shopify/GiftCard/{gift_card_id}'
+
+        mutation = """
+        mutation giftCardDisable($id: ID!) {
+            giftCardDisable(id: $id) {
+                giftCard {
+                    id
+                    enabled
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+
+        try:
+            result = self._execute_query(mutation, {'id': gift_card_id})
+
+            mutation_result = result.get('giftCardDisable', {})
+            user_errors = mutation_result.get('userErrors', [])
+
+            if user_errors:
+                return {
+                    'success': False,
+                    'errors': user_errors,
+                    'error': user_errors[0].get('message') if user_errors else 'Unknown error'
+                }
+
+            return {
+                'success': True,
+                'id': gift_card_id,
+                'enabled': False
+            }
+
+        except Exception as e:
+            return {'success': False, 'error': str(e)}

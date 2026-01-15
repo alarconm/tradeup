@@ -136,6 +136,10 @@ class Member(db.Model):
     referral_count = db.Column(db.Integer, default=0)  # How many people they've referred
     referral_earnings = db.Column(db.Numeric(12, 2), default=Decimal('0'))  # Total credit earned from referrals
 
+    # Birthday rewards
+    birthday = db.Column(db.Date)  # Store as date (year 2000 + month/day)
+    last_birthday_reward_year = db.Column(db.Integer)  # Track last year reward was given
+
     # Metadata
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -186,6 +190,8 @@ class Member(db.Model):
             'points_balance': self.points_balance or 0,
             'lifetime_points_earned': self.lifetime_points_earned or 0,
             'lifetime_points_spent': self.lifetime_points_spent or 0,
+            # Birthday
+            'birthday': self.birthday.strftime('%m-%d') if self.birthday else None,
         }
 
         if include_stats:

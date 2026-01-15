@@ -434,5 +434,267 @@ class ScheduledTasksService:
               f"errors={len(results.get('errors', []))}")
 
 
+    # ==================== POINTS EXPIRATION ====================
+
+    def process_points_expiration(self, tenant_id: int, dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Process points expiration for a tenant.
+
+        Finds all earn transactions with expires_at <= now and remaining_points > 0,
+        creates expiration transactions, and updates member balances.
+
+        Args:
+            tenant_id: The tenant to process
+            dry_run: If True, calculate but don't expire points
+
+        Returns:
+            Summary of points expired
+        """
+        from .points_service import PointsService
+        from ..models.points import PointsTransaction
+
+        now = datetime.utcnow()
+
+        results = {
+            'processed': 0,
+            'members_affected': 0,
+            'total_points_expired': 0,
+            'errors': [],
+            'details': [],
+            'dry_run': dry_run,
+            'run_date': now.isoformat()
+        }
+
+        # Find all members with expired points
+        expired_query = db.session.query(
+            PointsTransaction.member_id,
+            db.func.sum(PointsTransaction.remaining_points).label('expiring_points')
+        ).join(
+            Member, PointsTransaction.member_id == Member.id
+        ).filter(
+            Member.tenant_id == tenant_id,
+            PointsTransaction.transaction_type == 'earn',
+            PointsTransaction.reversed_at.is_(None),
+            PointsTransaction.expires_at.isnot(None),
+            PointsTransaction.expires_at <= now,
+            PointsTransaction.remaining_points > 0
+        ).group_by(PointsTransaction.member_id).all()
+
+        points_service = PointsService(tenant_id)
+
+        for member_id, expiring_points in expired_query:
+            results['processed'] += 1
+            results['members_affected'] += 1
+
+            if not dry_run:
+                try:
+                    expired = points_service._expire_member_points(member_id, now)
+                    results['total_points_expired'] += expired
+                    results['details'].append({
+                        'member_id': member_id,
+                        'points_expired': expired,
+                        'status': 'expired'
+                    })
+                except Exception as e:
+                    results['errors'].append({
+                        'member_id': member_id,
+                        'error': str(e)
+                    })
+            else:
+                results['total_points_expired'] += int(expiring_points or 0)
+                results['details'].append({
+                    'member_id': member_id,
+                    'points_to_expire': int(expiring_points or 0),
+                    'status': 'would_expire'
+                })
+
+        if not dry_run:
+            self._log_scheduled_task('points_expiration', tenant_id, results)
+
+        return results
+
+    def send_points_expiry_warnings(self, tenant_id: int, dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Send warning emails to members with points expiring soon.
+
+        Warning intervals are configurable in tenant.settings.points.warning_days
+        Default: [30, 7, 1] - warnings at 30, 7, and 1 day(s) before expiry
+
+        Args:
+            tenant_id: The tenant to process
+            dry_run: If True, calculate but don't send emails
+
+        Returns:
+            Summary of warnings sent
+        """
+        from .points_service import PointsService
+        from ..models.points import PointsTransaction
+        from .notification_service import NotificationService
+
+        tenant = Tenant.query.get(tenant_id)
+        if not tenant:
+            return {'success': False, 'error': 'Tenant not found'}
+
+        settings = tenant.settings or {}
+        points_settings = settings.get('points', {})
+
+        # Get warning intervals (default: 30, 7, 1 days)
+        warning_days = points_settings.get('warning_days', [30, 7, 1])
+        if not isinstance(warning_days, list):
+            warning_days = [30, 7, 1]
+
+        now = datetime.utcnow()
+
+        results = {
+            'warnings_sent': 0,
+            'members_notified': 0,
+            'errors': [],
+            'details': [],
+            'dry_run': dry_run,
+            'run_date': now.isoformat()
+        }
+
+        notification_service = NotificationService(tenant_id)
+
+        for days in warning_days:
+            # Find points expiring in exactly N days (±12 hours to catch daily runs)
+            window_start = now + timedelta(days=days-0.5)
+            window_end = now + timedelta(days=days+0.5)
+
+            expiring_query = db.session.query(
+                PointsTransaction.member_id,
+                db.func.sum(PointsTransaction.remaining_points).label('expiring_points'),
+                db.func.min(PointsTransaction.expires_at).label('earliest_expiry')
+            ).join(
+                Member, PointsTransaction.member_id == Member.id
+            ).filter(
+                Member.tenant_id == tenant_id,
+                PointsTransaction.transaction_type == 'earn',
+                PointsTransaction.reversed_at.is_(None),
+                PointsTransaction.expires_at.isnot(None),
+                PointsTransaction.expires_at >= window_start,
+                PointsTransaction.expires_at <= window_end,
+                PointsTransaction.remaining_points > 0
+            ).group_by(PointsTransaction.member_id).all()
+
+            for member_id, expiring_points, earliest_expiry in expiring_query:
+                member = Member.query.get(member_id)
+                if not member or not member.email:
+                    continue
+
+                # Check if we already sent this warning (check dismissed_warnings in settings)
+                member_settings = settings.get('member_warnings', {}).get(str(member_id), {})
+                warning_key = f'points_expiry_{days}d_{earliest_expiry.strftime("%Y-%m")}'
+                if member_settings.get(warning_key):
+                    continue  # Already sent
+
+                if not dry_run:
+                    try:
+                        # Send notification
+                        notification_service.send_notification(
+                            member_id=member_id,
+                            notification_type='points_expiring',
+                            context={
+                                'expiring_points': int(expiring_points),
+                                'days_until_expiry': days,
+                                'expiry_date': earliest_expiry.isoformat(),
+                                'member_name': member.name or member.email.split('@')[0],
+                                'current_balance': member.points_balance or 0
+                            }
+                        )
+
+                        results['warnings_sent'] += 1
+                        results['members_notified'] += 1
+                        results['details'].append({
+                            'member_id': member_id,
+                            'email': member.email,
+                            'expiring_points': int(expiring_points),
+                            'days_until_expiry': days,
+                            'status': 'sent'
+                        })
+                    except Exception as e:
+                        results['errors'].append({
+                            'member_id': member_id,
+                            'error': str(e)
+                        })
+                else:
+                    results['warnings_sent'] += 1
+                    results['details'].append({
+                        'member_id': member_id,
+                        'email': member.email,
+                        'expiring_points': int(expiring_points),
+                        'days_until_expiry': days,
+                        'status': 'would_send'
+                    })
+
+        if not dry_run:
+            self._log_scheduled_task('points_expiry_warnings', tenant_id, results)
+
+        return results
+
+    def get_expiring_points_summary(self, tenant_id: int, days_ahead: int = 30) -> Dict[str, Any]:
+        """
+        Get summary of points expiring within specified days.
+
+        Args:
+            tenant_id: The tenant to query
+            days_ahead: Days to look ahead (default 30)
+
+        Returns:
+            Summary with member breakdown
+        """
+        from ..models.points import PointsTransaction
+
+        now = datetime.utcnow()
+        future_date = now + timedelta(days=days_ahead)
+
+        expiring_query = db.session.query(
+            PointsTransaction.member_id,
+            db.func.sum(PointsTransaction.remaining_points).label('expiring_points'),
+            db.func.min(PointsTransaction.expires_at).label('earliest_expiry')
+        ).join(
+            Member, PointsTransaction.member_id == Member.id
+        ).filter(
+            Member.tenant_id == tenant_id,
+            PointsTransaction.transaction_type == 'earn',
+            PointsTransaction.reversed_at.is_(None),
+            PointsTransaction.expires_at.isnot(None),
+            PointsTransaction.expires_at > now,
+            PointsTransaction.expires_at <= future_date,
+            PointsTransaction.remaining_points > 0
+        ).group_by(PointsTransaction.member_id).all()
+
+        members_list = []
+        total_expiring = 0
+
+        for member_id, expiring_points, earliest_expiry in expiring_query:
+            member = Member.query.get(member_id)
+            if not member:
+                continue
+
+            points = int(expiring_points or 0)
+            total_expiring += points
+
+            members_list.append({
+                'member_id': member_id,
+                'member_number': member.member_number,
+                'email': member.email,
+                'name': member.name,
+                'expiring_points': points,
+                'earliest_expiry': earliest_expiry.isoformat() if earliest_expiry else None,
+                'current_balance': member.points_balance or 0
+            })
+
+        # Sort by earliest expiry
+        members_list.sort(key=lambda x: x['earliest_expiry'] or '')
+
+        return {
+            'days_ahead': days_ahead,
+            'total_expiring_points': total_expiring,
+            'members_with_expiring_points': len(members_list),
+            'members': members_list
+        }
+
+
 # Singleton instance
 scheduled_tasks_service = ScheduledTasksService()
