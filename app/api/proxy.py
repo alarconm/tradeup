@@ -80,6 +80,27 @@ def get_customer_member(tenant_id: int):
     ).first()
 
 
+def check_proxy_auth():
+    """
+    Verify proxy signature and return shop domain.
+
+    Returns:
+        Tuple of (error_response, shop_domain)
+        If error_response is not None, return it immediately.
+    """
+    # Allow bypassing signature verification for development/testing
+    skip_signature = os.getenv('SKIP_PROXY_SIGNATURE', '').lower() == 'true'
+
+    if os.getenv('FLASK_ENV') == 'production' and not skip_signature:
+        is_valid, shop = verify_proxy_signature()
+        if not is_valid:
+            current_app.logger.warning(f"Proxy signature verification failed. Params: {list(request.args.keys())}")
+            return Response('Invalid signature', status=401), None
+        return None, shop
+    else:
+        return None, request.args.get('shop', '')
+
+
 # ==============================================================================
 # PROXY ENDPOINTS
 # ==============================================================================
@@ -98,13 +119,9 @@ def rewards_page():
     - Tier benefits comparison
     - Referral program info
     """
-    # Verify signature in production
-    if os.getenv('FLASK_ENV') == 'production':
-        is_valid, shop = verify_proxy_signature()
-        if not is_valid:
-            return Response('Invalid signature', status=401)
-    else:
-        shop = request.args.get('shop', '')
+    error_response, shop = check_proxy_auth()
+    if error_response:
+        return error_response
 
     tenant = get_tenant_from_shop(shop)
     if not tenant:
@@ -179,13 +196,9 @@ def referral_landing_page(code):
     - What the referrer gets
     - CTA to shop now
     """
-    # Verify signature in production
-    if os.getenv('FLASK_ENV') == 'production':
-        is_valid, shop = verify_proxy_signature()
-        if not is_valid:
-            return Response('Invalid signature', status=401)
-    else:
-        shop = request.args.get('shop', '')
+    error_response, shop = check_proxy_auth()
+    if error_response:
+        return error_response
 
     tenant = get_tenant_from_shop(shop)
     if not tenant:
@@ -239,13 +252,9 @@ def get_balance():
     Get customer's points balance.
     Returns JSON for AJAX requests.
     """
-    # Verify signature in production
-    if os.getenv('FLASK_ENV') == 'production':
-        is_valid, shop = verify_proxy_signature()
-        if not is_valid:
-            return jsonify({'error': 'Invalid signature'}), 401
-    else:
-        shop = request.args.get('shop', '')
+    error_response, shop = check_proxy_auth()
+    if error_response:
+        return jsonify({'error': 'Invalid signature'}), 401
 
     tenant = get_tenant_from_shop(shop)
     if not tenant:
@@ -291,13 +300,9 @@ def get_rewards():
     Get available rewards catalog.
     Returns JSON for AJAX requests.
     """
-    # Verify signature in production
-    if os.getenv('FLASK_ENV') == 'production':
-        is_valid, shop = verify_proxy_signature()
-        if not is_valid:
-            return jsonify({'error': 'Invalid signature'}), 401
-    else:
-        shop = request.args.get('shop', '')
+    error_response, shop = check_proxy_auth()
+    if error_response:
+        return jsonify({'error': 'Invalid signature'}), 401
 
     tenant = get_tenant_from_shop(shop)
     if not tenant:
@@ -363,13 +368,9 @@ def get_tiers():
     Get tier benefits comparison.
     Returns JSON for AJAX requests.
     """
-    # Verify signature in production
-    if os.getenv('FLASK_ENV') == 'production':
-        is_valid, shop = verify_proxy_signature()
-        if not is_valid:
-            return jsonify({'error': 'Invalid signature'}), 401
-    else:
-        shop = request.args.get('shop', '')
+    error_response, shop = check_proxy_auth()
+    if error_response:
+        return jsonify({'error': 'Invalid signature'}), 401
 
     tenant = get_tenant_from_shop(shop)
     if not tenant:

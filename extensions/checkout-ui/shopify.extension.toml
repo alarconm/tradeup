@@ -22,7 +22,7 @@ handle = "tradeup-checkout-points"
 
 [extensions.capabilities]
 api_access = true
-network_access = true
+# network_access = true  # Temporarily disabled - needs Shopify approval
 
 [extensions.settings]
   [[extensions.settings.fields]]
