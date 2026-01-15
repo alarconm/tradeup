@@ -420,6 +420,9 @@ def fix_schema():
         ("members", "points_balance", "INTEGER DEFAULT 0"),
         ("members", "lifetime_points_earned", "INTEGER DEFAULT 0"),
         ("members", "lifetime_points_spent", "INTEGER DEFAULT 0"),
+        # Members - Birthday rewards columns
+        ("members", "birthday", "DATE"),
+        ("members", "last_birthday_reward_year", "INTEGER"),
     ]
 
     results = []
