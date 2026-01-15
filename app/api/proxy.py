@@ -1103,6 +1103,41 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         description = "This referral code doesn't seem to be valid. Check with your friend for the correct link!"
         cta_text = 'Browse Store'
 
+    # Pre-build conditional HTML sections (avoids nested f-string issues)
+    if valid_code:
+        rewards_display_html = f'''
+        <div class="rewards-display">
+            <div class="reward-item">
+                <span class="reward-amount">{referee_reward_str}</span>
+                <span class="reward-label">for you</span>
+            </div>
+            <div class="reward-divider">+</div>
+            <div class="reward-item">
+                <span class="reward-amount">{referrer_reward_str}</span>
+                <span class="reward-label">for {referrer_name}</span>
+            </div>
+        </div>'''
+        referral_code_html = f'''
+            <div class="referral-code-display">
+                <div class="referral-code-label">Your referral code</div>
+                <div class="referral-code-value">{code.upper()}</div>
+            </div>'''
+        social_share_html = f'''
+        <div class="social-share">
+            <a href="https://www.facebook.com/sharer/sharer.php?u={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-facebook" title="Share on Facebook">f</a>
+            <a href="https://twitter.com/intent/tweet?text=Get%20{referee_reward_str}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
+            <a href="https://wa.me/?text=Get%20{referee_reward_str}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
+            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{referee_reward_str}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
+        </div>'''
+        terms_text = 'Code will be automatically applied at checkout. Valid for new customers only. Cannot be combined with other offers.'
+        cta_url = f'{shop_url}?ref={code}'
+    else:
+        rewards_display_html = ''
+        referral_code_html = ''
+        social_share_html = ''
+        terms_text = 'Visit our store to browse our collection.'
+        cta_url = shop_url
+
     html = f'''<!DOCTYPE html>
 <html>
 <head>
@@ -1304,43 +1339,19 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
             <p>{description}</p>
         </div>
 
-        {'<div class="rewards-display">' if valid_code else ''}
-        {f'''
-            <div class="reward-item">
-                <span class="reward-amount">{referee_reward_str}</span>
-                <span class="reward-label">for you</span>
-            </div>
-            <div class="reward-divider">+</div>
-            <div class="reward-item">
-                <span class="reward-amount">{referrer_reward_str}</span>
-                <span class="reward-label">for {referrer_name}</span>
-            </div>
-        ''' if valid_code else ''}
-        {'</div>' if valid_code else ''}
+        {rewards_display_html}
 
         <div class="referral-body">
-            {f'''
-            <div class="referral-code-display">
-                <div class="referral-code-label">Your referral code</div>
-                <div class="referral-code-value">{code.upper()}</div>
-            </div>
-            ''' if valid_code else ''}
+            {referral_code_html}
 
-            <a href="{shop_url}{'?ref=' + code if valid_code else ''}" class="cta-button">{cta_text}</a>
+            <a href="{cta_url}" class="cta-button">{cta_text}</a>
 
             <p class="terms">
-                {'Code will be automatically applied at checkout. Valid for new customers only. Cannot be combined with other offers.' if valid_code else 'Visit our store to browse our collection.'}
+                {terms_text}
             </p>
         </div>
 
-        {'<div class="social-share">' if valid_code else ''}
-        {f'''
-            <a href="https://www.facebook.com/sharer/sharer.php?u={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-facebook" title="Share on Facebook">f</a>
-            <a href="https://twitter.com/intent/tweet?text=Get%20{referee_reward_str}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
-            <a href="https://wa.me/?text=Get%20{referee_reward_str}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
-            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{referee_reward_str}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
-        ''' if valid_code else ''}
-        {'</div>' if valid_code else ''}
+        {social_share_html}
     </div>
 </body>
 </html>'''
