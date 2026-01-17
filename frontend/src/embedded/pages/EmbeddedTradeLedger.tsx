@@ -2,7 +2,7 @@
  * TradeUp Trade-In Ledger - Simplified Version
  *
  * Simple ledger for recording trade-in transactions.
- * No complex workflows - just records what was traded and how it was paid.
+ * All trade-ins are tied to Shopify customer accounts.
  */
 import { useState, useCallback, useEffect } from 'react';
 import {
@@ -25,8 +25,10 @@ import {
   Divider,
   Box,
   InlineGrid,
+  Spinner,
+  Icon,
 } from '@shopify/polaris';
-import { PlusIcon, DeleteIcon, EditIcon } from '@shopify/polaris-icons';
+import { PlusIcon, DeleteIcon, SearchIcon, CheckIcon } from '@shopify/polaris-icons';
 import { TitleBar } from '@shopify/app-bridge-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -62,11 +64,35 @@ interface TradeLedgerSummary {
   total_credit: number;
 }
 
-interface Member {
-  id: number;
-  name: string;
+interface ShopifyCustomer {
+  id: string;
+  gid?: string;
   email: string;
-  member_number: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  name?: string;
+  phone: string | null;
+  ordersCount?: number;
+  numberOfOrders?: number;
+  totalSpent?: number | string;
+  amountSpent?: number | string;
+  storeCredit?: number;
+  is_member?: boolean;
+  member_id?: number;
+  member_number?: string;
+}
+
+// Custom hook for debouncing a value
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
 }
 
 // Hook to detect mobile viewport
@@ -116,14 +142,6 @@ async function fetchCategories(shop: string | null): Promise<{ categories: strin
   return response.json();
 }
 
-async function searchMembers(shop: string | null, query: string): Promise<{ members: Member[] }> {
-  const response = await authFetch(
-    `${getApiUrl()}/members/?search=${encodeURIComponent(query)}&limit=10`,
-    shop
-  );
-  if (!response.ok) throw new Error('Failed to search members');
-  return response.json();
-}
 
 async function createEntry(shop: string | null, data: Record<string, unknown>): Promise<TradeLedgerEntry> {
   const response = await authFetch(`${getApiUrl()}/trade-ledger/`, shop, {
@@ -165,14 +183,23 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Customer search state (instant search like Add Member modal)
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<ShopifyCustomer | null>(null);
+  const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Fast debounce for instant search feel
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 150);
+
+  // Create new customer mode
+  const [createNewMode, setCreateNewMode] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+
   // Form state
-  const [customerType, setCustomerType] = useState<'member' | 'guest'>('guest');
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [memberSearch, setMemberSearch] = useState('');
-  const [memberResults, setMemberResults] = useState<Member[]>([]);
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
   const [totalValue, setTotalValue] = useState('');
   const [cashAmount, setCashAmount] = useState('');
   const [creditAmount, setCreditAmount] = useState('');
@@ -221,16 +248,33 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
     },
   });
 
-  // Member search
+  // Instant Shopify customer search
   useEffect(() => {
-    if (memberSearch.length >= 2 && customerType === 'member') {
-      searchMembers(shop, memberSearch).then((data) => {
-        setMemberResults(data.members || []);
-      });
-    } else {
-      setMemberResults([]);
-    }
-  }, [memberSearch, shop, customerType]);
+    const searchCustomers = async () => {
+      if (!debouncedCustomerSearch || debouncedCustomerSearch.length < 2 || selectedCustomer) {
+        if (!selectedCustomer) setSearchResults([]);
+        return;
+      }
+
+      setSearching(true);
+      try {
+        const response = await authFetch(
+          `${getApiUrl()}/members/search-shopify?q=${encodeURIComponent(debouncedCustomerSearch)}`,
+          shop
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.customers || []);
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    searchCustomers();
+  }, [debouncedCustomerSearch, shop, selectedCustomer]);
 
   // Auto-calculate credit when total changes
   useEffect(() => {
@@ -244,13 +288,14 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
 
   const closeModal = useCallback(() => {
     setModalOpen(false);
-    setCustomerType('guest');
-    setSelectedMember(null);
-    setMemberSearch('');
-    setMemberResults([]);
-    setGuestName('');
-    setGuestEmail('');
-    setGuestPhone('');
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setSearchResults([]);
+    setCreateNewMode(false);
+    setNewEmail('');
+    setNewFirstName('');
+    setNewLastName('');
+    setNewPhone('');
     setTotalValue('');
     setCashAmount('');
     setCreditAmount('');
@@ -259,7 +304,50 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
     setNotes('');
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  // Create new Shopify customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async () => {
+      if (!newEmail) throw new Error('Email is required');
+
+      const response = await authFetch(`${getApiUrl()}/members/create-and-enroll`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newEmail,
+          first_name: newFirstName || undefined,
+          last_name: newLastName || undefined,
+          phone: newPhone || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create customer');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSelectedCustomer({
+        id: data.shopify_customer_id || data.id,
+        email: newEmail,
+        firstName: newFirstName,
+        lastName: newLastName,
+        phone: newPhone || null,
+        is_member: true,
+        member_id: data.id,
+        member_number: data.member_number,
+      });
+      setCreateNewMode(false);
+      setNewEmail('');
+      setNewFirstName('');
+      setNewLastName('');
+      setNewPhone('');
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+
+  const handleSubmit = useCallback(async () => {
+    if (!selectedCustomer) return;
+
     const data: Record<string, unknown> = {
       total_value: parseFloat(totalValue) || 0,
       cash_amount: parseFloat(cashAmount) || 0,
@@ -267,19 +355,46 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
       notes: notes || null,
     };
 
-    if (customerType === 'member' && selectedMember) {
-      data.member_id = selectedMember.id;
-    } else {
-      data.guest_name = guestName || null;
-      data.guest_email = guestEmail || null;
-      data.guest_phone = guestPhone || null;
+    // Get or create member_id for the customer
+    let memberId = selectedCustomer.member_id;
+
+    if (!memberId && !selectedCustomer.is_member) {
+      // Enroll the customer as a member first
+      try {
+        const enrollResponse = await authFetch(`${getApiUrl()}/members/enroll`, shop, {
+          method: 'POST',
+          body: JSON.stringify({
+            shopify_customer_id: selectedCustomer.id,
+          }),
+        });
+
+        if (!enrollResponse.ok) {
+          const error = await enrollResponse.json();
+          throw new Error(error.error || 'Failed to enroll customer');
+        }
+
+        const enrollData = await enrollResponse.json();
+        memberId = enrollData.id || enrollData.member_id;
+
+        // Update selected customer
+        setSelectedCustomer({
+          ...selectedCustomer,
+          is_member: true,
+          member_id: memberId,
+          member_number: enrollData.member_number,
+        });
+      } catch (err) {
+        console.error('Failed to enroll customer:', err);
+        return;
+      }
     }
+
+    data.member_id = memberId;
 
     // Handle category
     if (category === 'custom' && customCategory) {
       data.category = customCategory;
     } else if (category && category !== 'none') {
-      // Check if it's a collection
       const collection = collectionsData?.collections?.find(c => c.id === category);
       if (collection) {
         data.collection_id = collection.id;
@@ -291,7 +406,10 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
     }
 
     createMutation.mutate(data);
-  }, [customerType, selectedMember, guestName, guestEmail, guestPhone, totalValue, cashAmount, creditAmount, category, customCategory, notes, collectionsData, createMutation]);
+  }, [selectedCustomer, totalValue, cashAmount, creditAmount, category, customCategory, notes, collectionsData, createMutation, shop]);
+
+  // Determine if we can create a new customer
+  const canCreateNew = newEmail && newEmail.includes('@') && newEmail.includes('.');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -506,98 +624,207 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
           content: 'Save Trade-In',
           onAction: handleSubmit,
           loading: createMutation.isPending,
-          disabled: !totalValue || parseFloat(totalValue) <= 0,
+          disabled: !selectedCustomer || !totalValue || parseFloat(totalValue) <= 0,
         }}
         secondaryActions={[{ content: 'Cancel', onAction: closeModal }]}
       >
         <Modal.Section>
           <FormLayout>
-            {/* Customer Type Selection */}
-            <Select
-              label="Customer Type"
-              options={[
-                { label: 'Guest (Walk-in)', value: 'guest' },
-                { label: 'Member', value: 'member' },
-              ]}
-              value={customerType}
-              onChange={(v) => setCustomerType(v as 'member' | 'guest')}
-            />
+            {/* Customer Selection */}
+            <BlockStack gap="300">
+              <Text as="h3" variant="headingSm">Customer</Text>
 
-            {customerType === 'member' ? (
-              <BlockStack gap="200">
-                <TextField
-                  label="Search Member"
-                  value={memberSearch}
-                  onChange={setMemberSearch}
-                  placeholder="Search by name or email..."
-                  autoComplete="off"
-                />
-                {memberResults.length > 0 && (
-                  <Card>
-                    <BlockStack gap="100">
-                      {memberResults.map((member) => (
-                        <Box
-                          key={member.id}
-                          padding="200"
-                          background={selectedMember?.id === member.id ? 'bg-surface-selected' : undefined}
-                        >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => {
-                              setSelectedMember(member);
-                              setMemberSearch(member.name || member.email);
-                              setMemberResults([]);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                setSelectedMember(member);
-                                setMemberSearch(member.name || member.email);
-                                setMemberResults([]);
-                              }
-                            }}
-                          >
-                            <BlockStack gap="050">
-                              <Text as="span" fontWeight="semibold">{member.name || member.email}</Text>
-                              <Text as="span" variant="bodySm" tone="subdued">{member.member_number}</Text>
-                            </BlockStack>
-                          </div>
-                        </Box>
-                      ))}
-                    </BlockStack>
-                  </Card>
-                )}
-                {selectedMember && (
-                  <Banner tone="success">
-                    Selected: {selectedMember.name || selectedMember.email} ({selectedMember.member_number})
+              {selectedCustomer ? (
+                <Box
+                  padding="300"
+                  background="bg-surface-success"
+                  borderRadius="200"
+                  borderColor="border-success"
+                  borderWidth="025"
+                >
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Box padding="100" background="bg-fill-success" borderRadius="full">
+                        <Icon source={CheckIcon} tone="success" />
+                      </Box>
+                      <BlockStack gap="050">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="span" variant="bodyMd" fontWeight="semibold">
+                            {selectedCustomer.name || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim() || selectedCustomer.email}
+                          </Text>
+                          {selectedCustomer.is_member && (
+                            <Badge tone="success" size="small">Member</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {selectedCustomer.email}
+                          {selectedCustomer.member_number && ` · ${selectedCustomer.member_number}`}
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Button
+                      variant="plain"
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setCustomerSearch('');
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </InlineStack>
+                </Box>
+              ) : createNewMode ? (
+                <BlockStack gap="300">
+                  <Banner tone="info">
+                    <Text as="p">Create a new customer. They will be automatically enrolled in your loyalty program.</Text>
                   </Banner>
-                )}
-              </BlockStack>
-            ) : (
-              <BlockStack gap="300">
-                <TextField
-                  label="Guest Name"
-                  value={guestName}
-                  onChange={setGuestName}
-                  autoComplete="off"
-                />
-                <TextField
-                  label="Guest Email"
-                  type="email"
-                  value={guestEmail}
-                  onChange={setGuestEmail}
-                  autoComplete="off"
-                />
-                <TextField
-                  label="Guest Phone"
-                  type="tel"
-                  value={guestPhone}
-                  onChange={setGuestPhone}
-                  autoComplete="off"
-                />
-              </BlockStack>
-            )}
+
+                  <TextField
+                    label="Email"
+                    type="email"
+                    value={newEmail}
+                    onChange={setNewEmail}
+                    autoComplete="email"
+                    placeholder="customer@example.com"
+                    requiredIndicator
+                    error={newEmail && !canCreateNew ? 'Please enter a valid email' : undefined}
+                  />
+
+                  <InlineGrid columns={2} gap="300">
+                    <TextField
+                      label="First Name"
+                      value={newFirstName}
+                      onChange={setNewFirstName}
+                      autoComplete="given-name"
+                    />
+                    <TextField
+                      label="Last Name"
+                      value={newLastName}
+                      onChange={setNewLastName}
+                      autoComplete="family-name"
+                    />
+                  </InlineGrid>
+
+                  <TextField
+                    label="Phone (optional)"
+                    type="tel"
+                    value={newPhone}
+                    onChange={setNewPhone}
+                    autoComplete="tel"
+                  />
+
+                  <InlineStack gap="200">
+                    <Button
+                      variant="primary"
+                      onClick={() => createCustomerMutation.mutate()}
+                      loading={createCustomerMutation.isPending}
+                      disabled={!canCreateNew}
+                    >
+                      Create Customer
+                    </Button>
+                    <Button
+                      variant="plain"
+                      onClick={() => {
+                        setCreateNewMode(false);
+                        setNewEmail('');
+                        setNewFirstName('');
+                        setNewLastName('');
+                        setNewPhone('');
+                      }}
+                    >
+                      Back to Search
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
+              ) : (
+                <BlockStack gap="200">
+                  <TextField
+                    label="Search Shopify Customers"
+                    labelHidden
+                    value={customerSearch}
+                    onChange={setCustomerSearch}
+                    placeholder="Type to search by name, email, or phone..."
+                    autoComplete="off"
+                    clearButton
+                    onClearButtonClick={() => setCustomerSearch('')}
+                    prefix={<Icon source={SearchIcon} />}
+                    suffix={searching ? <Spinner size="small" /> : null}
+                    helpText={customerSearch.length > 0 && customerSearch.length < 2 ? "Type at least 2 characters" : undefined}
+                  />
+
+                  {searchResults.length > 0 ? (
+                    <BlockStack gap="100">
+                      {searchResults.map((customer) => (
+                        <div
+                          key={customer.id}
+                          onClick={() => {
+                            setSelectedCustomer(customer);
+                            setCustomerSearch('');
+                            setSearchResults([]);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setSelectedCustomer(customer);
+                              setCustomerSearch('');
+                              setSearchResults([]);
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <Box padding="200" background="bg-surface-secondary" borderRadius="100">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <BlockStack gap="050">
+                                <InlineStack gap="200" blockAlign="center">
+                                  <Text as="span" fontWeight="semibold">
+                                    {customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
+                                  </Text>
+                                  {customer.is_member && (
+                                    <Badge tone="success" size="small">Member</Badge>
+                                  )}
+                                </InlineStack>
+                                <Text as="span" variant="bodySm" tone="subdued">{customer.email}</Text>
+                              </BlockStack>
+                              <Text as="span" variant="bodySm">
+                                {customer.numberOfOrders || customer.ordersCount || 0} orders
+                              </Text>
+                            </InlineStack>
+                          </Box>
+                        </div>
+                      ))}
+                      <Button variant="plain" onClick={() => setCreateNewMode(true)}>
+                        Or create a new customer
+                      </Button>
+                    </BlockStack>
+                  ) : debouncedCustomerSearch.length >= 2 && !searching ? (
+                    <BlockStack gap="200">
+                      <Text as="p" tone="subdued" alignment="center">
+                        No customers found matching "{debouncedCustomerSearch}"
+                      </Text>
+                      <Button
+                        onClick={() => {
+                          setCreateNewMode(true);
+                          if (customerSearch.includes('@')) setNewEmail(customerSearch);
+                        }}
+                        fullWidth
+                      >
+                        Create New Customer
+                      </Button>
+                    </BlockStack>
+                  ) : (
+                    <BlockStack gap="200">
+                      <Text as="p" tone="subdued" alignment="center">
+                        {searching ? 'Searching...' : 'Search for a Shopify customer or create a new one'}
+                      </Text>
+                      <Button variant="plain" onClick={() => setCreateNewMode(true)}>
+                        Create new customer instead
+                      </Button>
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              )}
+            </BlockStack>
 
             <Divider />
 
