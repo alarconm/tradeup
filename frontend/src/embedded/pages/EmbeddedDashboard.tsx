@@ -108,7 +108,7 @@ function useResponsive() {
 }
 
 export function EmbeddedDashboard({ shop }: DashboardProps) {
-  const { isSmallMobile, isMobile } = useResponsive();
+  const { isSmallMobile, isMobile, isTablet } = useResponsive();
   const navigate = useNavigate();
 
   // Both queries run in parallel with caching for faster subsequent loads
@@ -146,7 +146,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
       >
         <Layout>
           <Layout.Section>
-            <InlineGrid columns={isSmallMobile ? 1 : isMobile ? 2 : 4} gap={isMobile ? "300" : "400"}>
+            <InlineGrid columns={isSmallMobile ? 1 : (isMobile || isTablet) ? 2 : 4} gap={isMobile ? "300" : "400"}>
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
                   <BlockStack gap="200">
@@ -254,7 +254,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
 
         {/* Key Metrics - Clickable Cards */}
         <Layout.Section>
-          <InlineGrid columns={isSmallMobile ? 1 : isMobile ? 2 : 4} gap={isMobile ? "300" : "400"}>
+          <InlineGrid columns={isSmallMobile ? 1 : (isMobile || isTablet) ? 2 : 4} gap={isMobile ? "300" : "400"}>
             <div
               onClick={() => navigate('/app/members')}
               style={{ cursor: 'pointer' }}
@@ -297,9 +297,11 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <Card>
                 <BlockStack gap="200">
                   <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Value</Text>
-                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
-                    {formatCurrency(stats?.total_trade_in_value || 0)}
-                  </Text>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Text as="p" variant={(isMobile || isTablet) ? "headingLg" : "heading2xl"}>
+                      {formatCurrency(stats?.total_trade_in_value || 0)}
+                    </Text>
+                  </div>
                   <Text as="p" variant="bodySm" tone="subdued">
                     Trade-in value processed
                   </Text>
@@ -317,9 +319,11 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <Card>
                 <BlockStack gap="200">
                   <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Credits Issued</Text>
-                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
-                    {formatCurrency(stats?.total_credits_issued || 0)}
-                  </Text>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Text as="p" variant={(isMobile || isTablet) ? "headingLg" : "heading2xl"}>
+                      {formatCurrency(stats?.total_credits_issued || 0)}
+                    </Text>
+                  </div>
                   <Text as="p" variant="bodySm" tone="subdued">
                     Store credit distributed
                   </Text>

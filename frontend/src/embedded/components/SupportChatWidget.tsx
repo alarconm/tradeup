@@ -140,14 +140,20 @@ export default function SupportChatWidget({
   const renderHelpArticles = () => (
     <BlockStack gap="300">
       <Text as="h3" variant="headingMd">Popular Help Articles</Text>
-      {HELP_ARTICLES.map((article, index) => (
-        <Link key={index} url={article.url} external removeUnderline>
-          <InlineStack gap="200" align="start">
-            <Icon source={article.icon} />
-            <Text as="span" variant="bodyMd">{article.title}</Text>
-          </InlineStack>
-        </Link>
-      ))}
+      <BlockStack gap="200">
+        {HELP_ARTICLES.map((article, index) => (
+          <Link key={index} url={article.url} external removeUnderline>
+            <Box paddingBlock="100">
+              <InlineStack gap="200" align="start" blockAlign="center">
+                <Box minWidth="20px">
+                  <Icon source={article.icon} />
+                </Box>
+                <Text as="span" variant="bodyMd">{article.title}</Text>
+              </InlineStack>
+            </Box>
+          </Link>
+        ))}
+      </BlockStack>
     </BlockStack>
   );
 
@@ -155,10 +161,11 @@ export default function SupportChatWidget({
     <BlockStack gap="400">
       <Text as="h3" variant="headingMd">Need More Help?</Text>
 
-      <InlineStack gap="300">
+      <InlineStack gap="300" wrap>
         <Button
           icon={ChatIcon}
           onClick={() => setShowForm(true)}
+          fullWidth={false}
         >
           Open Support Ticket
         </Button>
@@ -167,6 +174,7 @@ export default function SupportChatWidget({
           icon={EmailIcon}
           url="mailto:support@cardflowlabs.com"
           external
+          fullWidth={false}
         >
           Email Us
         </Button>

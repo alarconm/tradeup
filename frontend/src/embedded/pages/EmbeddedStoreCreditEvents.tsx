@@ -41,19 +41,30 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 import { useTags, useCollections } from '../../hooks/useShopifyData';
 
-// Hook to detect mobile viewport
-function useIsMobile(breakpoint: number = 768) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
-  );
+// Hook to detect viewport size with tablet support
+function useResponsive() {
+  const [screenSize, setScreenSize] = useState(() => {
+    if (typeof window === 'undefined') return { isMobile: false, isTablet: false };
+    const width = window.innerWidth;
+    return {
+      isMobile: width < 768,
+      isTablet: width >= 768 && width < 1024,
+    };
+  });
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [breakpoint]);
+    const checkSize = () => {
+      const width = window.innerWidth;
+      setScreenSize({
+        isMobile: width < 768,
+        isTablet: width >= 768 && width < 1024,
+      });
+    };
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
 
-  return isMobile;
+  return screenSize;
 }
 
 interface StoreCreditEventsProps {
@@ -232,7 +243,7 @@ async function runBulkEvent(
 
 export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
+  const { isMobile, isTablet } = useResponsive();
   const [activeTab, setActiveTab] = useState(0);
 
   // Scheduled events state
@@ -600,100 +611,124 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                   Use a template to quickly create common bonus events
                 </Text>
 
-                <InlineGrid columns={isMobile ? 1 : 4} gap="300">
-                  <Card>
-                    <BlockStack gap="200">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={CalendarIcon} />
-                        <Text as="h4" variant="headingSm">Black Friday</Text>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        +10% store credit on all purchases during Black Friday weekend
-                      </Text>
-                      <Button
-                        size="slim"
-                        onClick={() => openCreateModal({
-                          name: 'Black Friday Bonus',
-                          description: 'Earn 10% store credit on all purchases this Black Friday weekend!',
-                          bonus_percent: 10,
-                          duration_hours: 72,
-                        })}
-                      >
-                        Use Template
-                      </Button>
-                    </BlockStack>
-                  </Card>
+                <InlineGrid columns={isMobile ? 1 : isTablet ? 2 : 4} gap="300">
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <Card>
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '140px' }}>
+                        <BlockStack gap="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={CalendarIcon} />
+                            <Text as="h4" variant="headingSm">Black Friday</Text>
+                          </InlineStack>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            +10% store credit on all purchases during Black Friday weekend
+                          </Text>
+                        </BlockStack>
+                        <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                          <Button
+                            size="slim"
+                            onClick={() => openCreateModal({
+                              name: 'Black Friday Bonus',
+                              description: 'Earn 10% store credit on all purchases this Black Friday weekend!',
+                              bonus_percent: 10,
+                              duration_hours: 72,
+                            })}
+                          >
+                            Use Template
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
 
-                  <Card>
-                    <BlockStack gap="200">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={ClockIcon} />
-                        <Text as="h4" variant="headingSm">Trade Night</Text>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        Saturday 6-9pm bonus for in-store trades and purchases
-                      </Text>
-                      <Button
-                        size="slim"
-                        onClick={() => openCreateModal({
-                          name: 'Saturday Trade Night',
-                          description: 'Extra 10% store credit on Saturday evening purchases!',
-                          bonus_percent: 10,
-                          daily_start_time: '18:00',
-                          daily_end_time: '21:00',
-                          active_days: ['5'], // Saturday
-                        })}
-                      >
-                        Use Template
-                      </Button>
-                    </BlockStack>
-                  </Card>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <Card>
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '140px' }}>
+                        <BlockStack gap="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={ClockIcon} />
+                            <Text as="h4" variant="headingSm">Trade Night</Text>
+                          </InlineStack>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            Saturday 6-9pm bonus for in-store trades and purchases
+                          </Text>
+                        </BlockStack>
+                        <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                          <Button
+                            size="slim"
+                            onClick={() => openCreateModal({
+                              name: 'Saturday Trade Night',
+                              description: 'Extra 10% store credit on Saturday evening purchases!',
+                              bonus_percent: 10,
+                              daily_start_time: '18:00',
+                              daily_end_time: '21:00',
+                              active_days: ['5'], // Saturday
+                            })}
+                          >
+                            Use Template
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
 
-                  <Card>
-                    <BlockStack gap="200">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={CalendarIcon} />
-                        <Text as="h4" variant="headingSm">Weekend Warrior</Text>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        +5% store credit on all weekend purchases
-                      </Text>
-                      <Button
-                        size="slim"
-                        onClick={() => openCreateModal({
-                          name: 'Weekend Bonus',
-                          description: 'Earn 5% store credit on all weekend purchases!',
-                          bonus_percent: 5,
-                          active_days: ['5', '6'], // Saturday, Sunday
-                        })}
-                      >
-                        Use Template
-                      </Button>
-                    </BlockStack>
-                  </Card>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <Card>
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '140px' }}>
+                        <BlockStack gap="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={CalendarIcon} />
+                            <Text as="h4" variant="headingSm">Weekend Warrior</Text>
+                          </InlineStack>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            +5% store credit on all weekend purchases
+                          </Text>
+                        </BlockStack>
+                        <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                          <Button
+                            size="slim"
+                            onClick={() => openCreateModal({
+                              name: 'Weekend Bonus',
+                              description: 'Earn 5% store credit on all weekend purchases!',
+                              bonus_percent: 5,
+                              active_days: ['5', '6'], // Saturday, Sunday
+                            })}
+                          >
+                            Use Template
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
 
-                  <Card>
-                    <BlockStack gap="200">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={CalendarIcon} />
-                        <Text as="h4" variant="headingSm">Grand Opening</Text>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        +15% store credit on opening day purchases
-                      </Text>
-                      <Button
-                        size="slim"
-                        onClick={() => openCreateModal({
-                          name: 'Grand Opening Bonus',
-                          description: 'Celebrate our grand opening with 15% store credit!',
-                          bonus_percent: 15,
-                          duration_hours: 24,
-                        })}
-                      >
-                        Use Template
-                      </Button>
-                    </BlockStack>
-                  </Card>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <Card>
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '140px' }}>
+                        <BlockStack gap="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={CalendarIcon} />
+                            <Text as="h4" variant="headingSm">Grand Opening</Text>
+                          </InlineStack>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            +15% store credit on opening day purchases
+                          </Text>
+                        </BlockStack>
+                        <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                          <Button
+                            size="slim"
+                            onClick={() => openCreateModal({
+                              name: 'Grand Opening Bonus',
+                              description: 'Celebrate our grand opening with 15% store credit!',
+                              bonus_percent: 15,
+                              duration_hours: 24,
+                            })}
+                          >
+                            Use Template
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
                 </InlineGrid>
               </BlockStack>
             </Card>
@@ -782,52 +817,70 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                         Issue store credit to customers based on their past orders. Great for rewarding customers after a busy sales period.
                       </Text>
 
-                      <InlineGrid columns={isMobile ? 1 : 3} gap="300">
-                        <Card>
-                          <BlockStack gap="200">
-                            <Text as="h4" variant="headingSm">Trade Night Recap</Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Issue 10% credit for orders from the last 3 hours
-                            </Text>
-                            <Button
-                              size="slim"
-                              onClick={() => openBulkModal(3, 10)}
-                            >
-                              Run Event
-                            </Button>
-                          </BlockStack>
-                        </Card>
+                      <InlineGrid columns={isMobile ? 1 : isTablet ? 2 : 3} gap="300">
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                          <Card>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100px' }}>
+                              <BlockStack gap="200">
+                                <Text as="h4" variant="headingSm">Trade Night Recap</Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  Issue 10% credit for orders from the last 3 hours
+                                </Text>
+                              </BlockStack>
+                              <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                                <Button
+                                  size="slim"
+                                  onClick={() => openBulkModal(3, 10)}
+                                >
+                                  Run Event
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        </div>
 
-                        <Card>
-                          <BlockStack gap="200">
-                            <Text as="h4" variant="headingSm">Weekend Recap</Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Issue 5% credit for orders from the last 48 hours
-                            </Text>
-                            <Button
-                              size="slim"
-                              onClick={() => openBulkModal(48, 5)}
-                            >
-                              Run Event
-                            </Button>
-                          </BlockStack>
-                        </Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                          <Card>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100px' }}>
+                              <BlockStack gap="200">
+                                <Text as="h4" variant="headingSm">Weekend Recap</Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  Issue 5% credit for orders from the last 48 hours
+                                </Text>
+                              </BlockStack>
+                              <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                                <Button
+                                  size="slim"
+                                  onClick={() => openBulkModal(48, 5)}
+                                >
+                                  Run Event
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        </div>
 
-                        <Card>
-                          <BlockStack gap="200">
-                            <Text as="h4" variant="headingSm">Custom Event</Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Configure your own date range and credit percentage
-                            </Text>
-                            <Button
-                              size="slim"
-                              variant="primary"
-                              onClick={() => openBulkModal()}
-                            >
-                              Create Custom
-                            </Button>
-                          </BlockStack>
-                        </Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                          <Card>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100px' }}>
+                              <BlockStack gap="200">
+                                <Text as="h4" variant="headingSm">Custom Event</Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  Configure your own date range and credit percentage
+                                </Text>
+                              </BlockStack>
+                              <div style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                                <Button
+                                  size="slim"
+                                  variant="primary"
+                                  onClick={() => openBulkModal()}
+                                >
+                                  Create Custom
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        </div>
                       </InlineGrid>
                     </BlockStack>
                   </Card>
@@ -1165,7 +1218,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                   <p>This is a dry run. No credits have been issued yet. Review the data below and click "Apply Credits" to proceed.</p>
                 </Banner>
 
-                <InlineGrid columns={isMobile ? 2 : 4} gap="300">
+                <InlineGrid columns={isMobile ? 2 : isTablet ? 2 : 4} gap="300">
                   <Card>
                     <BlockStack gap="100">
                       <Text as="span" variant="bodySm" tone="subdued">Total Orders</Text>
