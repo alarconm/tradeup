@@ -1,0 +1,140 @@
+{
+  "branch": "feature/monitoring-observability",
+  "title": "Monitoring and Observability",
+  "description": "Full visibility into application health with structured logging, metrics, uptime monitoring, and alerting. Currently only has Sentry error tracking.",
+  "userStories": [
+    {
+      "id": "MO-001",
+      "title": "Add structured JSON logging",
+      "description": "Configure Flask logging to output JSON format for better parsing by log aggregators",
+      "acceptanceCriteria": [
+        "python-json-logger in requirements.txt",
+        "Logs output as JSON in production",
+        "Human-readable format in development",
+        "All log fields standardized (timestamp, level, message, extra)"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "MO-002",
+      "title": "Add request ID middleware",
+      "description": "Generate and track unique request IDs through the entire request lifecycle",
+      "acceptanceCriteria": [
+        "UUID generated at request start",
+        "Request ID available via flask.g.request_id",
+        "Request ID in X-Request-ID response header",
+        "Request ID included in all log messages"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "MO-003",
+      "title": "Enhanced health check endpoint",
+      "description": "Expand /health to check database connectivity, Redis (if configured), and return detailed status",
+      "acceptanceCriteria": [
+        "Health check tests database connection",
+        "Health check tests Redis connection (if configured)",
+        "Response includes component statuses",
+        "Returns 503 if any critical component down",
+        "Response time of health check <500ms"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "MO-004",
+      "title": "Add application metrics",
+      "description": "Add Prometheus-compatible metrics for request rate, latency, and errors",
+      "acceptanceCriteria": [
+        "prometheus-flask-exporter in requirements.txt",
+        "/metrics endpoint available",
+        "Request count by endpoint and status",
+        "Request duration histogram",
+        "Active request gauge"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "MO-005",
+      "title": "Add business metrics",
+      "description": "Track key business metrics: member count, trade-ins processed, credit issued",
+      "acceptanceCriteria": [
+        "Total members gauge per tenant",
+        "Trade-ins created counter",
+        "Credit issued counter",
+        "Metrics update on relevant operations"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "MO-006",
+      "title": "Setup uptime monitoring",
+      "description": "Configure external uptime monitoring with UptimeRobot or similar service",
+      "acceptanceCriteria": [
+        "Health endpoint monitored every 5 minutes",
+        "Alert sent on downtime",
+        "Status page URL documented",
+        "Monitoring covers production URL"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "MO-007",
+      "title": "Add alerting rules for error spikes",
+      "description": "Configure Sentry alert rules for unusual error rates",
+      "acceptanceCriteria": [
+        "Alert on >10 errors in 5 minutes",
+        "Alert on new error types",
+        "Alert destination configured (email/Slack)",
+        "Alert rules documented"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "MO-008",
+      "title": "Add alerting for response time degradation",
+      "description": "Alert when p95 response time exceeds threshold",
+      "acceptanceCriteria": [
+        "Baseline p95 response time established",
+        "Alert when p95 >500ms for 5 minutes",
+        "Alert includes affected endpoints",
+        "Runbook link in alert"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "MO-009",
+      "title": "Dashboard for key metrics",
+      "description": "Create Grafana dashboard or similar for visualizing application metrics",
+      "acceptanceCriteria": [
+        "Request rate chart",
+        "Error rate chart",
+        "Response time percentiles chart",
+        "Business metrics charts",
+        "Dashboard accessible to team"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "MO-010",
+      "title": "Add distributed tracing preparation",
+      "description": "Add trace ID propagation for future OpenTelemetry integration",
+      "acceptanceCriteria": [
+        "Trace ID generated or extracted from headers",
+        "Trace ID included in logs",
+        "Trace ID passed to external API calls",
+        "Documentation for future OTEL setup"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

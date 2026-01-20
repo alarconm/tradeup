@@ -249,7 +249,7 @@ export function EmbeddedThemeBlocks({ shop }: ThemeBlocksProps) {
                 <Button url="https://help.cardflowlabs.com/theme-blocks" external>
                   View Documentation
                 </Button>
-                <Button variant="plain" url="mailto:support@cardflowlabs.com">
+                <Button variant="plain" url="mailto:mike@orbsportscards.com">
                   Contact Support
                 </Button>
               </InlineStack>

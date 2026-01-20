@@ -125,7 +125,7 @@ export default function SupportChatWidget({
       setSubmitted(true);
     } catch (err) {
       // If API fails, fallback to email
-      const mailtoLink = `mailto:support@cardflowlabs.com?subject=${encodeURIComponent(
+      const mailtoLink = `mailto:mike@orbsportscards.com?subject=${encodeURIComponent(
         `[${ticket.category}] ${ticket.subject}`
       )}&body=${encodeURIComponent(
         `${ticket.message}\n\n---\nShop: ${shopDomain}\nPlan: ${plan}\nEmail: ${ticket.email}`
@@ -172,7 +172,7 @@ export default function SupportChatWidget({
 
         <Button
           icon={EmailIcon}
-          url="mailto:support@cardflowlabs.com"
+          url="mailto:mike@orbsportscards.com"
           external
           fullWidth={false}
         >

@@ -1,0 +1,152 @@
+{
+  "branch": "feature/test-coverage",
+  "title": "Comprehensive Test Coverage",
+  "description": "Achieve 80%+ code coverage with pytest for backend and meaningful tests that catch real bugs. Currently only 6 test files exist with minimal coverage.",
+  "userStories": [
+    {
+      "id": "TC-001",
+      "title": "Setup pytest with coverage reporting",
+      "description": "Configure pytest with coverage plugin, create pytest.ini, and add coverage thresholds to fail builds under 80%",
+      "acceptanceCriteria": [
+        "pytest.ini exists with coverage configuration",
+        "pytest-cov is in requirements.txt",
+        "`pytest --cov=app` runs successfully",
+        "Coverage report shows per-file breakdown",
+        "HTML coverage report generated in htmlcov/"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "TC-002",
+      "title": "Test Member CRUD operations",
+      "description": "Add comprehensive tests for member create, read, update, delete, enroll, suspend, reactivate, and cancel operations",
+      "acceptanceCriteria": [
+        "Tests cover GET /api/members/ with pagination",
+        "Tests cover POST /api/members/enroll",
+        "Tests cover GET /api/members/{id}",
+        "Tests cover PUT /api/members/{id}",
+        "Tests cover member status transitions",
+        "All member API tests pass"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "TC-003",
+      "title": "Test Tier management logic",
+      "description": "Add tests for tier CRUD, eligibility rules, auto-upgrade/downgrade, and tier benefits",
+      "acceptanceCriteria": [
+        "Tests cover tier CRUD operations",
+        "Tests cover tier eligibility calculation",
+        "Tests cover auto-upgrade logic",
+        "Tests cover downgrade with expiration",
+        "Tests cover tier benefits application"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "TC-004",
+      "title": "Test Trade-in workflows",
+      "description": "Add tests for trade-in batch creation, item management, approval/rejection, and credit issuance",
+      "acceptanceCriteria": [
+        "Tests cover trade-in batch CRUD",
+        "Tests cover item add/edit/delete",
+        "Tests cover approval workflow",
+        "Tests cover rejection workflow",
+        "Tests cover auto-approval threshold logic",
+        "Tests cover credit issuance on approval"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "TC-005",
+      "title": "Test Store credit operations",
+      "description": "Add tests for credit add, deduct, balance queries, ledger history, and expiration",
+      "acceptanceCriteria": [
+        "Tests cover credit add endpoint",
+        "Tests cover credit deduct endpoint",
+        "Tests cover balance query",
+        "Tests cover ledger history",
+        "Tests cover credit expiration"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "TC-006",
+      "title": "Test Webhook handlers with mocks",
+      "description": "Add tests for order, customer, and app lifecycle webhooks using mock Shopify payloads",
+      "acceptanceCriteria": [
+        "Tests cover orders/create webhook",
+        "Tests cover orders/paid webhook",
+        "Tests cover refunds/create webhook",
+        "Tests cover customers/create webhook",
+        "Tests cover customers/update webhook",
+        "Tests verify HMAC signature validation",
+        "All webhook tests use realistic mock payloads"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "TC-007",
+      "title": "Test Points system",
+      "description": "Add tests for points earning, redemption, expiration, and conversion to credit",
+      "acceptanceCriteria": [
+        "Tests cover points award",
+        "Tests cover points deduct",
+        "Tests cover points balance",
+        "Tests cover points history",
+        "Tests cover points to credit conversion"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "TC-008",
+      "title": "Test Billing and subscription logic",
+      "description": "Add tests for plan subscription, upgrades, downgrades, cancellation, and usage limits",
+      "acceptanceCriteria": [
+        "Tests cover plan subscription",
+        "Tests cover plan upgrade",
+        "Tests cover scheduled downgrade",
+        "Tests cover cancellation",
+        "Tests cover usage limit enforcement",
+        "Tests cover usage warning thresholds"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "TC-009",
+      "title": "Add React Testing Library for frontend",
+      "description": "Setup Vitest with React Testing Library and add tests for critical admin components",
+      "acceptanceCriteria": [
+        "vitest and @testing-library/react in package.json",
+        "Tests for EmbeddedDashboard component",
+        "Tests for EmbeddedMembers component",
+        "Tests for key form components",
+        "All frontend tests pass with npm test"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "TC-010",
+      "title": "Add Playwright for E2E flows",
+      "description": "Setup Playwright and add E2E tests for critical user journeys: onboarding, member management, trade-in processing",
+      "acceptanceCriteria": [
+        "Playwright installed and configured",
+        "E2E test for onboarding flow",
+        "E2E test for member enrollment",
+        "E2E test for trade-in approval",
+        "E2E tests run in CI"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

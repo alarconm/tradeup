@@ -1,0 +1,29 @@
+## Story: TC-001 - Setup pytest with coverage reporting
+Date: 2026-01-20
+
+### What I Did
+- Added pytest-cov>=4.1.0 to requirements.txt
+- Updated pytest.ini with comprehensive coverage configuration:
+  - Coverage runs automatically with pytest
+  - Generates both terminal and HTML reports
+  - Configured to track branch coverage
+  - Excludes __pycache__, migrations, and test files from coverage
+  - Shows missing lines in terminal output
+
+### Files Changed
+- requirements.txt (added pytest-cov)
+- pytest.ini (added coverage configuration)
+
+### Learnings
+- Current test coverage is 22% (17,497 statements, 13,577 missing)
+- 6 tests exist: 6 passed, 3 failed (webhook tests need auth fixes)
+- HTML report generated in htmlcov/
+- Coverage command: `pytest --cov=app --cov-report=term-missing --cov-report=html`
+
+### Verification
+- [x] pytest.ini exists with coverage configuration
+- [x] pytest-cov is in requirements.txt
+- [x] `pytest --cov=app` runs successfully
+- [x] Coverage report shows per-file breakdown
+- [x] HTML coverage report generated in htmlcov/
+

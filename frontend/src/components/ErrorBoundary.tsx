@@ -148,8 +148,8 @@ export class ErrorBoundary extends Component<Props, State> {
                   </Text>
                   <Text as="p" variant="bodySm" tone="subdued">
                     If this problem persists, please contact support at{' '}
-                    <a href="mailto:support@cardflowlabs.com">
-                      support@cardflowlabs.com
+                    <a href="mailto:mike@orbsportscards.com">
+                      mike@orbsportscards.com
                     </a>
                   </Text>
                 </BlockStack>

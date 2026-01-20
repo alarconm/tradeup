@@ -172,7 +172,7 @@ export function BugReportModal({ open, onClose }: BugReportModalProps) {
       <p style={{ marginTop: '8px' }}>
         Our team will review your submission and get back to you if needed.
         You can contact us at{' '}
-        <a href="mailto:support@cardflowlabs.com">support@cardflowlabs.com</a>{' '}
+        <a href="mailto:mike@orbsportscards.com">mike@orbsportscards.com</a>{' '}
         if you have any urgent issues.
       </p>
     </TextContainer>

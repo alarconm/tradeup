@@ -2111,7 +2111,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                   Need help? Reach out to our support team.
                 </Text>
                 <InlineStack gap="200">
-                  <Button variant="plain" url="mailto:support@cardflowlabs.com" external>
+                  <Button variant="plain" url="mailto:mike@orbsportscards.com" external>
                     Email Support
                   </Button>
                   <Button variant="plain" url="https://docs.tradeup.io" external>

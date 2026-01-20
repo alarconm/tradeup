@@ -1,0 +1,138 @@
+{
+  "branch": "feature/api-documentation",
+  "title": "API Documentation with OpenAPI",
+  "description": "Generate OpenAPI documentation for all 43 API modules with Swagger UI. Currently has no API documentation beyond code comments.",
+  "userStories": [
+    {
+      "id": "AD-001",
+      "title": "Add flask-smorest for OpenAPI generation",
+      "description": "Install and configure flask-smorest to auto-generate OpenAPI 3.0 spec from decorated endpoints",
+      "acceptanceCriteria": [
+        "flask-smorest and marshmallow in requirements.txt",
+        "OpenAPI configured in app factory",
+        "API_TITLE and API_VERSION configured",
+        "Swagger UI available at /api/docs"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "AD-002",
+      "title": "Document Members API with schemas",
+      "description": "Add Marshmallow schemas and OpenAPI decorators to all member endpoints",
+      "acceptanceCriteria": [
+        "MemberSchema for response serialization",
+        "MemberCreateSchema for POST validation",
+        "MemberUpdateSchema for PUT validation",
+        "All member endpoints documented",
+        "Request/response examples provided"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "AD-003",
+      "title": "Document Tiers API with schemas",
+      "description": "Add schemas and documentation for tier management endpoints",
+      "acceptanceCriteria": [
+        "TierSchema for response serialization",
+        "TierCreateSchema for POST validation",
+        "All tier endpoints documented",
+        "Eligibility rules schema documented"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "AD-004",
+      "title": "Document Trade-ins API with schemas",
+      "description": "Add schemas and documentation for trade-in batch and item endpoints",
+      "acceptanceCriteria": [
+        "TradeInBatchSchema for responses",
+        "TradeInItemSchema for items",
+        "All trade-in endpoints documented",
+        "Status transitions documented"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "AD-005",
+      "title": "Document Store Credit API with schemas",
+      "description": "Add schemas for credit operations and ledger endpoints",
+      "acceptanceCriteria": [
+        "StoreCreditSchema for balance",
+        "CreditOperationSchema for add/deduct",
+        "LedgerEntrySchema for history",
+        "All credit endpoints documented"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "AD-006",
+      "title": "Document Settings API with schemas",
+      "description": "Add schemas for all settings categories",
+      "acceptanceCriteria": [
+        "SettingsSchema with all categories",
+        "Individual category schemas",
+        "Validation rules documented",
+        "Default values documented"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "AD-007",
+      "title": "Document Webhooks with examples",
+      "description": "Document webhook payload formats and handler responses",
+      "acceptanceCriteria": [
+        "All webhook topics documented",
+        "Payload examples for each topic",
+        "Response format documented",
+        "Error handling documented"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "AD-008",
+      "title": "Add Swagger UI route with authentication",
+      "description": "Configure Swagger UI with API key authentication for testing",
+      "acceptanceCriteria": [
+        "Swagger UI at /api/docs",
+        "Try-it-out works with shop domain header",
+        "Authentication documented",
+        "UI customized with TradeUp branding"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "AD-009",
+      "title": "Generate TypeScript client from OpenAPI spec",
+      "description": "Use openapi-typescript to generate type-safe frontend API client",
+      "acceptanceCriteria": [
+        "openapi-typescript in frontend devDependencies",
+        "npm script to regenerate types",
+        "Generated types match current api.ts",
+        "Frontend uses generated types"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "AD-010",
+      "title": "Add API changelog",
+      "description": "Create CHANGELOG.md for API changes and versioning",
+      "acceptanceCriteria": [
+        "CHANGELOG.md in project root",
+        "Versioning strategy documented",
+        "Breaking changes highlighted",
+        "Deprecation policy documented"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

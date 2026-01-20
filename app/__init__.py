@@ -104,6 +104,13 @@ def create_app(config_name: str = None) -> Flask:
         from flask import send_from_directory
         return send_from_directory('static', 'support.html')
 
+    @app.route('/terms-of-service.html')
+    @app.route('/terms-of-service')
+    @app.route('/terms')
+    def terms_of_service():
+        from flask import send_from_directory
+        return send_from_directory('static', 'terms-of-service.html')
+
     # Root route - redirect to app
     @app.route('/')
     def index():

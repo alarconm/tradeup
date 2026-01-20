@@ -1,0 +1,145 @@
+{
+  "branch": "feature/developer-experience",
+  "title": "Developer Experience Improvements",
+  "description": "Enable new developers to be productive in <30 minutes with docker-compose, proper documentation, and quality gates. Currently requires manual setup.",
+  "userStories": [
+    {
+      "id": "DX-001",
+      "title": "Create .env.example with all variables",
+      "description": "Document all environment variables with descriptions and example values",
+      "acceptanceCriteria": [
+        ".env.example file in project root",
+        "All required variables documented",
+        "Example values provided (not real secrets)",
+        "Comments explain each variable's purpose",
+        "Grouped by category (Database, Shopify, etc.)"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "DX-002",
+      "title": "Create docker-compose.yml for local development",
+      "description": "Single command to start all services locally",
+      "acceptanceCriteria": [
+        "docker-compose.yml in project root",
+        "Flask app service configured",
+        "Volumes for code hot-reload",
+        "`docker-compose up` starts the app",
+        "Environment variables loaded from .env"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "DX-003",
+      "title": "Add docker-compose for PostgreSQL",
+      "description": "Include PostgreSQL service for local development parity with production",
+      "acceptanceCriteria": [
+        "PostgreSQL 15 service in docker-compose",
+        "Data persisted in named volume",
+        "Health check configured",
+        "App waits for DB to be ready"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "DX-004",
+      "title": "Add docker-compose for Redis",
+      "description": "Include Redis service for caching in local development",
+      "acceptanceCriteria": [
+        "Redis service in docker-compose",
+        "Data persisted in named volume",
+        "Health check configured",
+        "Optional (app works without Redis)"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "DX-005",
+      "title": "Create CONTRIBUTING.md",
+      "description": "Document how to contribute to the project",
+      "acceptanceCriteria": [
+        "CONTRIBUTING.md in project root",
+        "Setup instructions",
+        "Code style guidelines",
+        "Testing requirements",
+        "PR process documented"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "DX-006",
+      "title": "Add pre-commit hooks",
+      "description": "Enforce code quality with pre-commit hooks for formatting and linting",
+      "acceptanceCriteria": [
+        "pre-commit in requirements.txt",
+        ".pre-commit-config.yaml configured",
+        "black for Python formatting",
+        "ruff for Python linting",
+        "prettier for TypeScript/JSON",
+        "Hooks run on commit"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "DX-007",
+      "title": "Add PR template with checklist",
+      "description": "Create pull request template to ensure quality",
+      "acceptanceCriteria": [
+        ".github/pull_request_template.md exists",
+        "Checklist includes tests",
+        "Checklist includes documentation",
+        "Checklist includes migrations",
+        "Description section provided"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "DX-008",
+      "title": "Create issue templates",
+      "description": "Add templates for bugs and features",
+      "acceptanceCriteria": [
+        ".github/ISSUE_TEMPLATE/bug_report.md exists",
+        ".github/ISSUE_TEMPLATE/feature_request.md exists",
+        "Bug template includes reproduction steps",
+        "Feature template includes acceptance criteria"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "DX-009",
+      "title": "Setup local SSL for Shopify testing",
+      "description": "Document or automate local HTTPS setup required for Shopify embedded app development",
+      "acceptanceCriteria": [
+        "ngrok or cloudflared setup documented",
+        "SSL certificate generation documented",
+        "Shopify partner app configuration documented",
+        "Test mode setup instructions"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "DX-010",
+      "title": "Add VSCode recommended extensions",
+      "description": "Create workspace settings with recommended extensions",
+      "acceptanceCriteria": [
+        ".vscode/extensions.json with recommendations",
+        "Python extension recommended",
+        "Pylance recommended",
+        "ESLint recommended",
+        "Prettier recommended",
+        "GitLens recommended"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

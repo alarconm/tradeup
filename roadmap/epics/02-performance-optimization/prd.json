@@ -1,0 +1,139 @@
+{
+  "branch": "feature/performance-optimization",
+  "title": "Performance Optimization",
+  "description": "Optimize database queries, add caching, and improve logging to achieve <200ms p95 response times. Currently has N+1 queries, no caching, and 134 print() statements.",
+  "userStories": [
+    {
+      "id": "PO-001",
+      "title": "Add SQLAlchemy eager loading to member queries",
+      "description": "Use joinedload() and selectinload() to prevent N+1 queries when fetching members with their tiers",
+      "acceptanceCriteria": [
+        "Member list query uses eager loading for tier",
+        "Member detail query uses eager loading for tier and points",
+        "No N+1 queries in member endpoints (verify with SQLALCHEMY_ECHO)",
+        "Query count doesn't increase with result size"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PO-002",
+      "title": "Add SQLAlchemy eager loading to tier queries",
+      "description": "Use eager loading for tier queries that include member counts or related data",
+      "acceptanceCriteria": [
+        "Tier list query optimized",
+        "Member count per tier uses subquery instead of N+1",
+        "No N+1 queries in tier endpoints"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PO-003",
+      "title": "Add database indexes for common queries",
+      "description": "Add indexes on tenant_id, status, tier_id, shopify_customer_id, and other frequently filtered columns",
+      "acceptanceCriteria": [
+        "Index on members.tenant_id",
+        "Index on members.status",
+        "Index on members.tier_id",
+        "Index on members.shopify_customer_id",
+        "Index on trade_in_batches.tenant_id",
+        "Index on trade_in_batches.status",
+        "Alembic migration created for indexes"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PO-004",
+      "title": "Setup Redis for caching",
+      "description": "Add Redis connection and caching utilities using Flask-Caching with Redis backend",
+      "acceptanceCriteria": [
+        "redis and Flask-Caching in requirements.txt",
+        "REDIS_URL environment variable documented",
+        "Cache client configured in app factory",
+        "Graceful fallback if Redis unavailable"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "PO-005",
+      "title": "Cache tenant settings",
+      "description": "Cache tenant settings with 5-minute TTL to reduce database queries",
+      "acceptanceCriteria": [
+        "get_tenant_settings() checks cache first",
+        "Cache invalidated on settings update",
+        "5-minute TTL configured",
+        "Cache hit/miss logged for debugging"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "PO-006",
+      "title": "Cache tier configurations",
+      "description": "Cache tier list per tenant with 5-minute TTL",
+      "acceptanceCriteria": [
+        "Tier list cached per tenant",
+        "Cache invalidated on tier create/update/delete",
+        "5-minute TTL configured",
+        "Member tier lookups use cached tier data"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "PO-007",
+      "title": "Add query profiling middleware",
+      "description": "Add middleware to log slow queries (>100ms) in development and count queries per request",
+      "acceptanceCriteria": [
+        "Query count logged per request in development",
+        "Slow queries (>100ms) logged with stack trace",
+        "SQLALCHEMY_ECHO configurable via env var",
+        "Profiling disabled in production by default"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PO-008",
+      "title": "Replace print() with logging",
+      "description": "Replace all 134 print() statements with proper current_app.logger calls",
+      "acceptanceCriteria": [
+        "No print() statements in app/ directory",
+        "All logging uses current_app.logger or module logger",
+        "Log levels appropriate (debug, info, warning, error)",
+        "Sensitive data not logged"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PO-009",
+      "title": "Add request ID tracking for debugging",
+      "description": "Generate unique request ID for each request and include in all logs",
+      "acceptanceCriteria": [
+        "UUID generated for each request",
+        "Request ID in X-Request-ID response header",
+        "Request ID included in all log messages",
+        "Request ID passed to Sentry"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "PO-010",
+      "title": "Optimize member search with full-text search",
+      "description": "Add PostgreSQL full-text search or LIKE optimization for member name/email search",
+      "acceptanceCriteria": [
+        "Member search uses optimized query",
+        "Search supports partial name matching",
+        "Search supports email matching",
+        "Search returns results in <100ms for 10k members"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}
