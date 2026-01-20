@@ -35,6 +35,10 @@ python-dateutil>=2.8.0
 # Error tracking
 sentry-sdk[flask]>=1.40.0
 
+# Caching
+redis>=5.0.0
+Flask-Caching>=2.0.0
+
 # Production server
 gunicorn>=21.0.0
 

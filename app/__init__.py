@@ -44,6 +44,13 @@ def create_app(config_name: str = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
 
+    # Initialize caching (Redis with graceful fallback)
+    try:
+        from .utils.cache import init_cache
+        init_cache(app)
+    except ImportError:
+        pass  # Flask-Caching not installed
+
     # Initialize compression (gzip/brotli for responses)
     if compress:
         compress.init_app(app)

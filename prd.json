@@ -55,7 +55,7 @@
         "Graceful fallback if Redis unavailable"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-005",
