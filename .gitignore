@@ -53,6 +53,11 @@ htmlcov/
 .pytest_cache/
 .tox/
 
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/.ralph-*
+
 # Flask
 instance/
 

@@ -304,3 +304,85 @@ Date: 2026-01-20
 - [x] Tests cover usage warning thresholds
 - [x] All 30 billing API tests pass
 
+---
+
+## Story: TC-009 - Add React Testing Library for frontend
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive frontend test suite (26 tests in 4 files)
+- Test coverage includes:
+  - App.test.tsx (3 tests) - Basic app rendering
+  - EmbeddedDashboard.test.tsx (5 tests) - Dashboard component
+  - EmbeddedMembers.test.tsx (7 tests) - Members list component
+  - SetupChecklist.test.tsx (11 tests) - Setup wizard component
+- Added required mocks to setup.ts:
+  - window.matchMedia (Polaris requirement)
+  - ResizeObserver (Polaris requirement)
+  - IntersectionObserver (Polaris requirement)
+  - window.__TRADEUP_CONFIG__ (app configuration)
+  - window.shopify (App Bridge mock)
+- Fixed tests for proper Polaris AppProvider wrapping with translations
+
+### Files Changed
+- frontend/src/test/setup.ts (added browser API mocks)
+- frontend/src/test/EmbeddedDashboard.test.tsx (new)
+- frontend/src/test/EmbeddedMembers.test.tsx (new)
+- frontend/src/test/SetupChecklist.test.tsx (new)
+
+### Learnings
+- Polaris components require AppProvider wrapper with i18n translations
+- Components return early with warning banners when shop is null
+- Dashboard shows skeleton loaders, not Spinners during loading
+- Polaris Page has a role="status" element that can conflict with assertions
+- Multiple elements matching same text require getAllBy* queries
+
+### Verification
+- [x] vitest and @testing-library/react in package.json
+- [x] Tests for EmbeddedDashboard component (5 tests)
+- [x] Tests for EmbeddedMembers component (7 tests)
+- [x] Tests for key form components (SetupChecklist - 11 tests)
+- [x] All 26 frontend tests pass with npm test
+
+---
+
+## Story: TC-010 - Add Playwright for E2E flows
+Date: 2026-01-20
+
+### What I Did
+- Installed @playwright/test package
+- Created playwright.config.ts with:
+  - Chromium browser configuration
+  - Auto-start dev server for local runs
+  - Screenshot on failure
+  - Trace collection on retry
+  - HTML reporter
+- Created E2E test suite (16 tests in 3 files):
+  - e2e/onboarding.spec.ts (5 tests) - Dashboard and navigation
+  - e2e/members.spec.ts (5 tests) - Member management
+  - e2e/trade-ins.spec.ts (6 tests) - Trade-in workflow
+- Tests use API mocking for isolated testing
+- Added npm scripts: test:e2e, test:e2e:ui, test:e2e:report
+- Created .github/workflows/e2e.yml for CI integration
+
+### Files Changed
+- frontend/package.json (added @playwright/test, new scripts)
+- frontend/playwright.config.ts (new)
+- frontend/e2e/onboarding.spec.ts (new)
+- frontend/e2e/members.spec.ts (new)
+- frontend/e2e/trade-ins.spec.ts (new)
+- .github/workflows/e2e.yml (new CI workflow)
+
+### Learnings
+- Playwright requires browser installation (npx playwright install chromium)
+- Tests need API mocking when running without backend
+- webServer config auto-starts dev server for local testing
+- CI needs PLAYWRIGHT_SKIP_WEBSERVER=true when frontend is pre-built
+
+### Verification
+- [x] Playwright installed and configured
+- [x] E2E test for onboarding flow (5 tests)
+- [x] E2E test for member enrollment (5 tests)
+- [x] E2E test for trade-in approval (6 tests)
+- [x] E2E tests configured to run in CI (.github/workflows/e2e.yml)
+

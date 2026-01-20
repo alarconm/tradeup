@@ -132,7 +132,7 @@
         "All frontend tests pass with npm test"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-010",
@@ -146,7 +146,7 @@
         "E2E tests run in CI"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

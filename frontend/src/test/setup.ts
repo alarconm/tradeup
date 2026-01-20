@@ -1,5 +1,45 @@
 import '@testing-library/jest-dom'
 
+// Mock window.matchMedia for Polaris components
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
+
+// Mock ResizeObserver for Polaris components
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+Object.defineProperty(window, 'ResizeObserver', {
+  writable: true,
+  value: ResizeObserverMock,
+})
+
+// Mock IntersectionObserver for Polaris components
+class IntersectionObserverMock {
+  constructor() {}
+  observe() { return null }
+  unobserve() { return null }
+  disconnect() { return null }
+}
+
+Object.defineProperty(window, 'IntersectionObserver', {
+  writable: true,
+  value: IntersectionObserverMock,
+})
+
 // Extend Window interface for test globals
 declare global {
   interface Window {
