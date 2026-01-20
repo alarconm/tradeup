@@ -160,7 +160,7 @@ export default function Layout() {
   const navSectionStyles: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 6,
   }
 
   const navLabelStyles: React.CSSProperties = {
