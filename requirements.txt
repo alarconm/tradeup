@@ -39,6 +39,9 @@ sentry-sdk[flask]>=1.40.0
 redis>=5.0.0
 Flask-Caching>=2.0.0
 
+# Scheduling (for automatic monthly tasks)
+APScheduler>=3.10.0
+
 # Production server
 gunicorn>=21.0.0
 

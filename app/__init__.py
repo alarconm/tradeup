@@ -111,6 +111,14 @@ def create_app(config_name: str = None) -> Flask:
     from .commands import init_app as init_commands
     init_commands(app)
 
+    # Initialize background scheduler for automated tasks (production only)
+    # Handles: monthly credits, credit expiration, expiration warnings
+    try:
+        from .utils.scheduler import init_scheduler
+        init_scheduler(app)
+    except ImportError:
+        logger.info('APScheduler not installed, automated tasks disabled')
+
     # Register error handlers
     register_error_handlers(app)
 

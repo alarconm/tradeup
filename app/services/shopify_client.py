@@ -824,6 +824,71 @@ class ShopifyClient:
 
         return sorted(list(all_tags))
 
+    def get_product_collections(self, product_ids: List[str]) -> Dict[str, List[str]]:
+        """
+        Get collections for a list of product IDs.
+
+        Args:
+            product_ids: List of Shopify product IDs (numeric or GID format)
+
+        Returns:
+            Dict mapping product_id -> list of collection GIDs
+        """
+        if not product_ids:
+            return {}
+
+        # Normalize IDs to GID format
+        gids = []
+        for pid in product_ids:
+            if not str(pid).startswith('gid://'):
+                gids.append(f'gid://shopify/Product/{pid}')
+            else:
+                gids.append(str(pid))
+
+        # Batch query - Shopify allows up to 250 IDs per query
+        result_map = {}
+        batch_size = 50  # Conservative batch size
+
+        for i in range(0, len(gids), batch_size):
+            batch = gids[i:i + batch_size]
+
+            query = """
+            query getProductCollections($ids: [ID!]!) {
+                nodes(ids: $ids) {
+                    ... on Product {
+                        id
+                        collections(first: 20) {
+                            edges {
+                                node {
+                                    id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """
+
+            try:
+                data = self._execute_query(query, {'ids': batch})
+                nodes = data.get('nodes', [])
+
+                for node in nodes:
+                    if node and node.get('id'):
+                        product_gid = node['id']
+                        # Extract numeric ID for easier lookup
+                        numeric_id = product_gid.split('/')[-1]
+                        collection_edges = node.get('collections', {}).get('edges', [])
+                        collection_ids = [e['node']['id'] for e in collection_edges if e.get('node', {}).get('id')]
+                        result_map[numeric_id] = collection_ids
+                        result_map[product_gid] = collection_ids
+
+            except Exception as e:
+                current_app.logger.warning(f"Failed to fetch product collections: {e}")
+                # Don't fail the entire operation, just skip this batch
+
+        return result_map
+
     def get_customer_tags(self) -> List[str]:
         """
         Get all unique customer tags from Shopify.

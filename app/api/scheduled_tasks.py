@@ -371,3 +371,23 @@ def process_expiration_batch():
         'nextCursor': next_cursor,
         'hasMore': has_more,
     })
+
+
+# ==================== SCHEDULER STATUS ====================
+
+@scheduled_tasks_bp.route('/scheduler/status', methods=['GET'])
+@require_shopify_auth
+def get_scheduler_status():
+    """
+    Get background scheduler status and next run times.
+    """
+    try:
+        from ..utils.scheduler import get_next_run_times
+        jobs = get_next_run_times()
+    except ImportError:
+        jobs = {'error': 'APScheduler not installed'}
+
+    return jsonify({
+        'scheduler': jobs,
+        'message': 'Jobs run automatically in production. Use /run endpoints for manual triggering.'
+    })

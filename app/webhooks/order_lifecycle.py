@@ -775,13 +775,42 @@ def handle_order_created():
                 source_name = order_data.get('source_name', 'web')
                 channel = 'pos' if source_name == 'pos' else 'online'
 
+                # Extract product IDs and tags from line items for collection/tag filtering
+                product_ids = []
+                product_tags = set()
+                for item in line_items:
+                    if item.get('product_id'):
+                        product_ids.append(str(item['product_id']))
+                    # Shopify REST webhook includes tags if available
+                    if item.get('tags'):
+                        if isinstance(item['tags'], str):
+                            product_tags.update(t.strip() for t in item['tags'].split(','))
+                        elif isinstance(item['tags'], list):
+                            product_tags.update(item['tags'])
+
+                # Fetch collection IDs for products (for collection-gated promotions)
+                collection_ids = set()
+                if product_ids:
+                    try:
+                        from ..services.shopify_client import ShopifyClient
+                        shopify_client = ShopifyClient(tenant.id)
+                        product_collections = shopify_client.get_product_collections(product_ids)
+                        for pid in product_ids:
+                            if pid in product_collections:
+                                collection_ids.update(product_collections[pid])
+                    except Exception as e:
+                        current_app.logger.warning(f"Failed to fetch collections for cashback: {e}")
+                        # Continue without collection filtering rather than failing
+
                 # Process cashback using member's current tier (including newly assigned tier!)
                 cashback_entry = store_credit_service.process_purchase_cashback(
                     member_id=member.id,
                     order_total=cashback_subtotal,
                     order_id=order_id,
                     order_name=f"#{order_number}",
-                    channel=channel
+                    channel=channel,
+                    collection_ids=list(collection_ids) if collection_ids else None,
+                    product_tags=list(product_tags) if product_tags else None
                 )
 
                 if cashback_entry:
