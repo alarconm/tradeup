@@ -2,7 +2,7 @@
 # Displays points earned, reward unlocks, and referral prompts after checkout
 # https://shopify.dev/docs/api/checkout-ui-extensions/extension-points#post-purchase
 
-api_version = "2025-01"
+api_version = "2026-01"
 
 [[extensions]]
 uid = "tradeup-post-purchase-rewards"

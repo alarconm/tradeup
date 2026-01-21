@@ -2,7 +2,7 @@
 # Displays in the customer account page
 # https://shopify.dev/docs/api/customer-account-ui-extensions
 
-api_version = "2025-01"
+api_version = "2026-01"
 
 [[extensions]]
 

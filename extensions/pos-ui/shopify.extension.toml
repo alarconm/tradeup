@@ -2,7 +2,7 @@
 # https://shopify.dev/docs/api/pos-ui-extensions
 # Look up members, check balances, and issue credit from POS terminal
 
-api_version = "2025-01"
+api_version = "2026-01"
 
 [[extensions]]
 

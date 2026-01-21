@@ -2,7 +2,7 @@
 # Displays points balance, earnings, and rewards at checkout
 # https://shopify.dev/docs/api/checkout-ui-extensions
 
-api_version = "2025-01"
+api_version = "2026-01"
 
 [[extensions]]
 uid = "tradeup-checkout-points-display"
