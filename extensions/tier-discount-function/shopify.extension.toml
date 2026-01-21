@@ -13,6 +13,7 @@ uid = "39db42b8-a969-dab6-ef1a-80c3708ad0d8152348da"
 type = "function"
 
   [extensions.build]
+  command = "npm run build"
   path = "dist/function.wasm"
   watch = ["src/**/*.js", "src/input.graphql"]
 
