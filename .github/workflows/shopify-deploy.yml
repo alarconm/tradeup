@@ -36,6 +36,8 @@ jobs:
           cd ../customer-account-ui && npm ci
           cd ../post-purchase-ui && npm ci
           cd ../pos-ui && npm ci --legacy-peer-deps
+          cd ../checkout-validation && npm ci
+          cd ../tier-discount-function && npm ci
 
       - name: Deploy to Shopify (no release)
         if: ${{ github.event.inputs.release != 'true' }}
