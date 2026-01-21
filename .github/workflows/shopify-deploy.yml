@@ -35,7 +35,7 @@ jobs:
           cd extensions/checkout-ui && npm ci
           cd ../customer-account-ui && npm ci
           cd ../post-purchase-ui && npm ci
-          cd ../pos-ui && npm ci
+          cd ../pos-ui && npm ci --legacy-peer-deps
           cd ../checkout-validation && npm ci
           cd ../tier-discount-function && npm ci
 
