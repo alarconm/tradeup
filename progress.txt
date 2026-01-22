@@ -2958,3 +2958,136 @@ Created a visual PositionSelector React component for the Widget Builder that al
 - [x] Preview shows widget in selected position
 - [x] Works for floating widgets
 - [x] Tab positions supported (left-tab, right-tab)
+
+---
+
+## TC-009 - Add React Testing Library for frontend
+**Date:** January 22, 2026
+**Status:** COMPLETE
+
+## Story: TC-008 - Test Billing and subscription logic
+Date: 2026-01-22
+
+### What I Did
+Significantly expanded the billing API test suite with comprehensive coverage of all billing and subscription logic.
+
+### Test Coverage (64 tests total)
+The test file now covers all acceptance criteria:
+
+**AC-1: Plan Subscription Tests (11 tests)**
+- TestBillingPlans: 5 tests for plan listing, fields, sorting, expected plans, limits
+- TestSubscriptionCreate: 6 tests for auth, invalid plan, valid plan, default plan, already subscribed, free plan
+
+**AC-2: Plan Upgrade Tests (6 tests)**
+- TestSubscriptionUpgrade: auth requirement, plan requirement, invalid plan, no subscription, same plan error, starter to growth upgrade
+
+**AC-3: Scheduled Downgrade Tests (7 tests)**
+- TestScheduledDowngrade: auth requirement, plan requirement, no subscription, growth to starter downgrade, invalid upgrade via downgrade, history recording
+- TestCancelScheduledChange: auth requirement, no pending changes, successful cancellation
+
+**AC-4: Cancellation Tests (4 tests)**
+- TestSubscriptionCancel: auth requirement, no subscription, active subscription cancellation, history recording
+
+**AC-5: Usage Limit Enforcement Tests (4 tests)**
+- TestUsageLimitEnforcement: usage percentage display, tier usage display, member limit enforcement, under-limit behavior
+
+**AC-6: Usage Warning Thresholds Tests (5 tests)**
+- TestUsageWarningThresholds: no warning under 80%, caution at 80%, warning at 90%, critical at 100%, tier warning thresholds
+
+**Additional Tests (27 tests)**
+- TestSubscriptionStatus: 6 tests for auth, plan info, usage info, warnings, trial info, period end
+- TestBillingHistory: 4 tests for auth, list return, pagination, history after operations
+- TestBillingCallback: 5 tests for tenant_id requirement, invalid/nonexistent/inactive tenant, valid tenant
+- TestBillingValidation: 5 tests for empty body handling, null plan, malformed JSON
+- TestPlanConfiguration: 5 tests for free/starter/growth/pro plan limits and features
+
+### Files Changed
+- tests/test_api_billing.py (complete rewrite - 1,247 lines, 64 tests)
+
+### Key Testing Patterns Used
+- Used `app.app_context()` for database operations within tests
+- Used `unittest.mock.patch` and `MagicMock` to mock Shopify API calls
+- Used `sample_tenant` fixture with direct database modifications for state setup
+- Created members and tiers dynamically for usage threshold testing
+- Verified billing history records are created for billing operations
+
+### Verification
+- [x] Tests cover plan subscription (TestBillingPlans, TestSubscriptionCreate)
+- [x] Tests cover plan upgrade (TestSubscriptionUpgrade)
+- [x] Tests cover scheduled downgrade (TestScheduledDowngrade, TestCancelScheduledChange)
+- [x] Tests cover cancellation (TestSubscriptionCancel)
+- [x] Tests cover usage limit enforcement (TestUsageLimitEnforcement)
+- [x] Tests cover usage warning thresholds (TestUsageWarningThresholds)
+
+### Test Results
+```
+64 passed in test session
+All acceptance criteria verified
+```
+
+---
+
+### Summary
+Verified and enhanced React Testing Library setup with Vitest for frontend testing. The testing infrastructure was already in place with vitest and @testing-library/react. Added additional tests for key form components to strengthen coverage.
+
+### What Was Already In Place
+- vitest (v1.3.0) in package.json
+- @testing-library/react (v14.2.0) in package.json
+- @testing-library/jest-dom (v6.4.0) in package.json
+- vitest.config.ts with jsdom environment
+- Test setup file (src/test/setup.ts) with mocks for:
+  - window.matchMedia
+  - ResizeObserver
+  - IntersectionObserver
+  - window.__TRADEUP_CONFIG__
+  - window.shopify (App Bridge)
+- Existing tests for EmbeddedDashboard component (5 tests)
+- Existing tests for EmbeddedMembers component (7 tests)
+- Existing tests for SetupChecklist component (11 tests)
+- Basic App tests (3 tests)
+
+### New Tests Added
+1. **ColorPicker.test.tsx** (12 tests)
+   - Tests for ColorPicker component rendering
+   - Tests for label, help text, and error display
+   - Tests for popover open/close behavior
+   - Tests for disabled state
+   - Tests for different color types
+   - Tests for WidgetColorPickerGroup composite component
+
+2. **ActionableEmptyState.test.tsx** (16 tests)
+   - Tests for all empty state types (members, trade-ins, promotions, tiers, products)
+   - Tests for quick tips display
+   - Tests for navigation on primary action click
+   - Tests for QuickActionCard component
+   - Tests for GettingStartedSection component
+
+3. **WizardProgress.test.tsx** (13 tests)
+   - Tests for step rendering and numbering
+   - Tests for current step highlighting
+   - Tests for completed steps with checkmarks
+   - Tests for clickable completed steps
+   - Tests for PRODUCT_WIZARD_STEPS constant
+   - Tests for edge cases (single step, all completed)
+
+### Test Results
+All 67 frontend tests pass:
+- src/test/App.test.tsx (3 tests)
+- src/test/EmbeddedDashboard.test.tsx (5 tests)
+- src/test/EmbeddedMembers.test.tsx (7 tests)
+- src/test/SetupChecklist.test.tsx (11 tests)
+- src/test/ColorPicker.test.tsx (12 tests)
+- src/test/ActionableEmptyState.test.tsx (16 tests)
+- src/test/WizardProgress.test.tsx (13 tests)
+
+### Files Changed
+- `frontend/src/test/ColorPicker.test.tsx` - New test file (175 lines)
+- `frontend/src/test/ActionableEmptyState.test.tsx` - New test file (190 lines)
+- `frontend/src/test/WizardProgress.test.tsx` - New test file (175 lines)
+
+### Acceptance Criteria Verification
+- [x] vitest and @testing-library/react in package.json
+- [x] Tests for EmbeddedDashboard component (5 tests)
+- [x] Tests for EmbeddedMembers component (7 tests)
+- [x] Tests for key form components (ColorPicker, ActionableEmptyState, WizardProgress, SetupChecklist)
+- [x] All frontend tests pass with npm test (67 tests passing)
