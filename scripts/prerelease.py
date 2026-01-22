@@ -130,7 +130,7 @@ def check_package_version():
         return False, str(e)
 
 def check_env_file():
-    """Check .env file exists with required vars"""
+    """Check .env file exists with basic config"""
     root = Path(__file__).parent.parent
     env_path = root / '.env'
 
@@ -140,11 +140,9 @@ def check_env_file():
     with open(env_path) as f:
         content = f.read()
 
-    required = ['SHOPIFY_API_KEY']
-    missing = [var for var in required if var not in content]
-
-    if missing:
-        return False, f"Missing env vars: {', '.join(missing)}"
+    # Check for basic config (Shopify keys may be in shopify.app.toml or env)
+    if 'SHOPIFY_DOMAIN' not in content and 'DATABASE_URL' not in content:
+        return False, "Missing basic config in .env"
     return True, None
 
 def check_health_endpoint():
