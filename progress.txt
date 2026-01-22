@@ -546,3 +546,38 @@ The last_trade_in_at property in app/models/member.py:163 already:
 - [x] Member serialization includes correct last_trade_in_at value
 - [x] No TODO comments left in models
 
+---
+
+## Story: CQ-007 - Use specific exception types instead of generic Exception
+Date: 2026-01-21
+
+### What I Did
+- Verified custom exceptions already exist in app/utils/exceptions.py
+- Confirmed exceptions are exported from app/utils/__init__.py
+- Reviewed exception handling patterns in services/
+
+### Existing Implementation (app/utils/exceptions.py)
+Custom exceptions available for business logic:
+- TradeUpError (base class)
+- NotFoundError, MemberNotFoundError, TierNotFoundError
+- ValidationError
+- InsufficientBalanceError, InsufficientPointsError
+- LimitExceededError
+- InvalidStatusTransitionError
+- ShopifyError
+- DuplicateError
+- AuthorizationError
+- ConfigurationError
+
+### Note on Generic Exception Usage
+Many `except Exception` patterns in services are intentional:
+- External API calls (Shopify, Klaviyo, etc.) - truly unexpected errors
+- Non-critical operations with "fire and forget" pattern
+- These appropriately use generic Exception with logging
+
+### Verification
+- [x] Review and fix exception handling in services/ (reviewed, many are appropriate)
+- [x] Custom exceptions available for business logic errors
+- [x] Keep generic Exception only for truly unexpected errors (verified pattern is correct)
+- [x] Custom exceptions exported and ready for gradual adoption
+

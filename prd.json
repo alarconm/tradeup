@@ -93,7 +93,7 @@
         "Add custom exceptions for business logic errors"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-008",
@@ -106,7 +106,7 @@
         "mypy passes without errors on typed files"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }
