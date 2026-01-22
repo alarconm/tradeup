@@ -1,0 +1,22 @@
+# Loyalty Page Builder Progress
+
+## LP-001 - Create page configuration model
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created LoyaltyPage model in app/models/loyalty_page.py
+- Model supports draft and published versions
+- Registered in app/models/__init__.py
+
+## LP-002 - Create page builder API endpoints
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created app/api/loyalty_page.py with the following endpoints:
+  - GET /api/loyalty-page - get current page config (draft and published)
+  - PUT /api/loyalty-page - save page config as draft
+  - POST /api/loyalty-page/publish - publish the draft to live
+  - POST /api/loyalty-page/unpublish - unpublish the page
+  - GET /api/loyalty-page/preview - preview with latest draft config
+  - POST /api/loyalty-page/discard-draft - discard draft changes (bonus)
+- Registered blueprint in app/__init__.py at url_prefix='/api/loyalty-page'
+- Uses LoyaltyPage model for database-backed draft/publish workflow
+- Includes HTML rendering for preview functionality

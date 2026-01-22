@@ -528,6 +528,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.page_builder import page_builder_bp
     app.register_blueprint(page_builder_bp, url_prefix='/api/page-builder')
 
+    # Loyalty Page API (draft/publish workflow)
+    from .api.loyalty_page import loyalty_page_bp
+    app.register_blueprint(loyalty_page_bp, url_prefix='/api/loyalty-page')
+
     # Widget Visual Builder
     from .api.widget_builder import widget_builder_bp
     app.register_blueprint(widget_builder_bp, url_prefix='/api/widget-builder')
