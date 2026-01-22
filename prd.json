@@ -67,7 +67,7 @@
         "Development mode allows default key"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-006",

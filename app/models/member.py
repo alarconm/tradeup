@@ -159,6 +159,17 @@ class Member(db.Model):
     def __repr__(self):
         return f'<Member {self.member_number}>'
 
+    @property
+    def last_trade_in_at(self):
+        """Get the date of the member's most recent trade-in batch."""
+        if not self.trade_in_batches:
+            return None
+        # Get most recent completed trade-in
+        latest = self.trade_in_batches.filter_by(status='completed').order_by(
+            db.desc('created_at')
+        ).first()
+        return latest.created_at if latest else None
+
     def to_dict(self, include_stats=False, include_subscription=False, include_referrals=False):
         # Split name into first/last for frontend compatibility
         name_parts = (self.name or '').split(' ', 1) if self.name else ['', '']

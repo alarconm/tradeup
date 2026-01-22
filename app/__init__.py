@@ -38,7 +38,15 @@ def create_app(config_name: str = None) -> Flask:
     setup_logging()
 
     app = Flask(__name__)
-    app.config.from_object(get_config(config_name))
+    config_class = get_config(config_name)
+    app.config.from_object(config_class)
+
+    # Validate SECRET_KEY in production - fail fast if insecure
+    if config_name == 'production':
+        from .config import ProductionConfig
+        validated_key = ProductionConfig.validate_secret_key()
+        app.config['SECRET_KEY'] = validated_key
+        logger.info("SECRET_KEY validated successfully for production")
 
     # Initialize Sentry error tracking (before other extensions for full coverage)
     try:

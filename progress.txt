@@ -499,3 +499,28 @@ Date: 2026-01-21
 - [x] Error messages are user-friendly, technical details logged only
 - [ ] All API endpoints use standardized error format (foundation laid, gradual migration)
 
+---
+
+## Story: CQ-005 - Add SECRET_KEY validation in production
+Date: 2026-01-21
+
+### What I Did
+- Verified existing implementation in app/config.py (ProductionConfig.validate_secret_key)
+- Added validate_config() helper function for explicit validation
+- Validation already called in app/__init__.py create_app() when config_name='production'
+
+### Files Changed
+- app/config.py (added validate_config helper)
+
+### Existing Implementation
+The SECRET_KEY validation was already properly implemented:
+- ProductionConfig.validate_secret_key() checks for empty, insecure patterns, and minimum length
+- create_app() calls this validation in production mode
+- Development mode uses BaseConfig which allows default 'dev-secret-key-change-in-production'
+
+### Verification
+- [x] App fails to start in production if SECRET_KEY not set
+- [x] App fails to start if SECRET_KEY contains 'dev' or 'change' (and 'default', 'test', 'secret', 'password')
+- [x] Clear error message explaining the issue (RuntimeError with instructions)
+- [x] Development mode allows default key
+
