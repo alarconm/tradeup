@@ -61,3 +61,43 @@
   - FAQ: title, dynamic FAQ items list with add/remove
   - Referral Banner: title, description
   - CTA: title, subtitle, button text/URL, email signup toggle
+
+## LP-005 - Create pre-built templates
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created 3 pre-built templates stored as JSON configs in app/services/page_builder_service.py:
+  1. "Classic" template - traditional loyalty page layout
+     - Navy blue primary color with orange accent
+     - All 7 sections enabled with professional copy
+     - 4-step "How It Works" section
+     - Comprehensive FAQ items
+  2. "Modern" template - clean, minimal design
+     - Black and white with blue accent
+     - Minimalist copy and reduced section content
+     - 3-step "How It Works" section
+     - Streamlined FAQ
+  3. "Gamified" template - badges and achievements focused
+     - Purple gradient with gold accents
+     - Gaming-themed language (XP, levels, achievements)
+     - 4-step "Your Quest Begins" section
+     - Player Guide FAQ
+- All templates include all section types (hero, how_it_works, tiers, rewards, earning_rules, faq, referrals)
+- Each template has custom section_settings with tailored copy and styling
+- Added template selection UI to page builder (Templates tab)
+  - Visual template cards with color previews
+  - Template name, description, and section count
+  - "Currently Applied" badge for active template
+  - One-click "Apply Template" button
+- Updated backend apply_template() method to:
+  - Apply template-specific section settings
+  - Properly order sections based on template configuration
+  - Copy template colors and section configurations
+- API endpoints used:
+  - GET /api/page-builder/templates - fetch available templates
+  - POST /api/page-builder/templates/{id}/apply - one-click apply
+- Frontend changes in EmbeddedPageBuilder.tsx:
+  - Added Templates tab (now first tab)
+  - Template interface and API functions
+  - Templates query with React Query
+  - Apply template mutation with success/error handling
+  - Template cards with visual color preview

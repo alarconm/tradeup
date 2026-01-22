@@ -101,50 +101,188 @@ DEFAULT_SECTIONS = [
     },
 ]
 
-# Pre-built templates
+# Pre-built templates - stored as JSON configs
+# Each template includes all section types with appropriate enabled states
 TEMPLATES = {
-    'minimal': {
-        'name': 'Minimal',
-        'description': 'Clean, simple design focused on essentials',
-        'sections': ['hero', 'how_it_works', 'tiers'],
+    'classic': {
+        'name': 'Classic',
+        'description': 'Traditional loyalty page layout with all essential sections',
+        'preview_image': '/static/templates/classic-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'section_settings': {
+            'hero': {
+                'title': 'Welcome to Our Rewards Program',
+                'subtitle': 'Join thousands of loyal customers earning points on every purchase',
+                'cta_text': 'Join Now - It\'s Free!',
+                'cta_link': '/account/register',
+                'background_type': 'solid',
+                'background_color': '#1a365d',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'How Our Program Works',
+                'steps': [
+                    {'icon': 'user-plus', 'title': 'Sign Up', 'description': 'Create your free rewards account in seconds'},
+                    {'icon': 'shopping-bag', 'title': 'Shop & Earn', 'description': 'Earn 1 point for every dollar you spend'},
+                    {'icon': 'arrow-up-circle', 'title': 'Level Up', 'description': 'Unlock higher tiers for more benefits'},
+                    {'icon': 'gift', 'title': 'Redeem Rewards', 'description': 'Use your points for discounts and perks'},
+                ]
+            },
+            'tiers': {
+                'title': 'Membership Tiers',
+                'show_benefits': True,
+                'show_prices': True,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Rewards Catalog',
+                'show_points_cost': True,
+                'max_items': 6,
+            },
+            'earning_rules': {
+                'title': 'Ways to Earn Points',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Frequently Asked Questions',
+                'items': [
+                    {'question': 'How do I join the rewards program?', 'answer': 'Simply create an account during checkout or visit our rewards page to sign up. It\'s completely free!'},
+                    {'question': 'How do I earn points?', 'answer': 'Earn points on every purchase. The more you spend, the more points you earn. Higher tier members earn bonus points!'},
+                    {'question': 'How do I redeem my points?', 'answer': 'Use your points at checkout for instant discounts, or browse our rewards catalog for exclusive perks.'},
+                    {'question': 'Do my points expire?', 'answer': 'Points remain active as long as you make at least one purchase every 12 months.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Refer Friends & Earn Bonus Points',
+                'description': 'Share your unique referral link. You and your friend both earn 500 bonus points when they make their first purchase!',
+                'show_code_input': True,
+            },
+        },
         'colors': {
-            'primary': '#000000',
-            'secondary': '#666666',
+            'primary': '#1a365d',
+            'secondary': '#2d4a6f',
             'accent': '#e85d27',
             'background': '#ffffff',
         }
     },
-    'bold': {
-        'name': 'Bold',
-        'description': 'Vibrant colors and large typography',
-        'sections': ['hero', 'how_it_works', 'rewards', 'earning_rules', 'referrals'],
+    'modern': {
+        'name': 'Modern',
+        'description': 'Clean, minimal design with contemporary aesthetics',
+        'preview_image': '/static/templates/modern-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'section_settings': {
+            'hero': {
+                'title': 'Earn While You Shop',
+                'subtitle': 'Simple. Rewarding. Worth it.',
+                'cta_text': 'Get Started',
+                'cta_link': '/account/register',
+                'background_type': 'gradient',
+                'background_color': '#000000',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'Three Simple Steps',
+                'steps': [
+                    {'icon': 'check-circle', 'title': 'Join', 'description': 'Free to sign up'},
+                    {'icon': 'coins', 'title': 'Earn', 'description': 'Points on every order'},
+                    {'icon': 'sparkles', 'title': 'Enjoy', 'description': 'Exclusive rewards'},
+                ]
+            },
+            'tiers': {
+                'title': 'Member Levels',
+                'show_benefits': True,
+                'show_prices': False,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Your Rewards',
+                'show_points_cost': True,
+                'max_items': 4,
+            },
+            'earning_rules': {
+                'title': 'Earn More',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Questions?',
+                'items': [
+                    {'question': 'Is it free to join?', 'answer': 'Yes, always free. No hidden fees.'},
+                    {'question': 'How fast do I earn?', 'answer': 'Instantly. Points added after each purchase.'},
+                    {'question': 'Can I combine with other offers?', 'answer': 'Yes! Rewards work with most promotions.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Share the Love',
+                'description': 'Invite friends. Both of you earn rewards.',
+                'show_code_input': True,
+            },
+        },
         'colors': {
-            'primary': '#e85d27',
-            'secondary': '#ff7a50',
-            'accent': '#ffd700',
-            'background': '#1a1a2e',
+            'primary': '#000000',
+            'secondary': '#4a4a4a',
+            'accent': '#0066ff',
+            'background': '#fafafa',
         }
     },
-    'elegant': {
-        'name': 'Elegant',
-        'description': 'Sophisticated design with premium feel',
-        'sections': ['hero', 'tiers', 'rewards', 'faq'],
-        'colors': {
-            'primary': '#2c3e50',
-            'secondary': '#34495e',
-            'accent': '#d4af37',
-            'background': '#f8f9fa',
-        }
-    },
-    'playful': {
-        'name': 'Playful',
-        'description': 'Fun, colorful design for collectibles',
-        'sections': ['hero', 'how_it_works', 'rewards', 'earning_rules', 'referrals', 'faq'],
+    'gamified': {
+        'name': 'Gamified',
+        'description': 'Badges and achievements focused with engaging visuals',
+        'preview_image': '/static/templates/gamified-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'section_settings': {
+            'hero': {
+                'title': 'Level Up Your Shopping!',
+                'subtitle': 'Earn XP, unlock achievements, and claim epic rewards',
+                'cta_text': 'Start Your Adventure',
+                'cta_link': '/account/register',
+                'background_type': 'gradient',
+                'background_color': '#6366f1',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'Your Quest Begins',
+                'steps': [
+                    {'icon': 'trophy', 'title': 'Create Profile', 'description': 'Set up your player account'},
+                    {'icon': 'zap', 'title': 'Earn XP', 'description': 'Gain experience with every purchase'},
+                    {'icon': 'award', 'title': 'Unlock Badges', 'description': 'Complete challenges for achievements'},
+                    {'icon': 'star', 'title': 'Claim Rewards', 'description': 'Redeem your points for loot'},
+                ]
+            },
+            'tiers': {
+                'title': 'Player Ranks',
+                'show_benefits': True,
+                'show_prices': True,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Reward Shop',
+                'show_points_cost': True,
+                'max_items': 8,
+            },
+            'earning_rules': {
+                'title': 'XP Multipliers',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Player Guide',
+                'items': [
+                    {'question': 'How do I level up?', 'answer': 'Earn XP through purchases and completing challenges. Each level unlocks new rewards and benefits!'},
+                    {'question': 'What are achievements?', 'answer': 'Special badges you unlock by reaching milestones. Collect them all for bonus rewards!'},
+                    {'question': 'Do I keep my progress?', 'answer': 'Your XP and achievements are saved forever. Keep climbing the leaderboard!'},
+                    {'question': 'Are there limited-time events?', 'answer': 'Yes! Watch for special events with double XP and exclusive rewards.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Recruit Your Squad',
+                'description': 'Invite friends and both earn a 1000 XP bonus when they join the adventure!',
+                'show_code_input': True,
+            },
+        },
         'colors': {
             'primary': '#6366f1',
-            'secondary': '#a855f7',
-            'accent': '#22d3ee',
-            'background': '#faf5ff',
+            'secondary': '#8b5cf6',
+            'accent': '#fbbf24',
+            'background': '#0f0f23',
         }
     },
 }
@@ -202,18 +340,40 @@ class PageBuilderService:
         return current_config
 
     def apply_template(self, template_name: str) -> Dict[str, Any]:
-        """Apply a pre-built template."""
+        """Apply a pre-built template with one-click functionality.
+
+        Applies template colors, section configurations, and custom section
+        settings to create a complete starting point for the loyalty page.
+        """
         if template_name not in TEMPLATES:
             raise ValueError(f"Unknown template: {template_name}")
 
         template = TEMPLATES[template_name]
+        template_section_settings = template.get('section_settings', {})
 
         # Create section config based on template
         sections = []
+        order = 0
         for section in DEFAULT_SECTIONS:
-            section_copy = section.copy()
-            section_copy['enabled'] = section['id'] in template['sections']
+            section_copy = {
+                'id': section['id'],
+                'type': section['type'],
+                'enabled': section['id'] in template['sections'],
+                'order': order if section['id'] in template['sections'] else 999,
+                'settings': section['settings'].copy(),
+            }
+
+            # Apply template-specific section settings if available
+            if section['id'] in template_section_settings:
+                section_copy['settings'] = template_section_settings[section['id']].copy()
+
+            if section['id'] in template['sections']:
+                order += 1
+
             sections.append(section_copy)
+
+        # Sort sections by order
+        sections.sort(key=lambda s: s['order'])
 
         config = {
             'template': template_name,
@@ -262,13 +422,15 @@ class PageBuilderService:
         return self.update_page_config(config)
 
     def get_available_templates(self) -> List[Dict[str, Any]]:
-        """Get list of available templates."""
+        """Get list of available templates with preview info."""
         return [
             {
                 'id': key,
                 'name': val['name'],
                 'description': val['description'],
                 'colors': val['colors'],
+                'preview_image': val.get('preview_image'),
+                'sections': val['sections'],
             }
             for key, val in TEMPLATES.items()
         ]

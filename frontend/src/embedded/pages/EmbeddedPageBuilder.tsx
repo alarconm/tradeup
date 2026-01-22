@@ -1,5 +1,5 @@
 /**
- * Loyalty Page Builder - LP-004
+ * Loyalty Page Builder - LP-004, LP-005
  *
  * Visual drag-and-drop editor for customizing the loyalty program landing page.
  * Features:
@@ -8,6 +8,7 @@
  * - Real-time preview panel
  * - Save and publish buttons
  * - Undo/redo functionality
+ * - Pre-built templates (Classic, Modern, Gamified) with one-click apply (LP-005)
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -170,10 +171,45 @@ const DEFAULT_SECTION_SETTINGS: Record<string, Record<string, any>> = {
   },
 };
 
+// Template interface for LP-005
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+  };
+  preview_image?: string;
+  sections: string[];
+}
+
+interface TemplatesResponse {
+  success: boolean;
+  templates: Template[];
+}
+
 // API functions using LP-002 endpoints
 async function fetchPageData(shop: string | null): Promise<ApiResponse> {
   const response = await authFetch(`${getApiUrl()}/loyalty-page`, shop);
   if (!response.ok) throw new Error('Failed to fetch page data');
+  return response.json();
+}
+
+// Template API functions for LP-005
+async function fetchTemplates(shop: string | null): Promise<TemplatesResponse> {
+  const response = await authFetch(`${getApiUrl()}/page-builder/templates`, shop);
+  if (!response.ok) throw new Error('Failed to fetch templates');
+  return response.json();
+}
+
+async function applyTemplate(shop: string | null, templateId: string): Promise<{ success: boolean; config: PageConfig }> {
+  const response = await authFetch(`${getApiUrl()}/page-builder/templates/${templateId}/apply`, shop, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to apply template');
   return response.json();
 }
 
@@ -216,6 +252,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [showAddSection, setShowAddSection] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -295,6 +332,37 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
       }
       setHasLocalChanges(false);
       setSaveMessage('Draft discarded');
+      setTimeout(() => setSaveMessage(null), 3000);
+    },
+  });
+
+  // Templates query for LP-005
+  const { data: templatesData } = useQuery({
+    queryKey: ['page-builder-templates', shop],
+    queryFn: () => fetchTemplates(shop),
+    enabled: !!shop,
+  });
+
+  // Apply template mutation for LP-005
+  const applyTemplateMutation = useMutation({
+    mutationFn: (templateId: string) => applyTemplate(shop, templateId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['loyalty-page', shop] });
+      if (data.config) {
+        setLocalConfig(data.config as PageConfig);
+        setHistory({
+          past: [],
+          present: data.config as PageConfig,
+          future: [],
+        });
+      }
+      setHasLocalChanges(true);
+      setShowTemplates(false);
+      setSaveMessage('Template applied successfully! Remember to save your changes.');
+      setTimeout(() => setSaveMessage(null), 5000);
+    },
+    onError: () => {
+      setSaveMessage('Failed to apply template');
       setTimeout(() => setSaveMessage(null), 3000);
     },
   });
@@ -475,6 +543,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
   const disabledSections = config?.sections?.filter((s) => !s.enabled) || [];
 
   const tabs = [
+    { id: 'templates', content: 'Templates', panelID: 'templates-panel' },
     { id: 'sections', content: 'Sections', panelID: 'sections-panel' },
     { id: 'design', content: 'Design', panelID: 'design-panel' },
     { id: 'settings', content: 'Settings', panelID: 'settings-panel' },
@@ -585,8 +654,124 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
             <Divider />
 
             <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
-              {/* Sections Tab */}
+              {/* Templates Tab - LP-005 */}
               {selectedTab === 0 && (
+                <Box paddingBlockStart="400">
+                  <BlockStack gap="400">
+                    <Text as="h3" variant="headingMd">Choose a Template</Text>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      Start with a pre-built template and customize it to match your brand.
+                      Applying a template will replace your current page configuration.
+                    </Text>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                      {templatesData?.templates?.map((template) => (
+                        <Card key={template.id}>
+                          <BlockStack gap="300">
+                            {/* Template Preview */}
+                            <div
+                              style={{
+                                height: 140,
+                                borderRadius: 8,
+                                background: `linear-gradient(135deg, ${template.colors.primary} 0%, ${template.colors.secondary} 100%)`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  height: '60%',
+                                  background: template.colors.background,
+                                  borderTopLeftRadius: 12,
+                                  borderTopRightRadius: 12,
+                                }}
+                              />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  bottom: 20,
+                                  left: 20,
+                                  right: 20,
+                                  display: 'flex',
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ width: 40, height: 8, borderRadius: 4, background: template.colors.accent }} />
+                                <div style={{ width: 60, height: 8, borderRadius: 4, background: template.colors.secondary, opacity: 0.5 }} />
+                              </div>
+                            </div>
+
+                            {/* Template Info */}
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between" blockAlign="center">
+                                <Text as="h4" variant="headingSm">{template.name}</Text>
+                                {(localConfig as any)?.template === template.id && (
+                                  <Badge tone="success">Current</Badge>
+                                )}
+                              </InlineStack>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {template.description}
+                              </Text>
+                            </BlockStack>
+
+                            {/* Color Preview */}
+                            <InlineStack gap="200">
+                              {Object.entries(template.colors).map(([name, color]) => (
+                                <Tooltip key={name} content={name.charAt(0).toUpperCase() + name.slice(1)}>
+                                  <div
+                                    style={{
+                                      width: 24,
+                                      height: 24,
+                                      borderRadius: 4,
+                                      background: color,
+                                      border: color === '#ffffff' || color === '#fafafa' || color === '#faf5ff' ? '1px solid #ddd' : 'none',
+                                    }}
+                                  />
+                                </Tooltip>
+                              ))}
+                            </InlineStack>
+
+                            {/* Sections included */}
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {template.sections.length} sections included
+                            </Text>
+
+                            {/* Apply Button */}
+                            <Button
+                              fullWidth
+                              variant={(localConfig as any)?.template === template.id ? 'secondary' : 'primary'}
+                              onClick={() => applyTemplateMutation.mutate(template.id)}
+                              loading={applyTemplateMutation.isPending}
+                              disabled={(localConfig as any)?.template === template.id}
+                            >
+                              {(localConfig as any)?.template === template.id ? 'Currently Applied' : 'Apply Template'}
+                            </Button>
+                          </BlockStack>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {!templatesData?.templates?.length && (
+                      <Card>
+                        <BlockStack gap="200" inlineAlign="center">
+                          <Spinner size="small" />
+                          <Text as="p" tone="subdued">Loading templates...</Text>
+                        </BlockStack>
+                      </Card>
+                    )}
+                  </BlockStack>
+                </Box>
+              )}
+
+              {/* Sections Tab */}
+              {selectedTab === 1 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     <InlineStack align="space-between">
@@ -719,7 +904,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
               )}
 
               {/* Design Tab */}
-              {selectedTab === 1 && config && (
+              {selectedTab === 2 && config && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     <Text as="h3" variant="headingMd">Colors</Text>
@@ -811,7 +996,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
               )}
 
               {/* Settings Tab */}
-              {selectedTab === 2 && config && (
+              {selectedTab === 3 && config && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     <Text as="h3" variant="headingMd">Page Settings</Text>
