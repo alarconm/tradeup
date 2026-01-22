@@ -386,3 +386,28 @@ Date: 2026-01-20
 - [x] E2E test for trade-in approval (6 tests)
 - [x] E2E tests configured to run in CI (.github/workflows/e2e.yml)
 
+---
+
+## Story: CQ-001 - Remove or protect debug endpoint
+Date: 2026-01-21
+
+### What I Did
+- Protected the /api/members/debug endpoint to only be accessible in development mode
+- Added environment check at the start of debug_endpoint() that returns 404 if FLASK_ENV != 'development'
+- Added comprehensive docstring explaining this is a dev-only endpoint
+- Added comment above the route decorator documenting the dev-only restriction
+
+### Files Changed
+- app/api/members.py (added production guard and documentation)
+
+### Learnings
+- The debug endpoint was exposing sensitive info like access_token_status, tenant_id, and encryption key status
+- Simple FLASK_ENV check is effective protection - defaults to 'production' when not set
+- In production Railway deployment, FLASK_ENV is not set to 'development', so the endpoint returns 404
+
+### Verification
+- [x] Debug endpoint returns 404 in production environment (FLASK_ENV != 'development')
+- [x] Debug endpoint only accessible when FLASK_ENV=development
+- [x] No sensitive information exposed in production
+- [x] Added comment documenting this is dev-only
+

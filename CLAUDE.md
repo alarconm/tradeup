@@ -9,9 +9,11 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 - **Test Store**: uy288y-nx.myshopify.com (ORB Sports Cards)
 - **Repository**: https://github.com/alarconm/tradeup
 
-## Current Status (January 20, 2026)
+## Current Status (January 21, 2026)
 
-**READY FOR APP STORE SUBMISSION** - 89 E2E tests passing. See `e2e-test-report.md`.
+**READY FOR APP STORE SUBMISSION** - 89 E2E tests passing. See `docs/E2E_TEST_REPORT.md`.
+
+**Codebase Review Complete** - 8 new PRDs created for competitive features. See roadmap section below.
 
 ### What's Complete
 
@@ -360,6 +362,56 @@ Add new columns to `app/api/admin.py` in the `columns_to_add` list.
 - Added onboarding flow with store credit check
 - Added Sentry error tracking (frontend + backend)
 - Fixed BrowserRouter missing in main.tsx
+
+## Product Roadmap & PRDs
+
+PRDs are stored in `roadmap/epics/` for autonomous execution by Ralph.
+
+### PRD Summary (January 21, 2026)
+
+| Epic | PRD | Priority | Stories | Status |
+|------|-----|----------|---------|--------|
+| 01 | Test Coverage | Medium | 10 | Existing |
+| 02 | Performance Optimization | Medium | 10 | Existing |
+| 03 | API Documentation | Low | 10 | Existing |
+| 04 | Monitoring & Observability | Medium | 10 | Existing |
+| 05 | Developer Experience | Low | 10 | Existing |
+| 06 | **Code Quality Fixes** | **HIGH** | 8 | **NEW** |
+| 07 | **Gamification System** | **HIGH** | 10 | **NEW** |
+| 08 | **Birthday Rewards** | **HIGH** | 10 | **NEW** |
+| 09 | **Nudges & Reminders** | **HIGH** | 10 | **NEW** |
+| 10 | **Loyalty Page Builder** | **HIGH** | 10 | **NEW** |
+| 11 | **Review Collection** | **HIGH** | 10 | **NEW** |
+| 12 | Widget Builder | Medium | 10 | NEW |
+| 13 | AI Trade-In Pricing | Medium | 10 | NEW |
+
+### Priority Guide
+
+**Phase 1 - Pre-Launch (Do First)**
+- 06: Code Quality Fixes - Security and code cleanup
+- 11: Review Collection - Critical for App Store visibility
+
+**Phase 2 - Competitive Parity (30 days)**
+- 07: Gamification System - Badges, achievements, streaks
+- 08: Birthday Rewards - Auto-send birthday rewards
+- 09: Nudges & Reminders - Points expiring, tier progress
+- 10: Loyalty Page Builder - Custom rewards page
+
+**Phase 3 - Differentiation (60-90 days)**
+- 12: Widget Builder - Visual customization
+- 13: AI Trade-In Pricing - Unique competitive advantage
+
+### Running PRDs with Ralph
+
+```bash
+# Execute a single PRD
+/ralph roadmap/epics/06-code-quality-fixes/prd.json
+
+# Run overnight (autonomous execution)
+/ralph --all
+```
+
+See `docs/ROADMAP_TO_NUMBER_ONE.md` for full competitive analysis and strategy.
 
 ## Contact
 

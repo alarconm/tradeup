@@ -1,0 +1,145 @@
+{
+  "branch": "feature/birthday-rewards",
+  "title": "Birthday Rewards System",
+  "description": "Implement birthday rewards feature to automatically send rewards to members on their birthday. This is a HIGH PRIORITY competitive feature that Smile.io and Rivo have. Estimated: 1-2 days development.",
+  "userStories": [
+    {
+      "id": "BR-001",
+      "title": "Add birthday field to member model",
+      "description": "Add birthday date column to members table to store member birthdays.",
+      "acceptanceCriteria": [
+        "Add birthday column (date type, nullable) to Member model",
+        "Alembic migration created and applied",
+        "Birthday serialized in member API responses",
+        "Birthday can be null for members who haven't provided it"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-002",
+      "title": "Add birthday collection to member enrollment",
+      "description": "Allow collecting birthday during member signup/enrollment flow.",
+      "acceptanceCriteria": [
+        "Birthday field added to member enrollment form",
+        "Date picker with month/day selection (year optional)",
+        "Birthday validated (not future date, reasonable age)",
+        "POST /api/members/enroll accepts birthday field",
+        "Customer account extension signup includes birthday"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-003",
+      "title": "Create birthday rewards settings",
+      "description": "Settings for merchants to configure birthday reward type and amount.",
+      "acceptanceCriteria": [
+        "Add birthday_rewards_enabled boolean to tenant settings",
+        "Add birthday_reward_type (points, credit, discount_code)",
+        "Add birthday_reward_amount (numeric value)",
+        "Add birthday_email_days_before (0, 1, 3, 7)",
+        "Settings saved and retrieved correctly"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-004",
+      "title": "Add birthday settings UI to admin",
+      "description": "UI for merchants to configure birthday rewards in settings.",
+      "acceptanceCriteria": [
+        "Birthday rewards section in Settings page",
+        "Toggle to enable/disable birthday rewards",
+        "Dropdown for reward type selection",
+        "Input for reward amount",
+        "Dropdown for advance email days",
+        "Settings save successfully"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-005",
+      "title": "Create birthday reward service",
+      "description": "Service to process birthday rewards and send them to members.",
+      "acceptanceCriteria": [
+        "BirthdayService class in app/services/birthday_service.py",
+        "get_todays_birthdays(tenant_id) method",
+        "issue_birthday_reward(member_id) method",
+        "Track birthday rewards issued (prevent duplicates for same year)",
+        "Support all three reward types (points, credit, discount)"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-006",
+      "title": "Create birthday rewards scheduled job",
+      "description": "Daily scheduled job to process birthday rewards for all members.",
+      "acceptanceCriteria": [
+        "Scheduled job runs daily at configured time",
+        "Processes all tenants with birthday rewards enabled",
+        "Issues rewards to all members with birthday today",
+        "Sends birthday email to members",
+        "Job logs execution results",
+        "Job handles errors gracefully without stopping"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "BR-007",
+      "title": "Create birthday email template",
+      "description": "Email template for birthday reward notification.",
+      "acceptanceCriteria": [
+        "Birthday email template with reward details",
+        "Template uses store branding (name, logo)",
+        "Shows reward type and amount clearly",
+        "Includes call-to-action to shop",
+        "Template is mobile-responsive"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "BR-008",
+      "title": "Add birthday badge",
+      "description": "Special badge awarded on member's birthday.",
+      "acceptanceCriteria": [
+        "Birthday Celebrant badge created in default badges",
+        "Badge awarded when birthday reward issued",
+        "Badge shows birthday cake icon",
+        "Integration with gamification system"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "BR-009",
+      "title": "Track birthday rewards in member history",
+      "description": "Record birthday reward issuance in member's activity history.",
+      "acceptanceCriteria": [
+        "Birthday reward events visible in member activity",
+        "Shows date, reward type, and amount",
+        "Included in member export CSV",
+        "Queryable via API"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "BR-010",
+      "title": "Add birthday reminder email (advance notice)",
+      "description": "Optional advance email reminding member their birthday reward is coming.",
+      "acceptanceCriteria": [
+        "Advance email sent X days before birthday (configurable)",
+        "Email template with upcoming reward preview",
+        "Only sent if advance email days > 0",
+        "Respects member email preferences"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

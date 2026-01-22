@@ -1,0 +1,146 @@
+{
+  "branch": "feature/loyalty-page-builder",
+  "title": "Loyalty Landing Page Builder",
+  "description": "Visual page builder for merchants to create custom loyalty program landing pages. Includes drag-and-drop editor, pre-built templates, and publishing to app proxy. HIGH PRIORITY competitive feature. Estimated: 5-7 days.",
+  "userStories": [
+    {
+      "id": "LP-001",
+      "title": "Create page configuration model",
+      "description": "Database model to store page builder configurations per tenant.",
+      "acceptanceCriteria": [
+        "LoyaltyPage model with: id, tenant_id, page_config (JSON), is_published, published_at, created_at, updated_at",
+        "page_config stores sections, styles, and content",
+        "Alembic migration created and applied",
+        "Support for draft and published versions"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "LP-002",
+      "title": "Create page builder API endpoints",
+      "description": "API endpoints for saving and retrieving page configurations.",
+      "acceptanceCriteria": [
+        "GET /api/loyalty-page - get current page config",
+        "PUT /api/loyalty-page - save page config (draft)",
+        "POST /api/loyalty-page/publish - publish page",
+        "POST /api/loyalty-page/unpublish - unpublish page",
+        "GET /api/loyalty-page/preview - preview with latest config"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "LP-003",
+      "title": "Create section components library",
+      "description": "Pre-built section components for the page builder.",
+      "acceptanceCriteria": [
+        "HeroSection - title, subtitle, CTA button, background image",
+        "HowItWorksSection - 3-4 step icons with descriptions",
+        "TierComparisonSection - tier benefits comparison table",
+        "RewardsCatalogSection - available rewards display",
+        "FAQSection - expandable FAQ items",
+        "CTASection - call-to-action with signup form"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "LP-004",
+      "title": "Create visual page editor React component",
+      "description": "Drag-and-drop page editor in admin dashboard.",
+      "acceptanceCriteria": [
+        "EmbeddedPageBuilder.tsx page component",
+        "Section list with add/remove/reorder",
+        "Click to edit section content",
+        "Real-time preview panel",
+        "Save and publish buttons",
+        "Undo/redo functionality"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "LP-005",
+      "title": "Create pre-built templates",
+      "description": "Starter templates merchants can use as a base.",
+      "acceptanceCriteria": [
+        "Minimalist template - clean, simple design",
+        "Bold template - vibrant colors, large text",
+        "Branded template - matches Shopify theme",
+        "Template selector in page builder",
+        "Templates provide good starting point"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "LP-006",
+      "title": "Add style customization options",
+      "description": "Allow merchants to customize colors, fonts, and spacing.",
+      "acceptanceCriteria": [
+        "Color picker for primary/secondary colors",
+        "Font family selector (web-safe fonts)",
+        "Spacing/padding controls",
+        "Custom CSS input for advanced users",
+        "Styles preview in real-time"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "LP-007",
+      "title": "Create mobile preview mode",
+      "description": "Preview page on different device sizes.",
+      "acceptanceCriteria": [
+        "Desktop/tablet/mobile preview toggles",
+        "Preview iframe resizes appropriately",
+        "All sections responsive by default",
+        "Mobile-specific style overrides supported"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "LP-008",
+      "title": "Integrate with app proxy for publishing",
+      "description": "Published page served via Shopify app proxy at /apps/rewards.",
+      "acceptanceCriteria": [
+        "Published page accessible at /apps/rewards (or configured path)",
+        "Page renders with live data (tiers, rewards)",
+        "Page uses published configuration",
+        "404 shown if page not published",
+        "SEO meta tags configurable"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "LP-009",
+      "title": "Add image upload for page sections",
+      "description": "Allow merchants to upload custom images for hero and other sections.",
+      "acceptanceCriteria": [
+        "Image upload component in editor",
+        "Images stored securely (S3 or similar)",
+        "Image optimization on upload",
+        "Image URL saved in page config",
+        "Fallback to default images"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "LP-010",
+      "title": "Add page analytics",
+      "description": "Track page views and signup conversions from loyalty page.",
+      "acceptanceCriteria": [
+        "Track page views per tenant",
+        "Track signups originated from page",
+        "Display metrics in admin dashboard",
+        "Integration with existing analytics"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

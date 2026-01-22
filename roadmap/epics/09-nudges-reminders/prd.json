@@ -1,0 +1,147 @@
+{
+  "branch": "feature/nudges-reminders",
+  "title": "Nudges & Reminders System",
+  "description": "Implement automated nudges and reminders to increase member engagement. Includes points expiration warnings, tier progress updates, re-engagement campaigns, and abandoned cart reminders. HIGH PRIORITY competitive feature. Estimated: 2-3 days.",
+  "userStories": [
+    {
+      "id": "NR-001",
+      "title": "Create nudge types and settings model",
+      "description": "Database model to store nudge configurations and settings per tenant.",
+      "acceptanceCriteria": [
+        "NudgeConfig model with: id, tenant_id, nudge_type, is_enabled, frequency_days, message_template",
+        "Nudge types: points_expiring, tier_progress, inactive_reminder, trade_in_reminder",
+        "Alembic migration created and applied",
+        "Default nudge configs created on tenant setup"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "NR-002",
+      "title": "Implement points expiring reminder",
+      "description": "Notify members when their points are about to expire.",
+      "acceptanceCriteria": [
+        "Check for points expiring within 7 days",
+        "Send email with expiration date and point balance",
+        "Include call-to-action to redeem points",
+        "Track nudge sent to prevent duplicates",
+        "Configurable days-before threshold"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "NR-003",
+      "title": "Implement tier progress reminder",
+      "description": "Notify members when they're close to reaching the next tier.",
+      "acceptanceCriteria": [
+        "Detect members within 10% of next tier threshold",
+        "Send email with progress and remaining requirement",
+        "Show tier benefits they'll unlock",
+        "Configurable percentage threshold",
+        "Don't send if already at highest tier"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "NR-004",
+      "title": "Implement inactive member re-engagement",
+      "description": "Reminder for members who haven't been active in 30+ days.",
+      "acceptanceCriteria": [
+        "Detect members inactive for 30+ days",
+        "Send re-engagement email with incentive",
+        "Show what they're missing (points balance, tier status)",
+        "Configurable inactive days threshold",
+        "Track response rate"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "NR-005",
+      "title": "Implement trade-in reminder",
+      "description": "Remind members who haven't done a trade-in recently.",
+      "acceptanceCriteria": [
+        "Detect members with no trade-in in 60+ days",
+        "Send reminder about trade-in program benefits",
+        "Show current credit rates/bonuses",
+        "Configurable reminder frequency",
+        "Only for stores with trade-ins enabled"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "NR-006",
+      "title": "Create nudge settings UI in admin",
+      "description": "UI for merchants to configure and enable/disable nudges.",
+      "acceptanceCriteria": [
+        "Nudges section in Settings page",
+        "Toggle for each nudge type",
+        "Configuration options per nudge",
+        "Preview of nudge message",
+        "Test send button (sends to store owner)"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "NR-007",
+      "title": "Create nudge email templates",
+      "description": "Email templates for each nudge type.",
+      "acceptanceCriteria": [
+        "Points expiring template",
+        "Tier progress template",
+        "Inactive reminder template",
+        "Trade-in reminder template",
+        "All templates use store branding",
+        "Mobile-responsive design"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "NR-008",
+      "title": "Create scheduled nudge processor job",
+      "description": "Daily job to process and send all nudges.",
+      "acceptanceCriteria": [
+        "Job runs daily at optimal time (10 AM local)",
+        "Processes all nudge types for all tenants",
+        "Respects rate limits and email quotas",
+        "Logs all nudges sent with success/failure",
+        "Job handles errors without failing completely"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "NR-009",
+      "title": "Track nudge effectiveness",
+      "description": "Track open rates, click rates, and conversion for nudges.",
+      "acceptanceCriteria": [
+        "Track email opens via pixel",
+        "Track link clicks",
+        "Track conversion (purchase after nudge)",
+        "Display metrics in admin dashboard",
+        "Calculate ROI of nudge campaigns"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "NR-010",
+      "title": "Add in-app notifications for nudges",
+      "description": "Show nudge messages in customer account extension, not just email.",
+      "acceptanceCriteria": [
+        "Notification banner in customer account UI",
+        "Shows same nudge messages as email",
+        "Dismissable by customer",
+        "Syncs with email nudge status",
+        "Non-intrusive design"
+      ],
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}

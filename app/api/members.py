@@ -22,12 +22,26 @@ members_bp = Blueprint('members', __name__)
 
 
 # ==================== Debug Endpoint ====================
+# NOTE: This endpoint is for development/debugging only.
+# It returns 404 in production to prevent exposure of sensitive information.
 
 @members_bp.route('/debug', methods=['GET'])
 @require_shopify_auth_debug
 def debug_endpoint():
-    """Debug endpoint to test auth and DB connectivity."""
+    """
+    Debug endpoint to test auth and DB connectivity.
+
+    DEVELOPMENT ONLY: Returns 404 in production environment.
+    This endpoint exposes internal diagnostic information that should
+    never be accessible to end users or in production environments.
+    """
     import os
+
+    # Block access in production - only allow when FLASK_ENV=development
+    flask_env = os.getenv('FLASK_ENV', 'production')
+    if flask_env != 'development':
+        return jsonify({'error': 'Not found'}), 404
+
     try:
         tenant_id = g.tenant_id
         tenant = g.tenant
@@ -59,7 +73,7 @@ def debug_endpoint():
             'subscription_plan': tenant.subscription_plan,
             'access_token_status': access_token_status,
             'access_token_error': access_token_error,
-            'env_flask_env': os.getenv('FLASK_ENV'),
+            'env_flask_env': flask_env,
             'env_has_encryption_key': bool(os.getenv('ENCRYPTION_KEY'))
         })
     except Exception as e:
