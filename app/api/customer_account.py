@@ -858,6 +858,107 @@ def get_extension_rewards():
     })
 
 
+@customer_account_bp.route('/extension/badges', methods=['POST'])
+def get_extension_badges():
+    """
+    Get badges data for Customer Account Extension.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        All badges with earned status and progress for the customer
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'badges': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import gamification models and service
+    from ..models.gamification import Badge, MemberBadge
+    from ..services.gamification_service import GamificationService
+
+    # Get gamification service
+    service = GamificationService(member.tenant_id)
+
+    # Get all active badges
+    all_badges = Badge.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).order_by(Badge.display_order).all()
+
+    # Get member's earned badges
+    earned_badge_ids = {
+        mb.badge_id for mb in MemberBadge.query.filter_by(member_id=member.id).all()
+    }
+
+    # Get earned badges with dates
+    earned_badges_info = {
+        mb.badge_id: mb.earned_at
+        for mb in MemberBadge.query.filter_by(member_id=member.id).all()
+    }
+
+    # Get member stats for progress calculation
+    member_stats = service._get_member_stats(member)
+
+    # Build badge list with progress
+    badges_data = []
+    for badge in all_badges:
+        # Skip secret badges that haven't been earned
+        if badge.is_secret and badge.id not in earned_badge_ids:
+            continue
+
+        is_earned = badge.id in earned_badge_ids
+        earned_at = earned_badges_info.get(badge.id)
+
+        # Calculate progress
+        current_progress = service._get_badge_progress_value(badge.criteria_type, member_stats)
+        progress_max = badge.criteria_value
+        progress_percentage = min(100, int((current_progress / progress_max) * 100)) if progress_max > 0 else 0
+
+        badges_data.append({
+            'id': badge.id,
+            'name': badge.name,
+            'description': badge.description,
+            'icon': badge.icon,
+            'color': badge.color,
+            'criteria_type': badge.criteria_type,
+            'criteria_value': badge.criteria_value,
+            'points_reward': badge.points_reward,
+            'is_earned': is_earned,
+            'earned_at': earned_at.isoformat() if earned_at else None,
+            'progress': current_progress if not is_earned else progress_max,
+            'progress_max': progress_max,
+            'progress_percentage': 100 if is_earned else progress_percentage,
+        })
+
+    # Separate earned and locked badges
+    earned_badges = [b for b in badges_data if b['is_earned']]
+    locked_badges = [b for b in badges_data if not b['is_earned']]
+
+    return jsonify({
+        'is_member': True,
+        'total_badges': len(badges_data),
+        'earned_count': len(earned_badges),
+        'earned_badges': earned_badges,
+        'locked_badges': locked_badges,
+    })
+
+
 @customer_account_bp.route('/extension/rewards/<int:reward_id>/redeem', methods=['POST'])
 def redeem_extension_reward(reward_id):
     """

@@ -1045,3 +1045,83 @@ Date: 2026-01-22
 - [x] Review velocity chart - reviews per week (weekly_velocity with progress bars)
 - [x] Dashboard accessible at /app/review-dashboard
 
+---
+
+## Story: GS-007 - Add badge showcase to customer account extension
+Date: 2026-01-22
+
+### What I Did
+- Created BadgeShowcase component in customer-account-ui extension
+- Added new API endpoint POST /api/customer/extension/badges for fetching badges
+- Integrated badges as a new tab in the TradeUpRewards extension
+- Badge showcase displays:
+  - Earned badges with earned date
+  - Locked badges with progress bars showing progress toward earning
+  - Badge icons (emoji-based for Shopify extension compatibility)
+  - Badge descriptions and point rewards
+  - Responsive 2-column grid layout
+
+### Files Changed
+- app/api/customer_account.py (added /extension/badges endpoint, ~80 lines)
+- extensions/customer-account-ui/src/TradeUpRewards.jsx:
+  - Updated version to 2.1.0
+  - Added badgesData and badgesLoading state variables
+  - Added fetchBadges() function to fetch from API
+  - Added useEffect to fetch badges when Badges tab is selected
+  - Added "Badges" tab to navigation
+  - Created BadgesTab component (~70 lines)
+  - Created BadgeShowcase component (~10 lines)
+  - Created BadgeCard component (~60 lines)
+
+### API Endpoint: POST /api/customer/extension/badges
+Request body:
+```json
+{
+  "customer_id": "12345",
+  "shop": "shop.myshopify.com"
+}
+```
+
+Response:
+```json
+{
+  "is_member": true,
+  "total_badges": 14,
+  "earned_count": 3,
+  "earned_badges": [
+    {
+      "id": 1,
+      "name": "First Purchase",
+      "description": "Made your first purchase",
+      "icon": "cart",
+      "color": "#e85d27",
+      "is_earned": true,
+      "earned_at": "2026-01-15T10:30:00",
+      "progress": 1,
+      "progress_max": 1,
+      "progress_percentage": 100,
+      "points_reward": 50
+    }
+  ],
+  "locked_badges": [...]
+}
+```
+
+### Component Structure
+- BadgesTab: Main tab component with stats summary and badge sections
+- BadgeShowcase: Grid wrapper for badge cards
+- BadgeCard: Individual badge display with icon, name, description, progress bar (for locked), and reward badge
+
+### Learnings
+- Shopify UI extensions have limited icon support, so emoji icons are used
+- Progress bars use the View component with background="interactive" for fill
+- Badge API reuses GamificationService._get_member_stats() and _get_badge_progress_value() for progress calculation
+- Secret badges are hidden until earned (filtered out in API response)
+
+### Verification
+- [x] BadgeShowcase component in customer-account-ui extension
+- [x] Shows earned badges with earned date
+- [x] Shows locked badges with progress toward earning
+- [x] Badges displayed with icons and descriptions
+- [x] Responsive grid layout (2-column)
+

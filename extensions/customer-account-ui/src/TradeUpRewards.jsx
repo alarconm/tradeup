@@ -7,8 +7,9 @@
  * - Rewards catalog with redemption
  * - Tier status and progress
  * - Referral program integration
+ * - Badge showcase with progress
  *
- * @version 2.0.0
+ * @version 2.1.0
  */
 import {
   reactExtension,
@@ -79,6 +80,8 @@ function TradeUpRewards() {
   const [redeeming, setRedeeming] = useState(false);
   const [redeemResult, setRedeemResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [badgesData, setBadgesData] = useState(null);
+  const [badgesLoading, setBadgesLoading] = useState(false);
 
   // Fetch initial data
   useEffect(() => {
@@ -136,6 +139,13 @@ function TradeUpRewards() {
     }
   }, [activeTab, data]);
 
+  // Fetch badges when tab is selected
+  useEffect(() => {
+    if (activeTab === 'badges' && !badgesData && data?.is_member) {
+      fetchBadges();
+    }
+  }, [activeTab, data]);
+
   const fetchRewards = async () => {
     if (!customer?.id) return;
     setRewardsLoading(true);
@@ -179,6 +189,38 @@ function TradeUpRewards() {
       });
     }
     setHistoryLoading(false);
+  };
+
+  const fetchBadges = async () => {
+    if (!customer?.id) return;
+    setBadgesLoading(true);
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      const response = await fetch(`${API_BASE}/customer/extension/badges`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          shop: shop.domain,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setBadgesData(result);
+      }
+    } catch (err) {
+      console.error('Error fetching badges:', err);
+    } finally {
+      setBadgesLoading(false);
+    }
   };
 
   const handleRedeemReward = async (reward) => {
@@ -320,6 +362,7 @@ function TradeUpRewards() {
     { id: 'overview', label: 'Overview' },
     showPointsBalance && { id: 'history', label: 'History' },
     showRewardsCatalog && { id: 'rewards', label: 'Rewards' },
+    { id: 'badges', label: 'Badges' },
     showReferralProgram && data.referral?.program_active && { id: 'referrals', label: 'Refer Friends' },
   ].filter(Boolean);
 
@@ -367,6 +410,13 @@ function TradeUpRewards() {
             loading={rewardsLoading}
             onRedeem={(reward) => setSelectedReward(reward)}
             redeemResult={redeemResult}
+          />
+        )}
+
+        {activeTab === 'badges' && (
+          <BadgesTab
+            badgesData={badgesData}
+            loading={badgesLoading}
           />
         )}
 
@@ -917,6 +967,169 @@ function ReferralsTab({ data, copied, onCopyCode, onShare }) {
         </List>
       </BlockStack>
     </BlockStack>
+  );
+}
+
+// ============================================================================
+// Badges Tab
+// ============================================================================
+
+function BadgesTab({ badgesData, loading }) {
+  if (loading) {
+    return (
+      <BlockStack spacing="loose">
+        <SkeletonText lines={6} />
+      </BlockStack>
+    );
+  }
+
+  if (!badgesData) {
+    return (
+      <BlockStack spacing="loose" inlineAlignment="center">
+        <Text appearance="subdued">Unable to load badges</Text>
+      </BlockStack>
+    );
+  }
+
+  const { earned_badges = [], locked_badges = [], earned_count = 0, total_badges = 0 } = badgesData;
+
+  return (
+    <BlockStack spacing="loose">
+      {/* Badge Stats Summary */}
+      <View padding="base" background="subdued" borderRadius="base">
+        <InlineStack spacing="loose" blockAlignment="center">
+          <BlockStack spacing="extraTight" inlineAlignment="center">
+            <Text appearance="subdued" size="small">Badges Earned</Text>
+            <Text emphasis="bold" size="large" tone="success">
+              {earned_count} / {total_badges}
+            </Text>
+          </BlockStack>
+        </InlineStack>
+      </View>
+
+      {/* Earned Badges */}
+      {earned_badges.length > 0 && (
+        <BlockStack spacing="tight">
+          <Text emphasis="bold" tone="success">
+            Earned ({earned_badges.length})
+          </Text>
+          <BadgeShowcase badges={earned_badges} earned />
+        </BlockStack>
+      )}
+
+      {/* Locked Badges */}
+      {locked_badges.length > 0 && (
+        <BlockStack spacing="tight">
+          <Text emphasis="bold" appearance="subdued">
+            Keep Going ({locked_badges.length})
+          </Text>
+          <BadgeShowcase badges={locked_badges} earned={false} />
+        </BlockStack>
+      )}
+
+      {/* Empty State */}
+      {earned_badges.length === 0 && locked_badges.length === 0 && (
+        <BlockStack spacing="loose" inlineAlignment="center">
+          <Text appearance="subdued">No badges available yet</Text>
+          <Text size="small" appearance="subdued">
+            Keep shopping and trading to earn your first badge!
+          </Text>
+        </BlockStack>
+      )}
+    </BlockStack>
+  );
+}
+
+// ============================================================================
+// Badge Showcase Component
+// ============================================================================
+
+function BadgeShowcase({ badges, earned }) {
+  return (
+    <Grid columns={['fill', 'fill']} spacing="tight">
+      {badges.map((badge) => (
+        <BadgeCard key={badge.id} badge={badge} earned={earned} />
+      ))}
+    </Grid>
+  );
+}
+
+function BadgeCard({ badge, earned }) {
+  // Map icon names to display emojis (since Shopify extensions have limited icon support)
+  const iconMap = {
+    'trophy': '\uD83C\uDFC6',
+    'star': '\u2B50',
+    'medal': '\uD83C\uDFC5',
+    'cart': '\uD83D\uDED2',
+    'exchange': '\uD83D\uDD04',
+    'users': '\uD83D\uDC65',
+    'coins': '\uD83E\uDE99',
+    'gem': '\uD83D\uDC8E',
+    'calendar': '\uD83D\uDCC5',
+    'flame': '\uD83D\uDD25',
+    'fire': '\uD83D\uDD25',
+    'wallet': '\uD83D\uDCB0',
+    'crown': '\uD83D\uDC51',
+    'gift': '\uD83C\uDF81',
+  };
+
+  const iconEmoji = iconMap[badge.icon] || '\uD83C\uDFC6';
+
+  return (
+    <View
+      padding="base"
+      background={earned ? undefined : 'subdued'}
+      borderRadius="base"
+      border="base"
+    >
+      <BlockStack spacing="tight">
+        {/* Badge Icon and Name */}
+        <InlineStack spacing="tight" blockAlignment="center">
+          <Text size="extraLarge">{iconEmoji}</Text>
+          <BlockStack spacing="extraTight">
+            <Text emphasis="bold">{badge.name}</Text>
+            {earned && badge.earned_at && (
+              <Text size="small" appearance="subdued">
+                Earned {formatDate(badge.earned_at)}
+              </Text>
+            )}
+          </BlockStack>
+        </InlineStack>
+
+        {/* Description */}
+        {badge.description && (
+          <Text size="small" appearance="subdued">
+            {badge.description}
+          </Text>
+        )}
+
+        {/* Progress Bar for Locked Badges */}
+        {!earned && badge.progress_percentage < 100 && (
+          <BlockStack spacing="tight">
+            <View border="base" cornerRadius="base" padding="none">
+              <View
+                background="interactive"
+                padding="tight"
+                blockSize={8}
+                inlineSize={`${badge.progress_percentage}%`}
+              />
+            </View>
+            <Text size="small" appearance="subdued">
+              {badge.progress} / {badge.progress_max} ({badge.progress_percentage}%)
+            </Text>
+          </BlockStack>
+        )}
+
+        {/* Reward Info */}
+        {badge.points_reward > 0 && (
+          <InlineStack spacing="tight" blockAlignment="center">
+            <Badge tone={earned ? 'success' : 'info'}>
+              +{badge.points_reward} pts
+            </Badge>
+          </InlineStack>
+        )}
+      </BlockStack>
+    </View>
   );
 }
 
