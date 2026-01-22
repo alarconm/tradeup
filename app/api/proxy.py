@@ -153,6 +153,7 @@ def rewards_page():
                 ).scalar()
 
                 member_data = {
+                    'member_id': member.id,
                     'name': member.name or 'Member',
                     'tier': member.tier.name if member.tier else 'Member',
                     'points': int(points_balance),
@@ -229,6 +230,7 @@ def rewards_page():
         ).scalar()
 
         member_data = {
+            'member_id': member.id,
             'name': member.name or 'Member',
             'tier': member.tier.name if member.tier else 'Member',
             'points': int(points_balance),
@@ -1131,6 +1133,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
             <p>Powered by <a href="https://cardflowlabs.com" target="_blank" rel="noopener">TradeUp</a></p>
         </footer>
     </div>
+{get_analytics_tracking_script(shop, member)}
 </body>
 </html>
 '''
@@ -1757,11 +1760,238 @@ def render_published_loyalty_page(config, shop, tenant, member, points_balance, 
         '<footer class="lp-footer">',
         '<p>Powered by <a href="https://cardflowlabs.com" target="_blank" rel="noopener">TradeUp</a></p>',
         '</footer>',
+    ])
+
+    # Add analytics tracking script
+    tracking_script = get_analytics_tracking_script(shop, member)
+    html_parts.append(tracking_script)
+
+    html_parts.extend([
         '</body>',
         '</html>',
     ])
 
     return '\n'.join(html_parts)
+
+
+def get_analytics_tracking_script(shop: str, member: dict = None) -> str:
+    """
+    Generate JavaScript tracking script for the loyalty page.
+
+    Tracks:
+    - Page views (with device type, referrer, UTM params)
+    - Section engagement (scroll depth, time in view)
+    - CTA clicks (button clicks with context)
+
+    Args:
+        shop: Shop domain (e.g., 'store.myshopify.com')
+        member: Member data dict (or None for guests)
+
+    Returns:
+        HTML script tag with tracking code
+    """
+    import os
+    import json
+
+    # Get the app URL for API calls
+    app_url = os.getenv('APP_URL', 'https://app.cardflowlabs.com')
+
+    # Member info for tracking (anonymized)
+    member_id = member.get('member_id') if member else None
+    is_member = member is not None
+
+    return f'''
+<!-- TradeUp Analytics Tracking -->
+<script>
+(function() {{
+    'use strict';
+
+    // Configuration
+    var CONFIG = {{
+        shop: '{shop}',
+        apiUrl: '{app_url}/api/loyalty-page/analytics',
+        memberId: {json.dumps(member_id)},
+        isMember: {json.dumps(is_member)},
+        sessionId: null
+    }};
+
+    // Generate or retrieve session ID
+    function getSessionId() {{
+        var key = 'tradeup_session_id';
+        var id = sessionStorage.getItem(key);
+        if (!id) {{
+            id = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem(key, id);
+        }}
+        return id;
+    }}
+
+    // Detect device type
+    function getDeviceType() {{
+        var ua = navigator.userAgent;
+        if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
+        if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) return 'mobile';
+        return 'desktop';
+    }}
+
+    // Get UTM parameters from URL
+    function getUtmParams() {{
+        var params = new URLSearchParams(window.location.search);
+        return {{
+            utm_source: params.get('utm_source'),
+            utm_medium: params.get('utm_medium'),
+            utm_campaign: params.get('utm_campaign')
+        }};
+    }}
+
+    // Send tracking data
+    function track(endpoint, data) {{
+        var payload = Object.assign({{}}, data, {{
+            shop: CONFIG.shop,
+            session_id: CONFIG.sessionId,
+            member_id: CONFIG.memberId,
+            is_member: CONFIG.isMember
+        }});
+
+        // Use sendBeacon if available (reliable for page unload)
+        if (navigator.sendBeacon) {{
+            navigator.sendBeacon(CONFIG.apiUrl + endpoint, JSON.stringify(payload));
+        }} else {{
+            fetch(CONFIG.apiUrl + endpoint, {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify(payload),
+                keepalive: true
+            }}).catch(function() {{}});
+        }}
+    }}
+
+    // Track page view
+    function trackPageView() {{
+        var utmParams = getUtmParams();
+        track('/track/view', {{
+            device_type: getDeviceType(),
+            browser: navigator.userAgent.split(' ').pop().split('/')[0],
+            referrer: document.referrer || null,
+            utm_source: utmParams.utm_source,
+            utm_medium: utmParams.utm_medium,
+            utm_campaign: utmParams.utm_campaign
+        }});
+    }}
+
+    // Track section visibility and scroll depth
+    function setupScrollTracking() {{
+        var sections = document.querySelectorAll('[class*="lp-section"], .lp-hero, [class*="section"]');
+        var sectionData = {{}};
+        var lastScrollDepth = 0;
+
+        // Initialize section data
+        sections.forEach(function(section, index) {{
+            var id = section.id || section.className.match(/lp-(\\w+)/)?.[1] || 'section_' + index;
+            sectionData[id] = {{
+                section_id: id,
+                section_type: section.className.match(/lp-(\\w+)/)?.[1] || 'unknown',
+                time_in_view_seconds: 0,
+                scroll_depth_percent: 0,
+                was_visible: false,
+                lastVisible: null
+            }};
+        }});
+
+        // Intersection Observer for section visibility
+        var observer = new IntersectionObserver(function(entries) {{
+            entries.forEach(function(entry) {{
+                var id = entry.target.id || entry.target.className.match(/lp-(\\w+)/)?.[1] || 'unknown';
+                if (sectionData[id]) {{
+                    if (entry.isIntersecting) {{
+                        sectionData[id].was_visible = true;
+                        sectionData[id].lastVisible = Date.now();
+                        // Calculate scroll depth
+                        var rect = entry.target.getBoundingClientRect();
+                        var visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+                        var percent = Math.round((visible / rect.height) * 100);
+                        sectionData[id].scroll_depth_percent = Math.max(sectionData[id].scroll_depth_percent, percent);
+                    }} else if (sectionData[id].lastVisible) {{
+                        sectionData[id].time_in_view_seconds += Math.round((Date.now() - sectionData[id].lastVisible) / 1000);
+                        sectionData[id].lastVisible = null;
+                    }}
+                }}
+            }});
+        }}, {{ threshold: [0, 0.25, 0.5, 0.75, 1] }});
+
+        sections.forEach(function(section) {{
+            observer.observe(section);
+        }});
+
+        // Track overall scroll depth
+        window.addEventListener('scroll', function() {{
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            var scrollPercent = Math.round((scrollTop / docHeight) * 100);
+            lastScrollDepth = Math.max(lastScrollDepth, scrollPercent);
+        }});
+
+        // Send engagement data on page unload
+        window.addEventListener('beforeunload', function() {{
+            // Finalize time tracking
+            Object.keys(sectionData).forEach(function(id) {{
+                if (sectionData[id].lastVisible) {{
+                    sectionData[id].time_in_view_seconds += Math.round((Date.now() - sectionData[id].lastVisible) / 1000);
+                }}
+            }});
+
+            var sections = Object.values(sectionData).filter(function(s) {{ return s.was_visible; }});
+            if (sections.length > 0) {{
+                track('/track/engagement', {{ sections: sections }});
+            }}
+        }});
+    }}
+
+    // Track CTA clicks
+    function setupClickTracking() {{
+        document.addEventListener('click', function(e) {{
+            var target = e.target.closest('a, button, [role="button"], .lp-btn');
+            if (!target) return;
+
+            var ctaId = target.id || target.className.match(/lp-(\\w+-?\\w*)/)?.[0] || 'unknown_cta';
+            var ctaText = target.textContent.trim().substring(0, 200);
+            var ctaUrl = target.href || target.dataset.href || null;
+            var section = target.closest('[class*="lp-section"], .lp-hero, [class*="section"]');
+            var sectionId = section ? (section.id || section.className.match(/lp-(\\w+)/)?.[1] || 'unknown') : null;
+
+            track('/track/click', {{
+                cta_id: ctaId,
+                cta_text: ctaText,
+                cta_url: ctaUrl,
+                section_id: sectionId
+            }});
+        }});
+    }}
+
+    // Initialize tracking
+    function init() {{
+        CONFIG.sessionId = getSessionId();
+
+        // Track page view immediately
+        trackPageView();
+
+        // Setup engagement tracking after page load
+        if (document.readyState === 'complete') {{
+            setupScrollTracking();
+            setupClickTracking();
+        }} else {{
+            window.addEventListener('load', function() {{
+                setupScrollTracking();
+                setupClickTracking();
+            }});
+        }}
+    }}
+
+    // Start tracking
+    init();
+}})();
+</script>
+'''
 
 
 def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_reward, referee_reward, valid_code, page_config):

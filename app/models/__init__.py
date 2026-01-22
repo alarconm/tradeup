@@ -54,6 +54,12 @@ from .support_ticket import SupportTicket, TicketStatus, TicketSatisfaction
 from .nudge_config import NudgeConfig, NudgeType, seed_nudge_configs, DEFAULT_NUDGE_TEMPLATES, DEFAULT_NUDGE_FREQUENCY
 from .nudge_sent import NudgeSent
 from .loyalty_page import LoyaltyPage, DEFAULT_PAGE_CONFIG
+from .loyalty_page_analytics import (
+    LoyaltyPageView,
+    LoyaltyPageEngagement,
+    LoyaltyPageCTAClick,
+    LoyaltyPageAnalyticsSummary,
+)
 
 __all__ = [
     'Tenant',
@@ -132,4 +138,9 @@ __all__ = [
     # Loyalty Page Builder
     'LoyaltyPage',
     'DEFAULT_PAGE_CONFIG',
+    # Loyalty Page Analytics
+    'LoyaltyPageView',
+    'LoyaltyPageEngagement',
+    'LoyaltyPageCTAClick',
+    'LoyaltyPageAnalyticsSummary',
 ]

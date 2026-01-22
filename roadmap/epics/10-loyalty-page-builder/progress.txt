@@ -269,3 +269,69 @@
   - Images stored locally (can migrate to S3/Shopify Files in future)
   - Image preview before upload
   - Size/format validation (5MB max, standard image formats)
+
+## LP-010 - Add page analytics
+- Status: COMPLETE
+- Date: January 22, 2026
+- **New Database Models** (app/models/loyalty_page_analytics.py):
+  - `LoyaltyPageView` - Tracks individual page view events with:
+    - Session identification (anonymous tracking)
+    - Device type (desktop, mobile, tablet)
+    - Browser info
+    - Traffic source (referrer, UTM parameters)
+    - Member tracking (if logged in)
+  - `LoyaltyPageEngagement` - Tracks section-level engagement:
+    - Scroll depth (percentage visible)
+    - Time in view (seconds)
+    - Section visibility tracking
+  - `LoyaltyPageCTAClick` - Tracks CTA click events:
+    - Click details (CTA ID, text, URL)
+    - Section context
+    - Member tracking
+  - `LoyaltyPageAnalyticsSummary` - Daily aggregated analytics:
+    - View metrics (total, unique, member/guest breakdown)
+    - Device breakdown
+    - Engagement metrics (avg scroll depth, time on page, bounce rate)
+    - CTA metrics (click rate, top CTAs)
+    - Traffic sources (top referrers, UTM sources)
+- **Analytics API Endpoints** (app/api/loyalty_page_analytics.py):
+  - Public tracking endpoints (no auth, CORS enabled for storefront):
+    - POST `/track/view` - Track page view with device/referrer/UTM data
+    - POST `/track/engagement` - Track section scroll depth and time in view
+    - POST `/track/click` - Track CTA button clicks
+  - Admin dashboard endpoint (auth required):
+    - GET `/dashboard?period=30` - Comprehensive analytics dashboard with:
+      - Overview metrics (views, visitors, member vs guest)
+      - Period comparison (current vs previous)
+      - Device breakdown (desktop, mobile, tablet)
+      - Traffic sources (referrers, UTM sources)
+      - Section engagement (views, avg time, scroll depth)
+      - CTA performance (clicks, click rate, top CTAs)
+      - Daily trends (views, visitors, clicks over time)
+    - POST `/summary/refresh` - Manually refresh daily aggregations
+- **Tracking Script** (app/api/proxy.py):
+  - Added `get_analytics_tracking_script()` function generating JavaScript tracking code
+  - Tracking features:
+    - Automatic page view tracking on load
+    - Session ID generation (stored in sessionStorage)
+    - Device type detection
+    - UTM parameter extraction from URL
+    - IntersectionObserver for section visibility tracking
+    - Scroll depth calculation per section
+    - Time-in-view tracking per section
+    - CTA click tracking with section context
+    - Uses sendBeacon API for reliable page unload tracking
+  - Integrated into both:
+    - `render_rewards_page()` (default rewards page)
+    - `render_published_loyalty_page()` (custom page builder pages)
+  - Added member_id to member_data dict for tracking attribution
+- **Blueprint Registration** (app/__init__.py):
+  - Registered `loyalty_page_analytics_bp` at `/api/loyalty-page/analytics`
+- **Model Registration** (app/models/__init__.py):
+  - Exported all 4 new models: LoyaltyPageView, LoyaltyPageEngagement, LoyaltyPageCTAClick, LoyaltyPageAnalyticsSummary
+- All acceptance criteria met:
+  - Track page views with device, referrer, UTM source
+  - Track section engagement (scroll depth, time in view)
+  - Track CTA clicks with context
+  - Display analytics in admin dashboard (GET /dashboard)
+  - Integration with existing analytics system (uses same tenant/session model)
