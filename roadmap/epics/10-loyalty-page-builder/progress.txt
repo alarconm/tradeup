@@ -20,3 +20,19 @@
 - Registered blueprint in app/__init__.py at url_prefix='/api/loyalty-page'
 - Uses LoyaltyPage model for database-backed draft/publish workflow
 - Includes HTML rendering for preview functionality
+
+## LP-003 - Create section components library
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created frontend/src/components/loyalty-page/ directory with 6 section components:
+  - HeroSection - title, subtitle, CTA buttons, background image, badge support
+  - HowItWorksSection - 3-4 step icons with descriptions, auto-numbered or custom icons
+  - TierComparisonSection - tier benefits comparison (card view or table view)
+  - RewardsCatalogSection - available rewards display with points cost
+  - FAQSection - expandable FAQ items with accordion behavior
+  - CTASection - call-to-action with optional email signup form
+- Created types.ts with shared interfaces for all section props
+- Created index.ts to export all components and types
+- Updated components/index.ts to re-export loyalty-page components
+- All components support theming via SectionTheme props (primaryColor, accentColor, backgroundColor, textColor, darkMode)
+- Consistent styling patterns based on existing landing pages
