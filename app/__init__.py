@@ -516,6 +516,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.birthday import birthday_bp
     app.register_blueprint(birthday_bp, url_prefix='/api/birthday')
 
+    # Anniversary Rewards
+    from .api.anniversary import anniversary_bp
+    app.register_blueprint(anniversary_bp, url_prefix='/api/anniversary')
+
     # Nudges & Reminders
     from .api.nudges import nudges_bp
     app.register_blueprint(nudges_bp, url_prefix='/api/nudges')

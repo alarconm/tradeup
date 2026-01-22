@@ -114,6 +114,13 @@ DEFAULT_SETTINGS = {
         'major_point_threshold': 1000,  # Points threshold considered "major"
         'major_trade_in_threshold': 25,  # Trade-in threshold considered "major"
         'celebration_duration_ms': 5000,  # How long to show celebration (milliseconds)
+    },
+    'anniversary': {
+        'enabled': False,  # Master toggle for anniversary rewards
+        'reward_type': 'points',  # points, credit, or discount_code
+        'reward_amount': 100,  # Amount of points/credit or discount percentage
+        'email_days_before': 0,  # 0 = on anniversary, 1, 3, or 7 days before
+        'message': 'Happy Anniversary! Thank you for being a loyal member!',  # Customizable message
     }
 }
 

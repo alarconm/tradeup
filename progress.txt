@@ -1415,3 +1415,56 @@ Date: 2026-01-22
 - [x] Anniversary date calculation works correctly (get_anniversary_date method)
 - [x] Handles leap year edge case (Feb 29 -> Feb 28 in non-leap years)
 
+---
+
+## Story: AR-002 - Create anniversary rewards settings
+Date: 2026-01-22
+
+### What I Did
+- Added anniversary settings to tenant settings defaults in settings_defaults.py
+- Created anniversary API blueprint with endpoints for managing settings
+- Settings stored in tenant.settings JSON column under 'anniversary' key
+- No migration needed - settings are stored in existing JSON column
+
+### Settings Fields Added
+- `anniversary_rewards_enabled` (as `enabled`): bool - Master toggle for anniversary rewards
+- `anniversary_reward_type` (as `reward_type`): str - "points", "credit", or "discount_code"
+- `anniversary_reward_amount` (as `reward_amount`): numeric - Amount of points/credit/discount
+- `anniversary_email_days_before` (as `email_days_before`): int - 0, 1, 3, or 7 days before
+
+### API Endpoints Created
+- GET /api/anniversary/settings - Retrieve anniversary settings
+- PUT /api/anniversary/settings - Update anniversary settings with validation
+- POST /api/anniversary/validate - Validate settings without saving
+
+### Files Changed
+- app/utils/settings_defaults.py (added 'anniversary' section to DEFAULT_SETTINGS)
+- app/api/anniversary.py (new file - 165 lines)
+- app/__init__.py (registered anniversary_bp blueprint)
+
+### Default Settings
+```json
+{
+  "anniversary": {
+    "enabled": false,
+    "reward_type": "points",
+    "reward_amount": 100,
+    "email_days_before": 0,
+    "message": "Happy Anniversary! Thank you for being a loyal member!"
+  }
+}
+```
+
+### Learnings
+- Following the birthday.py API pattern ensures consistency
+- Settings stored in JSON column means no migration needed
+- Validation for reward_type and email_days_before enforces allowed values
+- Using flag_modified() is required to persist JSON column changes
+
+### Verification
+- [x] Add anniversary_rewards_enabled boolean to tenant settings (enabled field)
+- [x] Add anniversary_reward_type (points, credit, discount_code)
+- [x] Add anniversary_reward_amount (numeric value)
+- [x] Add anniversary_email_days_before (0, 1, 3, 7)
+- [x] Settings saved and retrieved correctly (via PUT and GET endpoints)
+
