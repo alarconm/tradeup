@@ -2377,3 +2377,88 @@ Date: 2026-01-22
 - [x] Configuration options per nudge (frequency days)
 - [x] Preview of nudge message
 - [x] Test send button (sends to store owner)
+
+---
+
+## Story: NR-007 - Create nudge email templates
+Date: 2026-01-22
+
+### What I Did
+Created mobile-responsive HTML email templates for all four nudge types. Each template uses store branding placeholders and follows email best practices for cross-client compatibility.
+
+#### Templates Created:
+1. **Points Expiring Template** (`points_expiring.html`)
+   - Urgency badge showing days until expiration
+   - Highlight box with expiring points count
+   - Info box with expiration warning
+   - Rewards redemption section
+   - Current balance display
+   - CTA button to redeem points
+
+2. **Tier Progress Template** (`tier_progress.html`)
+   - Progress badge with percentage
+   - Tier comparison boxes (current vs next)
+   - Visual progress bar with percentage fill
+   - Points needed highlight
+   - Benefits list for next tier
+   - CTA button to start earning
+
+3. **Inactive Reminder Template** (`inactive_reminder.html`)
+   - "We miss you" welcome badge
+   - Account status grid (points & tier)
+   - Incentive gift box with welcome back offer
+   - Missed opportunities section
+   - CTA button with reward claim
+   - PS section for urgency
+
+4. **Trade-In Reminder Template** (`trade_in_reminder.html`)
+   - Trade-in badge
+   - Feature grid (instant credit, fair pricing, quick process)
+   - Tier bonus highlight box (if applicable)
+   - Credit rates section
+   - Items we accept tags
+   - CTA button to start trade-in
+   - PS section with free evaluation offer
+
+#### Email Service Updates:
+- Added `HTML_TEMPLATE_FILES` mapping for nudge templates
+- Added `_get_html_template_path()` to locate template files
+- Added `_load_html_template()` to read template content
+- Added `_get_brand_colors()` to fetch tenant branding
+- Added `render_html_template()` for template rendering with conditionals
+- Added `send_html_email()` for sending pre-rendered HTML
+- Updated `send_template_email()` to use HTML templates when available
+
+#### API Updates:
+- Updated preview endpoint to use HTML templates
+- Added sample data for nudge-specific fields
+- Added `has_html_template` flag to preview response
+- Added nudge triggers to email settings defaults
+
+### Template Features:
+- **Mobile-responsive**: Uses @media queries for screens under 600px
+- **Store branding**: `{{brand_color}}` and `{{brand_color_dark}}` placeholders
+- **Conditional rendering**: `{{#if variable}}...{{/if}}` support
+- **Email client compatibility**: MSO conditionals, reset styles
+- **Consistent footer**: Shop info, visit link, unsubscribe option
+
+### Files Created:
+- `app/templates/emails/base.html` (base template with common styles)
+- `app/templates/emails/points_expiring.html`
+- `app/templates/emails/tier_progress.html`
+- `app/templates/emails/inactive_reminder.html`
+- `app/templates/emails/trade_in_reminder.html`
+
+### Files Changed:
+- `app/services/email_service.py` (added HTML template support)
+- `app/api/email.py` (updated preview, added nudge triggers)
+
+### Verification:
+- [x] Points expiring template created
+- [x] Tier progress template created
+- [x] Inactive reminder template created
+- [x] Trade-in reminder template created
+- [x] All templates use store branding placeholders (brand_color, shop_name, shop_logo)
+- [x] All templates are mobile-responsive (600px breakpoint)
+- [x] Email service renders HTML templates for nudge emails
+- [x] Preview endpoint supports HTML template preview

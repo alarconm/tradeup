@@ -7,10 +7,12 @@ Handles transactional emails for:
 - Tier change notifications
 - Store credit issued
 - Credit expiration warnings
+- Nudge emails (points expiring, tier progress, inactive, trade-in reminder)
 """
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from pathlib import Path
 from flask import current_app, render_template_string
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
@@ -18,6 +20,18 @@ from sendgrid.helpers.mail import Mail, Email, To, Content
 
 class EmailService:
     """Service for sending transactional emails."""
+
+    # Default brand colors for email templates
+    DEFAULT_BRAND_COLOR = '#4F46E5'
+    DEFAULT_BRAND_COLOR_DARK = '#3730A3'
+
+    # HTML template file mappings for nudge emails
+    HTML_TEMPLATE_FILES = {
+        'points_expiring': 'points_expiring.html',
+        'tier_progress': 'tier_progress.html',
+        'inactive_reengagement': 'inactive_reminder.html',
+        'trade_in_reminder': 'trade_in_reminder.html',
+    }
 
     # Default email templates
     DEFAULT_TEMPLATES = {
@@ -779,6 +793,153 @@ P.S. Not sure what your cards are worth? Stop by and we'll give you a free evalu
 
         return html
 
+    def _get_html_template_path(self, template_key: str) -> Optional[Path]:
+        """Get the path to an HTML template file."""
+        if template_key not in self.HTML_TEMPLATE_FILES:
+            return None
+
+        # Get the templates directory path
+        templates_dir = Path(__file__).parent.parent / 'templates' / 'emails'
+        template_file = templates_dir / self.HTML_TEMPLATE_FILES[template_key]
+
+        if template_file.exists():
+            return template_file
+        return None
+
+    def _load_html_template(self, template_key: str) -> Optional[str]:
+        """Load an HTML template file."""
+        template_path = self._get_html_template_path(template_key)
+        if not template_path:
+            return None
+
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            current_app.logger.warning(f'Failed to load HTML template {template_key}: {str(e)}')
+            return None
+
+    def _get_brand_colors(self, tenant_id: int) -> Dict[str, str]:
+        """Get brand colors for a tenant, with defaults."""
+        brand_color = self.DEFAULT_BRAND_COLOR
+        brand_color_dark = self.DEFAULT_BRAND_COLOR_DARK
+
+        try:
+            from flask import has_app_context
+            if has_app_context():
+                from ..models.tenant import Tenant
+                tenant = Tenant.query.get(tenant_id)
+                if tenant and tenant.settings:
+                    branding = tenant.settings.get('branding', {})
+                    brand_color = branding.get('primary_color', self.DEFAULT_BRAND_COLOR)
+                    brand_color_dark = branding.get('primary_color_dark', self.DEFAULT_BRAND_COLOR_DARK)
+        except Exception:
+            pass
+
+        return {
+            'brand_color': brand_color,
+            'brand_color_dark': brand_color_dark,
+        }
+
+    def render_html_template(
+        self,
+        template_key: str,
+        tenant_id: int,
+        data: Dict[str, Any]
+    ) -> Optional[str]:
+        """
+        Render an HTML email template with data.
+
+        Uses mobile-responsive HTML templates for nudge emails.
+        Falls back to markdown conversion for other templates.
+
+        Args:
+            template_key: The template identifier
+            tenant_id: Tenant ID for branding
+            data: Template variables
+
+        Returns:
+            Rendered HTML string or None if template not found
+        """
+        import re
+
+        html_content = self._load_html_template(template_key)
+        if not html_content:
+            return None
+
+        # Get brand colors
+        colors = self._get_brand_colors(tenant_id)
+        data = {**data, **colors}
+
+        # Replace simple {{variable}} placeholders
+        for key, value in data.items():
+            placeholder = '{{' + key + '}}'
+            html_content = html_content.replace(placeholder, str(value or ''))
+
+        # Handle conditionals: {{#if var}}...{{/if}}
+        def replace_conditionals(text: str, context: Dict[str, Any]) -> str:
+            pattern = r'\{\{#if (\w+)\}\}(.*?)\{\{/if\}\}'
+
+            def replacer(match):
+                var_name = match.group(1)
+                content = match.group(2)
+                if context.get(var_name):
+                    return content
+                return ''
+
+            return re.sub(pattern, replacer, text, flags=re.DOTALL)
+
+        html_content = replace_conditionals(html_content, data)
+
+        # Clean up any remaining unmatched placeholders
+        html_content = re.sub(r'\{\{[^}]+\}\}', '', html_content)
+
+        return html_content
+
+    def send_html_email(
+        self,
+        to_email: str,
+        to_name: str,
+        subject: str,
+        html_body: str,
+        from_email: Optional[str] = None,
+        from_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Send an email with pre-rendered HTML content.
+        """
+        if not self.sendgrid_api_key:
+            current_app.logger.warning('SendGrid API key not configured, email not sent')
+            return {'success': False, 'error': 'SendGrid not configured'}
+
+        try:
+            sg = SendGridAPIClient(self.sendgrid_api_key)
+
+            sender = Email(
+                email=from_email or 'noreply@tradeup.io',
+                name=from_name or 'TradeUp'
+            )
+
+            recipient = To(email=to_email, name=to_name)
+
+            message = Mail(
+                from_email=sender,
+                to_emails=recipient,
+                subject=subject,
+                html_content=html_body
+            )
+
+            response = sg.send(message)
+
+            return {
+                'success': True,
+                'status_code': response.status_code,
+            }
+
+        except Exception as e:
+            current_app.logger.error(f'Failed to send HTML email: {str(e)}')
+            return {'success': False, 'error': str(e)}
+
     def send_template_email(
         self,
         template_key: str,
@@ -791,6 +952,10 @@ P.S. Not sure what your cards are worth? Stop by and we'll give you a free evalu
     ) -> Dict[str, Any]:
         """
         Send an email using a template.
+
+        For nudge emails (points_expiring, tier_progress, inactive_reengagement,
+        trade_in_reminder), uses mobile-responsive HTML templates.
+        For other emails, uses the simple markdown-to-HTML conversion.
         """
         template = self.get_template(template_key, tenant_id)
         if not template:
@@ -798,14 +963,29 @@ P.S. Not sure what your cards are worth? Stop by and we'll give you a free evalu
 
         rendered = self.render_template(template, data)
 
-        return self.send_email(
-            to_email=to_email,
-            to_name=to_name,
-            subject=rendered['subject'],
-            body=rendered['body'],
-            from_email=from_email,
-            from_name=from_name,
-        )
+        # Check if we have an HTML template for this key
+        html_body = self.render_html_template(template_key, tenant_id, data)
+
+        if html_body:
+            # Use the mobile-responsive HTML template
+            return self.send_html_email(
+                to_email=to_email,
+                to_name=to_name,
+                subject=rendered['subject'],
+                html_body=html_body,
+                from_email=from_email,
+                from_name=from_name,
+            )
+        else:
+            # Fall back to markdown-to-HTML conversion
+            return self.send_email(
+                to_email=to_email,
+                to_name=to_name,
+                subject=rendered['subject'],
+                body=rendered['body'],
+                from_email=from_email,
+                from_name=from_name,
+            )
 
 
 # Singleton instance
