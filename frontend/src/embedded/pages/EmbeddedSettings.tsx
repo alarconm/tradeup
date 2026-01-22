@@ -29,7 +29,7 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -327,6 +327,48 @@ async function sendTestEmail(
 async function fetchTiers(shop: string | null): Promise<TiersResponse> {
   const response = await authFetch(`${getApiUrl()}/members/tiers`, shop);
   if (!response.ok) throw new Error('Failed to fetch tiers');
+  return response.json();
+}
+
+// Review Prompt Metrics (RC-007)
+interface ReviewMetrics {
+  period_days: number | string;
+  tenant_id: number | null;
+  total_impressions: number;
+  clicked_count: number;
+  dismissed_count: number;
+  reminded_later_count: number;
+  no_response_count: number;
+  click_rate: number;
+  dismiss_rate: number;
+  remind_later_rate: number;
+  response_rate: number;
+  funnel: {
+    impressions: number;
+    engaged: number;
+    converted: number;
+    engagement_rate: number;
+    conversion_rate: number;
+  };
+  unique_tenants: number;
+  daily_trend: Array<{
+    date: string;
+    impressions: number;
+    clicked: number;
+    dismissed: number;
+    reminded_later: number;
+  }>;
+  summary: string;
+}
+
+interface ReviewMetricsResponse {
+  success: boolean;
+  metrics: ReviewMetrics;
+}
+
+async function fetchReviewMetrics(shop: string | null, days: number = 30): Promise<ReviewMetricsResponse> {
+  const response = await authFetch(`${getApiUrl()}/review-prompt/metrics?days=${days}`, shop);
+  if (!response.ok) throw new Error('Failed to fetch review metrics');
   return response.json();
 }
 
@@ -646,6 +688,18 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
   } = useQuery({
     queryKey: ['email-templates', shop],
     queryFn: () => fetchEmailTemplates(shop),
+    enabled: !!shop,
+  });
+
+  // Review Prompt Metrics (RC-007)
+  const [reviewMetricsDays, setReviewMetricsDays] = useState(30);
+  const {
+    data: reviewMetricsData,
+    isLoading: reviewMetricsLoading,
+    refetch: refetchReviewMetrics,
+  } = useQuery({
+    queryKey: ['review-metrics', shop, reviewMetricsDays],
+    queryFn: () => fetchReviewMetrics(shop, reviewMetricsDays),
     enabled: !!shop,
   });
 
@@ -2076,6 +2130,132 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               </BlockStack>
             </Card>
           </BlockStack>
+        </Layout.AnnotatedSection>
+
+        {/* Review Prompt Metrics (RC-007) */}
+        <Layout.AnnotatedSection
+          id="review-metrics"
+          title="Review Prompt Metrics"
+          description="Track how many prompts convert to actual reviews"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={StarIcon} tone="base" />
+                    <Text as="h3" variant="headingMd">
+                      Review Collection Performance
+                    </Text>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Metrics for in-app review prompts shown to merchants.
+                  </Text>
+                </BlockStack>
+                <InlineStack gap="200">
+                  <Select
+                    label=""
+                    labelHidden
+                    options={[
+                      { label: 'Last 7 days', value: '7' },
+                      { label: 'Last 30 days', value: '30' },
+                      { label: 'Last 90 days', value: '90' },
+                      { label: 'All time', value: '0' },
+                    ]}
+                    value={String(reviewMetricsDays)}
+                    onChange={(value) => setReviewMetricsDays(parseInt(value))}
+                  />
+                  <Button
+                    onClick={() => refetchReviewMetrics()}
+                    loading={reviewMetricsLoading}
+                    icon={RefreshIcon}
+                  >
+                    Refresh
+                  </Button>
+                </InlineStack>
+              </InlineStack>
+
+              <Divider />
+
+              {reviewMetricsLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm">Loading metrics...</Text>
+                </InlineStack>
+              ) : reviewMetricsData?.metrics ? (
+                <BlockStack gap="400">
+                  {/* Key Metrics Grid */}
+                  <InlineStack gap="400" wrap>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Prompt Impressions</Text>
+                      <Text as="p" variant="headingLg">{reviewMetricsData.metrics.total_impressions}</Text>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Rate Now Clicks</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.clicked_count}</Text>
+                        <Badge tone="success">{reviewMetricsData.metrics.click_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Dismissed</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.dismissed_count}</Text>
+                        <Badge>{reviewMetricsData.metrics.dismiss_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Remind Later</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.reminded_later_count}</Text>
+                        <Badge tone="info">{reviewMetricsData.metrics.remind_later_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                  </InlineStack>
+
+                  <Divider />
+
+                  {/* Conversion Funnel */}
+                  <BlockStack gap="200">
+                    <Text as="h4" variant="headingSm">Conversion Funnel</Text>
+                    <InlineStack gap="400" wrap>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Impressions</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.impressions}
+                        </Text>
+                      </BlockStack>
+                      <Text as="span" variant="bodyMd" tone="subdued">→</Text>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Engaged</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.engaged} ({reviewMetricsData.metrics.funnel.engagement_rate}%)
+                        </Text>
+                      </BlockStack>
+                      <Text as="span" variant="bodyMd" tone="subdued">→</Text>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Converted (Clicked)</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.converted} ({reviewMetricsData.metrics.funnel.conversion_rate}%)
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                  </BlockStack>
+
+                  {/* Summary */}
+                  <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                    <Text as="p" variant="bodySm">
+                      {reviewMetricsData.metrics.summary}
+                    </Text>
+                  </Box>
+                </BlockStack>
+              ) : (
+                <Text as="p" variant="bodySm" tone="subdued">
+                  No review prompt data available yet. Prompts will be tracked once merchants start seeing them.
+                </Text>
+              )}
+            </BlockStack>
+          </Card>
         </Layout.AnnotatedSection>
 
         {/* Support & Feedback */}

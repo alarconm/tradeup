@@ -514,3 +514,127 @@ def record_review_prompt_response(tenant_id: int, prompt_id: int, response: str)
     """
     service = ReviewPromptService(tenant_id)
     return service.record_prompt_response(prompt_id, response)
+
+
+def get_aggregate_review_metrics(
+    days: int = 30,
+    tenant_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Get aggregate review prompt metrics across all tenants (or a specific tenant).
+
+    Story: RC-007 - Track review conversion metrics
+
+    This provides metrics for:
+    - Total prompt impressions
+    - Rate Now (clicked) count and rate
+    - Dismiss count and rate
+    - Remind Later count and rate
+    - Conversion funnel breakdown
+
+    Args:
+        days: Number of days to look back (default 30, 0 for all time)
+        tenant_id: Optional tenant ID to filter by (None for all tenants)
+
+    Returns:
+        Dict with aggregate metrics
+    """
+    from sqlalchemy import func
+    from datetime import timedelta
+
+    # Build base query
+    query = db.session.query(ReviewPrompt)
+
+    if tenant_id is not None:
+        query = query.filter(ReviewPrompt.tenant_id == tenant_id)
+
+    if days > 0:
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        query = query.filter(ReviewPrompt.prompt_shown_at >= cutoff)
+
+    all_prompts = query.all()
+
+    # Calculate metrics
+    total_impressions = len(all_prompts)
+    prompts_with_response = [p for p in all_prompts if p.response]
+    total_responses = len(prompts_with_response)
+
+    # Count by response type
+    clicked_count = sum(1 for p in all_prompts if p.response == 'clicked')
+    dismissed_count = sum(1 for p in all_prompts if p.response == 'dismissed')
+    reminded_later_count = sum(1 for p in all_prompts if p.response == 'reminded_later')
+    no_response_count = total_impressions - total_responses
+
+    # Calculate rates (as percentages)
+    def rate(count: int) -> float:
+        if total_impressions == 0:
+            return 0.0
+        return round((count / total_impressions) * 100, 1)
+
+    # Get daily breakdown for trend analysis
+    daily_breakdown = {}
+    for prompt in all_prompts:
+        date_key = prompt.prompt_shown_at.strftime('%Y-%m-%d')
+        if date_key not in daily_breakdown:
+            daily_breakdown[date_key] = {
+                'impressions': 0,
+                'clicked': 0,
+                'dismissed': 0,
+                'reminded_later': 0
+            }
+        daily_breakdown[date_key]['impressions'] += 1
+        if prompt.response == 'clicked':
+            daily_breakdown[date_key]['clicked'] += 1
+        elif prompt.response == 'dismissed':
+            daily_breakdown[date_key]['dismissed'] += 1
+        elif prompt.response == 'reminded_later':
+            daily_breakdown[date_key]['reminded_later'] += 1
+
+    # Sort daily breakdown by date
+    sorted_daily = sorted(daily_breakdown.items(), key=lambda x: x[0])
+    daily_trend = [
+        {
+            'date': date,
+            **metrics
+        }
+        for date, metrics in sorted_daily
+    ]
+
+    # Get unique tenant count
+    unique_tenants = len(set(p.tenant_id for p in all_prompts))
+
+    return {
+        'period_days': days if days > 0 else 'all_time',
+        'tenant_id': tenant_id,
+
+        # Core metrics (RC-007 acceptance criteria)
+        'total_impressions': total_impressions,
+        'clicked_count': clicked_count,
+        'dismissed_count': dismissed_count,
+        'reminded_later_count': reminded_later_count,
+        'no_response_count': no_response_count,
+
+        # Rates
+        'click_rate': rate(clicked_count),
+        'dismiss_rate': rate(dismissed_count),
+        'remind_later_rate': rate(reminded_later_count),
+        'response_rate': rate(total_responses),
+
+        # Conversion funnel
+        'funnel': {
+            'impressions': total_impressions,
+            'engaged': total_responses,
+            'converted': clicked_count,
+            'engagement_rate': rate(total_responses),
+            'conversion_rate': rate(clicked_count)
+        },
+
+        # Context
+        'unique_tenants': unique_tenants,
+        'daily_trend': daily_trend[-30:],  # Last 30 days of trends
+        'summary': (
+            f"{total_impressions} prompts shown, "
+            f"{clicked_count} clicked ({rate(clicked_count)}%), "
+            f"{dismissed_count} dismissed ({rate(dismissed_count)}%)"
+        )
+    }

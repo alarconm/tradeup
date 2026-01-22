@@ -877,3 +877,45 @@ Date: 2026-01-21
 - [x] Show on dashboard after 5+ successful sessions (MIN_SESSIONS_FOR_PROMPT = 5)
 - [x] Respect user's time zone for optimal timing (OPTIMAL_HOURS_START/END)
 
+---
+
+## Story: RC-007 - Track review conversion metrics
+Date: 2026-01-21
+
+### What I Did
+- Added aggregate metrics function to ReviewPromptService (get_aggregate_review_metrics)
+- Metrics track all 5 acceptance criteria:
+  - Total prompt impressions
+  - Rate Now clicks (clicked count and rate)
+  - Dismiss count and rate
+  - Remind Later count and rate
+  - Response rate (engagement)
+- Added conversion funnel breakdown (impressions -> engaged -> converted)
+- Added daily trend data for time-series analysis
+- Created new API endpoint: GET /api/review-prompt/metrics
+  - Query params: days (default 30), scope ('tenant' or 'all')
+  - Returns comprehensive metrics including funnel and daily trends
+- Added Review Prompt Metrics section to EmbeddedSettings.tsx admin page
+  - Period selector (7, 30, 90 days, all time)
+  - Key metrics grid (impressions, clicks, dismissals, remind later)
+  - Conversion funnel visualization
+  - Summary text
+
+### Files Changed
+- app/services/review_prompt_service.py (added get_aggregate_review_metrics function, ~100 lines)
+- app/api/review_prompt.py (added /metrics endpoint, ~50 lines)
+- frontend/src/embedded/pages/EmbeddedSettings.tsx (added metrics section, ~100 lines)
+
+### Learnings
+- Aggregate metrics can be tenant-scoped or app-wide depending on use case
+- Conversion funnel has two steps: impression -> engagement (any response) -> conversion (clicked)
+- Daily trend data is useful for identifying patterns in user behavior
+- Settings page is a natural place for internal metrics since merchants already go there
+
+### Verification
+- [x] Track prompt impressions (total_impressions in metrics)
+- [x] Track Rate Now clicks (clicked_count and click_rate)
+- [x] Track dismiss rate (dismissed_count and dismiss_rate)
+- [x] Track remind later rate (reminded_later_count and remind_later_rate)
+- [x] Display metrics in admin/internal dashboard (EmbeddedSettings.tsx)
+

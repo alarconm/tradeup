@@ -298,3 +298,59 @@ def record_successful_action():
         'success': True,
         'action_type': action_type,
     })
+
+
+@review_prompt_bp.route('/metrics', methods=['GET'])
+@require_shopify_auth
+def get_review_metrics():
+    """
+    Get aggregate review prompt conversion metrics.
+
+    Story: RC-007 - Track review conversion metrics
+
+    Provides metrics for tracking how many prompts convert to actual reviews:
+    - Total prompt impressions
+    - Rate Now (clicked) count and rate
+    - Dismiss count and rate
+    - Remind Later count and rate
+    - Conversion funnel breakdown
+
+    Query params:
+        days: Number of days to look back (default 30, 0 for all time)
+        scope: 'tenant' for current tenant only, 'all' for aggregate (default 'tenant')
+
+    Response:
+        {
+            "success": true,
+            "metrics": {
+                "total_impressions": 100,
+                "clicked_count": 15,
+                "click_rate": 15.0,
+                "dismissed_count": 45,
+                "dismiss_rate": 45.0,
+                "reminded_later_count": 20,
+                "remind_later_rate": 20.0,
+                "no_response_count": 20,
+                "response_rate": 80.0,
+                "funnel": {...},
+                "daily_trend": [...],
+                "summary": "100 prompts shown, 15 clicked (15.0%), 45 dismissed (45.0%)"
+            }
+        }
+    """
+    from app.services.review_prompt_service import get_aggregate_review_metrics
+
+    days = request.args.get('days', 30, type=int)
+    scope = request.args.get('scope', 'tenant')
+
+    # Determine tenant filtering
+    tenant_id = None
+    if scope == 'tenant':
+        tenant_id = g.tenant.id
+
+    metrics = get_aggregate_review_metrics(days=days, tenant_id=tenant_id)
+
+    return jsonify({
+        'success': True,
+        'metrics': metrics,
+    })
