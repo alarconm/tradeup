@@ -919,3 +919,64 @@ Date: 2026-01-21
 - [x] Track remind later rate (reminded_later_count and remind_later_rate)
 - [x] Display metrics in admin/internal dashboard (EmbeddedSettings.tsx)
 
+---
+
+## Story: RC-008 - Add post-support review prompt
+Date: 2026-01-21
+
+### What I Did
+- Created SupportTicket model in app/models/support_ticket.py
+  - Tracks support tickets from external helpdesk systems (Gorgias, Zendesk)
+  - TicketStatus enum: open, pending, resolved, closed
+  - TicketSatisfaction enum: satisfied, neutral, dissatisfied, not_rated
+  - Review email tracking: sent_at, opened_at, clicked_at, tracking_id
+  - Methods: mark_resolved(), is_eligible_for_review_email(), find_or_create()
+- Created SupportReviewService in app/services/support_review_service.py
+  - on_ticket_resolved() - handles helpdesk webhook when ticket is resolved
+  - process_pending_review_emails() - batch sends pending review emails
+  - _send_review_email() - generates friendly, non-pushy email
+  - track_email_opened() / track_email_clicked() - email interaction tracking
+  - get_review_email_stats() - open rate, click rate, click-to-open rate
+  - 24-hour delay after resolution before sending email
+- Created API endpoints in app/api/support_review.py
+  - POST /api/support-review/ticket/resolved - record ticket resolution
+  - POST /api/support-review/process-pending - trigger pending email sends
+  - GET /api/support-review/track/open/{tracking_id} - pixel tracking for opens
+  - GET /api/support-review/track/click/{tracking_id} - link click tracking + redirect
+  - GET /api/support-review/stats - email performance statistics
+  - GET /api/support-review/ticket/{id} - get ticket status
+  - POST /api/support-review/webhook/gorgias - Gorgias webhook handler
+- Created Alembic migration y3z4a5b6c7d8_add_support_tickets_table.py
+- Created comprehensive test suite (17 tests) in tests/test_support_review.py
+
+### Email Template Features
+- Friendly, appreciative tone ("Thanks for reaching out!")
+- Clear CTA button ("Leave a Review") linking to Shopify App Store
+- P.S. line emphasizing no pressure ("No pressure at all")
+- Tracking pixel for open detection
+- Click-through tracking with redirect to app store
+
+### Files Changed
+- app/models/support_ticket.py (new - 165 lines)
+- app/models/__init__.py (added SupportTicket, TicketStatus, TicketSatisfaction exports)
+- app/services/support_review_service.py (new - 390 lines)
+- app/api/support_review.py (new - 230 lines)
+- app/__init__.py (registered support_review_bp blueprint)
+- migrations/versions/y3z4a5b6c7d8_add_support_tickets_table.py (new)
+- tests/test_support_review.py (new - 17 tests)
+
+### Learnings
+- Email tracking pixel uses 1x1 transparent GIF served inline
+- Gorgias satisfaction scores: 4-5 = satisfied, 3 = neutral, 1-2 = dissatisfied
+- 24-hour delay after resolution prevents premature emails if ticket reopens
+- Only satisfied/neutral customers receive review prompts (not dissatisfied)
+- Review email must be friendly and non-pushy to maintain good customer relations
+
+### Verification
+- [x] Detect support ticket resolved (on_ticket_resolved() method)
+- [x] Send follow-up email with review request (_send_review_email() with HTML template)
+- [x] Only for tickets marked resolved/satisfied (is_eligible_for_review_email() check)
+- [x] Friendly, non-pushy message (appreciative tone, no pressure P.S.)
+- [x] Track email open (tracking pixel at /track/open/{id})
+- [x] Track email click (link redirect at /track/click/{id})
+

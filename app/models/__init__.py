@@ -50,6 +50,7 @@ from .cashback_campaign import CashbackCampaign, CashbackRedemption
 from .gamification import Badge, MemberBadge, MemberStreak, Milestone, MemberMilestone
 from .guest_points import GuestPoints
 from .review_prompt import ReviewPrompt, ReviewPromptResponse
+from .support_ticket import SupportTicket, TicketStatus, TicketSatisfaction
 
 __all__ = [
     'Tenant',
@@ -112,4 +113,8 @@ __all__ = [
     # Review Collection
     'ReviewPrompt',
     'ReviewPromptResponse',
+    # Support Tickets
+    'SupportTicket',
+    'TicketStatus',
+    'TicketSatisfaction',
 ]

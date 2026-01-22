@@ -536,6 +536,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.review_prompt import review_prompt_bp
     app.register_blueprint(review_prompt_bp, url_prefix='/api/review-prompt')
 
+    # Support Review (Post-Support Review Prompts)
+    from .api.support_review import support_review_bp
+    app.register_blueprint(support_review_bp, url_prefix='/api/support-review')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers using standardized error format."""
