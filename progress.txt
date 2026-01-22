@@ -2779,3 +2779,56 @@ CREATE TABLE loyalty_pages (
 - [x] page_config stores sections, styles, and content (DEFAULT_PAGE_CONFIG defined)
 - [x] Alembic migration created
 - [x] Support for draft and published versions (draft_config field + publish/unpublish methods)
+
+---
+
+## Story: WB-001 - Create widget configuration model
+Date: 2026-01-22
+
+### What I Did
+- Created Widget model for storing widget configurations per tenant
+- Added WidgetType enum with 4 widget types: points_balance, tier_badge, rewards_launcher, referral_prompt
+- Config JSON stores position, styling, content, and behavior options
+- Created Alembic migration for widgets table
+- Added seed_widgets() function to create default widgets for new tenants
+
+### Model Features
+- **Core Fields**: id, tenant_id, widget_type, config (JSON), is_enabled, created_at, updated_at
+- **Widget Types**: points_balance, tier_badge, rewards_launcher, referral_prompt
+- **Config Structure**: Nested JSON with position, styling, content, behavior sections
+- **Methods**: update_config(), get_position(), get_styling(), get_content(), get_behavior()
+- **Helpers**: get_by_type(), get_all_for_tenant(), get_enabled_for_tenant(), get_or_create(), create_defaults_for_tenant()
+
+### Default Widget Configurations
+Each widget type has predefined defaults:
+- **points_balance**: Fixed bottom-right, dark theme, shows points with tier indicator
+- **tier_badge**: Inline placement, pill-style badge with tier name
+- **rewards_launcher**: Fixed button bottom-left, orange accent, opens rewards panel
+- **referral_prompt**: Fixed top-center, scroll-triggered popup with share CTA
+
+### Database Schema
+```sql
+CREATE TABLE widgets (
+    id INTEGER PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    widget_type VARCHAR(50) NOT NULL,
+    config JSON NOT NULL,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    UNIQUE(tenant_id, widget_type)
+);
+CREATE INDEX ix_widgets_tenant_id ON widgets(tenant_id);
+CREATE INDEX ix_widgets_widget_type ON widgets(widget_type);
+```
+
+### Files Changed
+- `app/models/widget.py` - New model file (~270 lines)
+- `app/models/__init__.py` - Added Widget, WidgetType, DEFAULT_WIDGET_CONFIGS, seed_widgets exports
+- `migrations/versions/f0a1b2c3d4e5_add_widgets_table.py` - New migration
+
+### Acceptance Criteria Verification
+- [x] Widget model with: id, tenant_id, widget_type, config (JSON), is_enabled, created_at, updated_at
+- [x] Widget types: points_balance, tier_badge, rewards_launcher, referral_prompt
+- [x] Alembic migration created and applied
+- [x] Config stores position, styling, and content options (nested JSON structure)

@@ -60,6 +60,7 @@ from .loyalty_page_analytics import (
     LoyaltyPageCTAClick,
     LoyaltyPageAnalyticsSummary,
 )
+from .widget import Widget, WidgetType, DEFAULT_WIDGET_CONFIGS, seed_widgets
 
 __all__ = [
     'Tenant',
@@ -143,4 +144,9 @@ __all__ = [
     'LoyaltyPageEngagement',
     'LoyaltyPageCTAClick',
     'LoyaltyPageAnalyticsSummary',
+    # Widget Builder
+    'Widget',
+    'WidgetType',
+    'DEFAULT_WIDGET_CONFIGS',
+    'seed_widgets',
 ]
