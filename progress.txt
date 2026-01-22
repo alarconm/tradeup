@@ -2462,3 +2462,78 @@ Created mobile-responsive HTML email templates for all four nudge types. Each te
 - [x] All templates are mobile-responsive (600px breakpoint)
 - [x] Email service renders HTML templates for nudge emails
 - [x] Preview endpoint supports HTML template preview
+
+---
+
+## Story: NR-008 - Create scheduled nudge processor job
+Date: 2026-01-22
+
+### What I Did
+- Created daily scheduled job (`run_nudges_processor`) in scheduler.py
+- Job runs at 10 AM UTC (optimal engagement time)
+- Processes all 4 nudge types for all active tenants:
+  1. Points expiring reminders
+  2. Tier progress reminders  
+  3. Inactive member re-engagement
+  4. Trade-in reminders
+- Respects per-tenant enable/disable settings
+- Respects rate limits (max 100 emails per tenant, 50 per nudge type)
+- Comprehensive logging with per-tenant and aggregate stats
+- Error handling that continues processing even if one tenant fails
+
+### Scheduler Job Features:
+- **Runs at 10 AM UTC**: Optimal time for email engagement
+- **Multi-tenant**: Processes all tenants with active subscriptions
+- **Rate limiting**: 
+  - MAX_EMAILS_PER_TENANT = 100 (prevents any single tenant from overwhelming)
+  - MAX_EMAILS_PER_NUDGE_TYPE = 50 (balances across nudge types)
+- **Per-nudge-type enable check**: Respects tenant's NudgeConfig settings
+- **Cooldown awareness**: Each nudge type checks its own cooldown via NudgeSent
+- **Graceful error handling**: Failures for one tenant don't stop other tenants
+- **Detailed logging**: 
+  - Per-tenant summary with breakdown by nudge type
+  - Final aggregate stats across all tenants
+  - Error logging for troubleshooting
+
+### API Endpoints Added:
+- `GET /api/scheduled-tasks/nudges/preview` - Preview pending nudges
+- `POST /api/scheduled-tasks/nudges/run` - Manually trigger nudges processing
+- `GET /api/scheduled-tasks/nudges/stats` - Get nudge effectiveness metrics
+
+### Files Changed:
+- `app/utils/scheduler.py`:
+  - Added `run_nudges_processor()` function (~170 lines)
+  - Registered job in `init_scheduler()` with CronTrigger(hour=10, minute=0)
+  - Updated job count to 7 in startup message
+- `app/api/scheduled_tasks.py`:
+  - Added `preview_nudges()` endpoint
+  - Added `run_nudges()` endpoint with max_emails param
+  - Added `get_nudges_stats()` endpoint
+
+### Acceptance Criteria Verification:
+- [x] Job runs daily at optimal time (10 AM UTC)
+- [x] Processes all nudge types for all tenants
+- [x] Respects rate limits and email quotas (100/tenant, 50/type)
+- [x] Logs all nudges sent with success/failure
+- [x] Job handles errors without failing completely (per-tenant isolation)
+
+### How It Works:
+1. Job starts at 10 AM UTC daily
+2. Fetches all tenants with subscription_active=True
+3. For each tenant:
+   a. Creates NudgesService with tenant settings
+   b. Checks if nudges globally enabled
+   c. Processes each nudge type in order:
+      - Points expiring (process_points_expiring_reminders)
+      - Tier progress (process_tier_progress_reminders)
+      - Inactive reengagement (process_reengagement_emails)
+      - Trade-in reminders (process_trade_in_reminders)
+   d. Respects remaining email quota for each type
+   e. Logs per-tenant summary
+4. Logs final aggregate stats
+
+### Testing:
+- Manual trigger: `POST /api/scheduled-tasks/nudges/run`
+- Preview without sending: `GET /api/scheduled-tasks/nudges/preview`
+- Check stats: `GET /api/scheduled-tasks/nudges/stats?days=30`
+- Check scheduler status: `GET /api/scheduled-tasks/scheduler/status`

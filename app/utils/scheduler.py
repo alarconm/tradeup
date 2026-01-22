@@ -115,17 +115,27 @@ def init_scheduler(app):
             replace_existing=True
         )
 
+        # Nudges processor - Daily at 10 AM UTC (optimal engagement time)
+        _scheduler.add_job(
+            run_nudges_processor,
+            trigger=CronTrigger(hour=10, minute=0),
+            id='nudges_processor',
+            name='Process and send member nudges',
+            replace_existing=True
+        )
+
         _scheduler.start()
         os.environ['SCHEDULER_RUNNING'] = 'true'
 
         # Use print during init to avoid app context issues
-        print('[Scheduler] Started with 6 scheduled jobs:')
+        print('[Scheduler] Started with 7 scheduled jobs:')
         print('  - Monthly credits: 1st of month at 6:00 UTC (creates pending for approval)')
         print('  - Credit expiration: Daily at 0:00 UTC')
         print('  - Pending expiration: Daily at 1:00 UTC')
         print('  - Anniversary reminders: Daily at 7:00 UTC')
         print('  - Anniversary rewards: Daily at 8:00 UTC')
         print('  - Expiration warnings: Daily at 9:00 UTC')
+        print('  - Nudges processor: Daily at 10:00 UTC')
 
         # Register shutdown
         import atexit
@@ -500,6 +510,196 @@ def run_anniversary_reminders():
 
         except Exception as e:
             logger.error(f'[Scheduler] Anniversary reminders failed: {e}')
+
+
+def run_nudges_processor():
+    """
+    Process and send all nudges for all tenants.
+
+    Runs daily at 10 AM UTC (optimal engagement time).
+    Processes:
+    - Points expiring reminders
+    - Tier progress reminders
+    - Inactive member re-engagement
+    - Trade-in reminders
+
+    Each nudge type respects:
+    - Per-tenant enable/disable settings
+    - Cooldown periods between nudges
+    - Rate limits (max_emails per batch)
+    """
+    global _flask_app
+
+    if not _flask_app:
+        logger.error('[Scheduler] Flask app not initialized')
+        return
+
+    logger.info('[Scheduler] Starting daily nudges processing...')
+
+    with _flask_app.app_context():
+        try:
+            from ..models.tenant import Tenant
+            from ..services.nudges_service import NudgesService
+
+            # Get all active tenants
+            tenants = Tenant.query.filter_by(subscription_active=True).all()
+
+            # Aggregate stats across all tenants
+            total_stats = {
+                'tenants_processed': 0,
+                'tenants_skipped': 0,
+                'tenants_failed': 0,
+                'points_expiring': {'sent': 0, 'skipped': 0, 'errors': 0},
+                'tier_progress': {'sent': 0, 'skipped': 0, 'errors': 0},
+                'inactive_reengagement': {'sent': 0, 'skipped': 0, 'errors': 0},
+                'trade_in_reminder': {'sent': 0, 'skipped': 0, 'errors': 0},
+            }
+
+            # Rate limit: max emails per tenant per day
+            MAX_EMAILS_PER_TENANT = 100
+            MAX_EMAILS_PER_NUDGE_TYPE = 50
+
+            for tenant in tenants:
+                try:
+                    # Get tenant settings
+                    settings = tenant.settings or {}
+                    nudge_service = NudgesService(tenant.id, settings)
+
+                    # Check if nudges are globally enabled for this tenant
+                    nudge_settings = nudge_service.get_nudge_settings()
+                    if not nudge_settings.get('enabled', True):
+                        total_stats['tenants_skipped'] += 1
+                        logger.info(f'[Scheduler] Tenant {tenant.id}: Nudges disabled, skipping')
+                        continue
+
+                    tenant_emails_sent = 0
+                    tenant_results = {
+                        'points_expiring': None,
+                        'tier_progress': None,
+                        'inactive_reengagement': None,
+                        'trade_in_reminder': None,
+                    }
+
+                    # 1. Process Points Expiring Reminders
+                    try:
+                        if nudge_service.is_nudge_enabled('points_expiring'):
+                            remaining = min(MAX_EMAILS_PER_NUDGE_TYPE, MAX_EMAILS_PER_TENANT - tenant_emails_sent)
+                            if remaining > 0:
+                                result = nudge_service.process_points_expiring_reminders()
+                                tenant_results['points_expiring'] = result
+                                if result.get('success'):
+                                    sent = result.get('reminders_sent', 0)
+                                    tenant_emails_sent += sent
+                                    total_stats['points_expiring']['sent'] += sent
+                                    total_stats['points_expiring']['skipped'] += result.get('skipped', 0)
+                                    if result.get('errors'):
+                                        total_stats['points_expiring']['errors'] += len(result['errors'])
+                    except Exception as e:
+                        logger.error(f'[Scheduler] Tenant {tenant.id}: Points expiring failed: {e}')
+                        total_stats['points_expiring']['errors'] += 1
+
+                    # 2. Process Tier Progress Reminders
+                    try:
+                        if nudge_service.is_nudge_enabled('tier_progress'):
+                            remaining = min(MAX_EMAILS_PER_NUDGE_TYPE, MAX_EMAILS_PER_TENANT - tenant_emails_sent)
+                            if remaining > 0:
+                                result = nudge_service.process_tier_progress_reminders()
+                                tenant_results['tier_progress'] = result
+                                if result.get('success'):
+                                    sent = result.get('reminders_sent', 0)
+                                    tenant_emails_sent += sent
+                                    total_stats['tier_progress']['sent'] += sent
+                                    total_stats['tier_progress']['skipped'] += result.get('skipped', 0)
+                                    if result.get('errors'):
+                                        total_stats['tier_progress']['errors'] += len(result['errors'])
+                    except Exception as e:
+                        logger.error(f'[Scheduler] Tenant {tenant.id}: Tier progress failed: {e}')
+                        total_stats['tier_progress']['errors'] += 1
+
+                    # 3. Process Inactive Member Re-engagement
+                    try:
+                        if nudge_service.is_nudge_enabled('inactive_reminder'):
+                            remaining = min(MAX_EMAILS_PER_NUDGE_TYPE, MAX_EMAILS_PER_TENANT - tenant_emails_sent)
+                            if remaining > 0:
+                                result = nudge_service.process_reengagement_emails(max_emails=remaining)
+                                tenant_results['inactive_reengagement'] = result
+                                if result.get('success'):
+                                    sent = result.get('emails_sent', 0)
+                                    tenant_emails_sent += sent
+                                    total_stats['inactive_reengagement']['sent'] += sent
+                                    total_stats['inactive_reengagement']['skipped'] += result.get('skipped', 0)
+                                    if result.get('errors'):
+                                        total_stats['inactive_reengagement']['errors'] += len(result['errors'])
+                    except Exception as e:
+                        logger.error(f'[Scheduler] Tenant {tenant.id}: Inactive reengagement failed: {e}')
+                        total_stats['inactive_reengagement']['errors'] += 1
+
+                    # 4. Process Trade-In Reminders
+                    try:
+                        if nudge_service.is_nudge_enabled('trade_in_reminder'):
+                            remaining = min(MAX_EMAILS_PER_NUDGE_TYPE, MAX_EMAILS_PER_TENANT - tenant_emails_sent)
+                            if remaining > 0:
+                                result = nudge_service.process_trade_in_reminders(max_emails=remaining)
+                                tenant_results['trade_in_reminder'] = result
+                                if result.get('success'):
+                                    sent = result.get('reminders_sent', 0)
+                                    tenant_emails_sent += sent
+                                    total_stats['trade_in_reminder']['sent'] += sent
+                                    total_stats['trade_in_reminder']['skipped'] += result.get('skipped', 0)
+                                    if result.get('errors'):
+                                        total_stats['trade_in_reminder']['errors'] += len(result['errors'])
+                    except Exception as e:
+                        logger.error(f'[Scheduler] Tenant {tenant.id}: Trade-in reminder failed: {e}')
+                        total_stats['trade_in_reminder']['errors'] += 1
+
+                    total_stats['tenants_processed'] += 1
+
+                    # Log tenant summary if any nudges were sent
+                    if tenant_emails_sent > 0:
+                        logger.info(
+                            f'[Scheduler] Tenant {tenant.id}: {tenant_emails_sent} nudges sent - '
+                            f'Points: {tenant_results["points_expiring"].get("reminders_sent", 0) if tenant_results["points_expiring"] else 0}, '
+                            f'Tier: {tenant_results["tier_progress"].get("reminders_sent", 0) if tenant_results["tier_progress"] else 0}, '
+                            f'Inactive: {tenant_results["inactive_reengagement"].get("emails_sent", 0) if tenant_results["inactive_reengagement"] else 0}, '
+                            f'Trade-in: {tenant_results["trade_in_reminder"].get("reminders_sent", 0) if tenant_results["trade_in_reminder"] else 0}'
+                        )
+
+                except Exception as e:
+                    total_stats['tenants_failed'] += 1
+                    logger.error(f'[Scheduler] Tenant {tenant.id}: Nudges processing failed: {e}')
+
+            # Log final summary
+            total_sent = (
+                total_stats['points_expiring']['sent'] +
+                total_stats['tier_progress']['sent'] +
+                total_stats['inactive_reengagement']['sent'] +
+                total_stats['trade_in_reminder']['sent']
+            )
+            total_errors = (
+                total_stats['points_expiring']['errors'] +
+                total_stats['tier_progress']['errors'] +
+                total_stats['inactive_reengagement']['errors'] +
+                total_stats['trade_in_reminder']['errors']
+            )
+
+            logger.info(
+                f'[Scheduler] Nudges processing complete: '
+                f'{total_stats["tenants_processed"]} tenants processed, '
+                f'{total_stats["tenants_skipped"]} skipped, '
+                f'{total_stats["tenants_failed"]} failed'
+            )
+            logger.info(
+                f'[Scheduler] Nudges sent: {total_sent} total - '
+                f'Points expiring: {total_stats["points_expiring"]["sent"]}, '
+                f'Tier progress: {total_stats["tier_progress"]["sent"]}, '
+                f'Inactive: {total_stats["inactive_reengagement"]["sent"]}, '
+                f'Trade-in: {total_stats["trade_in_reminder"]["sent"]}'
+            )
+            if total_errors > 0:
+                logger.warning(f'[Scheduler] Nudges errors: {total_errors} total')
+
+        except Exception as e:
+            logger.error(f'[Scheduler] Nudges processing failed: {e}')
 
 
 def get_next_run_times() -> dict:
