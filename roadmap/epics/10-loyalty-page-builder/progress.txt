@@ -36,3 +36,28 @@
 - Updated components/index.ts to re-export loyalty-page components
 - All components support theming via SectionTheme props (primaryColor, accentColor, backgroundColor, textColor, darkMode)
 - Consistent styling patterns based on existing landing pages
+
+## LP-004 - Create visual page editor React component
+- Status: COMPLETE
+- Date: January 22, 2026
+- Enhanced frontend/src/embedded/pages/EmbeddedPageBuilder.tsx with full visual editor:
+  - Section list with add/remove/reorder using drag-and-drop
+  - Click to edit section content with comprehensive field editors for each section type
+  - Real-time preview panel in sidebar (scaled iframe preview)
+  - Full preview modal for larger view
+  - Save and Publish buttons with draft/publish workflow
+  - Undo/redo functionality using history state management
+  - Discard changes feature
+  - Status badges showing published/draft state
+  - Unsaved changes warning banner
+- Added route to admin navigation (advanced features menu)
+- Uses LP-002 API endpoints (/api/loyalty-page, /api/loyalty-page/publish, etc.)
+- Section editor supports all 8 section types:
+  - Hero: title, subtitle, CTA text/link, background/text colors
+  - How It Works: title, dynamic steps list with add/remove
+  - Tier Comparison: title, show benefits toggle
+  - Rewards Catalog: title, show points cost toggle
+  - Earning Rules: title, show multipliers toggle
+  - FAQ: title, dynamic FAQ items list with add/remove
+  - Referral Banner: title, description
+  - CTA: title, subtitle, button text/URL, email signup toggle
