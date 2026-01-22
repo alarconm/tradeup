@@ -11,22 +11,11 @@ Automated notifications to engage members:
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
-from enum import Enum
 
 from app import db
 from app.models.member import Member
 from app.models.loyalty_points import PointsLedger, PointsBalance
-
-
-class NudgeType(str, Enum):
-    """Types of nudges/reminders."""
-    POINTS_EXPIRING = 'points_expiring'
-    TIER_UPGRADE_NEAR = 'tier_upgrade_near'
-    INACTIVE_MEMBER = 'inactive_member'
-    WELCOME_REMINDER = 'welcome_reminder'
-    POINTS_MILESTONE = 'points_milestone'
-    STREAK_AT_RISK = 'streak_at_risk'
-    TRADE_IN_REMINDER = 'trade_in_reminder'
+from app.models.nudge_config import NudgeConfig, NudgeType
 
 
 class NudgesService:
@@ -37,7 +26,44 @@ class NudgesService:
         self.settings = settings or {}
 
     def get_nudge_settings(self) -> Dict[str, Any]:
-        """Get nudge settings for the tenant."""
+        """
+        Get nudge settings for the tenant.
+
+        First checks NudgeConfig database records, then falls back to tenant settings JSON.
+        """
+        # Try to get settings from NudgeConfig database records
+        configs = NudgeConfig.get_all_for_tenant(self.tenant_id)
+
+        if configs:
+            # Build settings from database configs
+            settings = {
+                'enabled': any(c.is_enabled for c in configs),
+                'configs': {c.nudge_type: c.to_dict() for c in configs},
+            }
+
+            # Extract specific config options for backwards compatibility
+            for config in configs:
+                if config.nudge_type == NudgeType.POINTS_EXPIRING.value:
+                    settings['points_expiry_days'] = config.config_options.get('threshold_days', [30, 7, 1])
+                elif config.nudge_type == NudgeType.TIER_PROGRESS.value:
+                    settings['tier_upgrade_threshold'] = config.config_options.get('threshold_percent', 0.9)
+                elif config.nudge_type == NudgeType.INACTIVE_REMINDER.value:
+                    settings['inactive_days'] = config.config_options.get('inactive_days', 30)
+                elif config.nudge_type == NudgeType.TRADE_IN_REMINDER.value:
+                    settings['trade_in_reminder_days'] = config.config_options.get('min_days_since_last', 60)
+
+            # Add defaults for any missing keys
+            settings.setdefault('points_expiry_days', [30, 7, 1])
+            settings.setdefault('tier_upgrade_threshold', 0.9)
+            settings.setdefault('inactive_days', 30)
+            settings.setdefault('welcome_reminder_days', 3)
+            settings.setdefault('points_milestones', [100, 500, 1000, 5000])
+            settings.setdefault('email_enabled', True)
+            settings.setdefault('max_nudges_per_day', 1)
+
+            return settings
+
+        # Fall back to tenant settings JSON (legacy)
         nudge_settings = self.settings.get('nudges', {})
         return {
             'enabled': nudge_settings.get('enabled', True),
@@ -49,6 +75,22 @@ class NudgesService:
             'email_enabled': nudge_settings.get('email_enabled', True),
             'max_nudges_per_day': nudge_settings.get('max_nudges_per_day', 1),
         }
+
+    def get_nudge_config(self, nudge_type: str) -> Optional[NudgeConfig]:
+        """Get a specific nudge configuration by type."""
+        return NudgeConfig.get_by_type(self.tenant_id, nudge_type)
+
+    def get_all_nudge_configs(self) -> List[NudgeConfig]:
+        """Get all nudge configurations for the tenant."""
+        return NudgeConfig.get_all_for_tenant(self.tenant_id)
+
+    def is_nudge_enabled(self, nudge_type: str) -> bool:
+        """Check if a specific nudge type is enabled."""
+        config = self.get_nudge_config(nudge_type)
+        if config:
+            return config.is_enabled
+        # Fall back to legacy settings
+        return self.settings.get('nudges', {}).get('enabled', True)
 
     def get_members_with_expiring_points(self, days_ahead: int = 30) -> List[Dict[str, Any]]:
         """Get members with points expiring within N days."""

@@ -2025,3 +2025,57 @@ With this configuration:
 - [x] Default to base amount if tier not configured (get_reward_amount_for_year fallback)
 - [x] UI to configure tiered rewards (EmbeddedSettings.tsx Anniversary Rewards section)
 
+---
+
+## Story: NR-001 - Create nudge types and settings model
+Date: 2026-01-22
+
+### What I Did
+- Created NudgeConfig model in app/models/nudge_config.py with all required fields:
+  - id (primary key)
+  - tenant_id (foreign key to tenants)
+  - nudge_type (string: points_expiring, tier_progress, inactive_reminder, trade_in_reminder)
+  - is_enabled (boolean, default True)
+  - frequency_days (integer, configurable per nudge type)
+  - message_template (text with placeholders like {member_name}, {shop_name})
+  - config_options (JSON for type-specific options)
+- Created NudgeType enum with four nudge types as specified
+- Added default message templates and frequency settings for each nudge type
+- Created class methods for CRUD operations:
+  - get_by_type(tenant_id, nudge_type)
+  - get_all_for_tenant(tenant_id)
+  - get_enabled_for_tenant(tenant_id)
+  - create_defaults_for_tenant(tenant_id)
+- Created Alembic migration b6c7d8e9f0a1_add_nudge_configs_table.py
+- Updated app/models/__init__.py to export NudgeConfig, NudgeType, seed_nudge_configs
+- Updated OnboardingService to seed default nudge configs when onboarding is complete
+- Updated NudgesService to use NudgeConfig model (with fallback to legacy settings)
+
+### Files Changed
+- app/models/nudge_config.py (new - 175 lines)
+- app/models/__init__.py (added exports)
+- migrations/versions/b6c7d8e9f0a1_add_nudge_configs_table.py (new migration)
+- app/services/onboarding.py (added seed_nudge_configs call)
+- app/services/nudges_service.py (updated to use NudgeConfig model)
+
+### Default Nudge Configurations
+| Nudge Type | Frequency | Default Options |
+|------------|-----------|-----------------|
+| points_expiring | 7 days | threshold_days: [30, 7, 1] |
+| tier_progress | 14 days | threshold_percent: 0.9 |
+| inactive_reminder | 30 days | inactive_days: 30 |
+| trade_in_reminder | 21 days | min_days_since_last: 60 |
+
+### Learnings
+- Model follows existing patterns (gamification.py, tenant.py)
+- Unique constraint on (tenant_id, nudge_type) prevents duplicate configs
+- JSON config_options field allows flexible type-specific settings
+- Seeding on onboarding completion ensures all new tenants have default configs
+- Legacy settings fallback maintains backwards compatibility
+
+### Verification
+- [x] NudgeConfig model with: id, tenant_id, nudge_type, is_enabled, frequency_days, message_template
+- [x] Nudge types: points_expiring, tier_progress, inactive_reminder, trade_in_reminder
+- [x] Alembic migration created and ready to apply
+- [x] Default nudge configs created on tenant setup (via OnboardingService.apply_template)
+
