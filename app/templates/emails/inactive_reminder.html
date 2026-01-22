@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+    <title>We Miss You!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Reset styles */
+        body, table, td, p, a, li, blockquote {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }
+        body {
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            background-color: #f4f4f4;
+        }
+
+        /* Base styles */
+        .email-wrapper {
+            width: 100%;
+            background-color: #f4f4f4;
+            padding: 20px 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header */
+        .email-header {
+            background-color: {{brand_color}};
+            padding: 30px 40px;
+            text-align: center;
+        }
+        .email-header h1 {
+            margin: 0;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .shop-logo {
+            max-width: 180px;
+            max-height: 60px;
+            margin-bottom: 15px;
+        }
+
+        /* Content */
+        .email-content {
+            padding: 40px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333333;
+        }
+        .email-content h2 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .email-content p {
+            margin: 0 0 16px 0;
+        }
+        .email-content a {
+            color: {{brand_color}};
+            text-decoration: none;
+        }
+
+        /* Welcome back badge */
+        .welcome-badge {
+            display: inline-block;
+            background-color: #E0E7FF;
+            color: #3730A3;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        /* Account status card */
+        .account-status {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+        .status-header {
+            font-size: 14px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        .status-grid {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            flex: 1;
+            min-width: 140px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .status-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: {{brand_color}};
+            margin-bottom: 4px;
+        }
+        .status-label {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Incentive box */
+        .incentive-box {
+            background: linear-gradient(135deg, {{brand_color}} 0%, {{brand_color_dark}} 100%);
+            border-radius: 12px;
+            padding: 28px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        .incentive-box * {
+            color: #ffffff !important;
+        }
+        .incentive-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .incentive-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .incentive-description {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Missed opportunities */
+        .missed-section {
+            margin: 24px 0;
+        }
+        .missed-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .missed-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .missed-item:last-child {
+            border-bottom: none;
+        }
+        .missed-icon {
+            width: 32px;
+            height: 32px;
+            background-color: #FEE2E2;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .missed-text {
+            color: #333333;
+        }
+
+        /* CTA section */
+        .cta-section {
+            text-align: center;
+            margin: 32px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: {{brand_color}};
+            color: #ffffff !important;
+            padding: 16px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 8px 0;
+        }
+        .cta-subtext {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* PS section */
+        .ps-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 24px 0;
+            font-style: italic;
+            color: #555555;
+        }
+
+        /* Footer */
+        .email-footer {
+            background-color: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .email-footer a {
+            color: #6b7280;
+            text-decoration: underline;
+        }
+
+        /* Mobile responsive */
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                width: 100% !important;
+                border-radius: 0;
+            }
+            .email-header {
+                padding: 24px 20px;
+            }
+            .email-header h1 {
+                font-size: 20px;
+            }
+            .email-content {
+                padding: 24px 20px;
+            }
+            .email-content h2 {
+                font-size: 22px;
+            }
+            .email-footer {
+                padding: 24px 20px;
+            }
+            .status-grid {
+                flex-direction: column;
+            }
+            .status-item {
+                min-width: auto;
+            }
+            .incentive-box {
+                padding: 20px;
+            }
+            .cta-button {
+                display: block;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .missed-item {
+                flex-direction: column;
+            }
+            .missed-icon {
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+                <td align="center">
+                    <div class="email-container">
+                        <!-- Header -->
+                        <div class="email-header">
+                            {{#if shop_logo}}
+                            <img src="{{shop_logo}}" alt="{{shop_name}}" class="shop-logo">
+                            {{/if}}
+                            <h1>{{shop_name}}</h1>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="email-content">
+                            <!-- Welcome Badge -->
+                            <span class="welcome-badge">We Miss You!</span>
+
+                            <h2>Hi {{member_name}}, it's been a while!</h2>
+
+                            <p>We've noticed it's been <strong>{{days_inactive}} days</strong> since we've seen you at {{shop_name}}. We miss having you around and wanted to check in!</p>
+
+                            <!-- Account Status -->
+                            <div class="account-status">
+                                <div class="status-header">Your Account Status</div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <div class="status-value">{{points_balance}}</div>
+                                        <div class="status-label">Points Available</div>
+                                    </div>
+                                    <div class="status-item">
+                                        <div class="status-value">{{tier_name}}</div>
+                                        <div class="status-label">Current Tier</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Incentive -->
+                            <div class="incentive-box">
+                                <div class="incentive-icon">🎁</div>
+                                <div class="incentive-title">Welcome Back Gift!</div>
+                                <div class="incentive-description">Come back and get {{incentive_text}}!</div>
+                            </div>
+
+                            <!-- Missed Opportunities -->
+                            {{#if missed_opportunities}}
+                            <div class="missed-section">
+                                <h3>Here's what you've been missing:</h3>
+                                {{missed_opportunities}}
+                            </div>
+                            {{/if}}
+
+                            <!-- CTA -->
+                            <div class="cta-section">
+                                <a href="{{shop_url}}" class="cta-button">Shop Now & Claim Your Reward</a>
+                                <div class="cta-subtext">
+                                    Your {{points_balance}} points are still available and waiting for you!
+                                </div>
+                            </div>
+
+                            <!-- PS Section -->
+                            <div class="ps-section">
+                                <strong>P.S.</strong> We've got some exciting new arrivals we think you'll love. Don't let your points go to waste - come see what's new!
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="email-footer">
+                            <p><strong>{{shop_name}}</strong></p>
+                            {{#if shop_address}}
+                            <p>{{shop_address}}</p>
+                            {{/if}}
+                            <p style="margin-top: 16px;">
+                                <a href="{{shop_url}}">Visit Our Store</a>
+                                {{#if unsubscribe_url}}
+                                &nbsp;|&nbsp;
+                                <a href="{{unsubscribe_url}}">Unsubscribe</a>
+                                {{/if}}
+                            </p>
+                            <p style="margin-top: 16px; font-size: 11px; color: #9ca3af;">
+                                This email was sent by {{shop_name}} powered by TradeUp.
+                            </p>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

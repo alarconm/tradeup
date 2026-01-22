@@ -14,7 +14,7 @@
         "Query count doesn't increase with result size"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-002",
@@ -26,7 +26,7 @@
         "No N+1 queries in tier endpoints"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-003",
@@ -42,7 +42,7 @@
         "Alembic migration created for indexes"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-004",
@@ -55,7 +55,7 @@
         "Graceful fallback if Redis unavailable"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-005",
@@ -68,7 +68,7 @@
         "Cache hit/miss logged for debugging"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-006",
@@ -81,7 +81,7 @@
         "Member tier lookups use cached tier data"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-007",
@@ -94,7 +94,7 @@
         "Profiling disabled in production by default"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-008",
@@ -107,7 +107,7 @@
         "Sensitive data not logged"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-009",
@@ -120,7 +120,7 @@
         "Request ID passed to Sentry"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-010",
@@ -133,7 +133,7 @@
         "Search returns results in <100ms for 10k members"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

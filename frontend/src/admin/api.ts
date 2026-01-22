@@ -48,6 +48,45 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// API Error type for standardized error responses
+export interface ApiError {
+  message: string
+  code: string
+}
+
+// Extract user-friendly error message from API response
+export function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: ApiError | string } } }).response
+    if (response?.data?.error) {
+      // New standardized format: { error: { message: '...', code: '...' } }
+      if (typeof response.data.error === 'object' && 'message' in response.data.error) {
+        return response.data.error.message
+      }
+      // Legacy format: { error: '...' }
+      if (typeof response.data.error === 'string') {
+        return response.data.error
+      }
+    }
+  }
+  // Fallback for network errors or unknown errors
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'An unexpected error occurred'
+}
+
+// Get error code from API response (for programmatic handling)
+export function getErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: ApiError } } }).response
+    if (response?.data?.error && typeof response.data.error === 'object') {
+      return response.data.error.code || null
+    }
+  }
+  return null
+}
+
 // Types
 export interface Member {
   id: number
@@ -684,3 +723,132 @@ export const completeOnboarding = () =>
 
 export const skipOnboarding = () =>
   api.post<{ success: boolean; message: string }>('/onboarding/skip').then(r => r.data)
+
+// ==================== Review Prompt API ====================
+
+export interface ReviewPromptTimingContext {
+  can_show: boolean
+  blocking_reasons: string[]
+  context: string
+  session_count: number
+  min_sessions_required: number
+  is_in_onboarding: boolean
+  is_optimal_time: boolean
+  timezone_offset_hours: number | null
+  optimal_hours: string
+  eligibility: {
+    eligible: boolean
+    reason: string
+    criteria: Record<string, unknown>
+  }
+}
+
+export interface ReviewPromptCheck {
+  should_show: boolean
+  timing_context?: ReviewPromptTimingContext
+  eligibility?: {
+    eligible: boolean
+    criteria: Record<string, unknown>
+    reason: string
+  }
+  prompt_id?: number
+  reason?: string
+}
+
+export interface ReviewPromptResponse {
+  success: boolean
+  prompt_id?: number
+  response?: string
+  error?: string
+}
+
+export interface ReviewPromptCheckOptions {
+  context?: 'dashboard' | 'trade_in_approved' | 'member_enrolled' | 'onboarding'
+  timezoneOffset?: number
+  hasError?: boolean
+}
+
+export interface SessionCountResponse {
+  success: boolean
+  session_count: number
+  min_sessions_required: number
+  has_sufficient_sessions: boolean
+}
+
+/**
+ * Check if a review prompt should be shown to the merchant.
+ *
+ * Story RC-006: Implements timing logic to show prompts at optimal times:
+ * - Not during onboarding
+ * - Not after errors
+ * - After 5+ successful sessions on dashboard
+ * - During optimal hours (9am-5pm local time)
+ *
+ * @param options - Optional timing parameters
+ * @returns ReviewPromptCheck with should_show and timing_context
+ */
+export const checkReviewPrompt = (options?: ReviewPromptCheckOptions) => {
+  const params = new URLSearchParams()
+  if (options?.context) params.append('context', options.context)
+  if (options?.timezoneOffset !== undefined) {
+    params.append('timezone_offset', options.timezoneOffset.toString())
+  }
+  if (options?.hasError) params.append('has_error', 'true')
+
+  const queryString = params.toString()
+  const url = queryString ? `/review-prompt/check?${queryString}` : '/review-prompt/check'
+
+  return api.get<ReviewPromptCheck>(url).then(r => r.data)
+}
+
+/**
+ * Get the user's timezone offset in hours from UTC.
+ * Positive values are ahead of UTC (e.g., +5 for IST), negative are behind (e.g., -5 for EST).
+ */
+export const getUserTimezoneOffset = (): number => {
+  // JavaScript's getTimezoneOffset returns minutes, and is inverted
+  // (negative for timezones ahead of UTC, positive for behind)
+  const offsetMinutes = new Date().getTimezoneOffset()
+  return -offsetMinutes / 60
+}
+
+/**
+ * Check review prompt with automatic timezone detection.
+ * Convenience wrapper around checkReviewPrompt.
+ */
+export const checkReviewPromptWithTiming = (
+  context?: ReviewPromptCheckOptions['context'],
+  hasError?: boolean
+) => {
+  return checkReviewPrompt({
+    context,
+    timezoneOffset: getUserTimezoneOffset(),
+    hasError,
+  })
+}
+
+export const recordReviewPromptShown = () =>
+  api.post<{ prompt_id: number }>('/review-prompt/shown').then(r => r.data)
+
+export const recordReviewPromptResponse = (promptId: number, response: string) =>
+  api.post<ReviewPromptResponse>('/review-prompt/response', {
+    prompt_id: promptId,
+    response,
+  }).then(r => r.data)
+
+/**
+ * Get the successful session count for the current tenant.
+ */
+export const getReviewPromptSessionCount = () =>
+  api.get<SessionCountResponse>('/review-prompt/session-count').then(r => r.data)
+
+/**
+ * Record a successful action for session tracking.
+ * Call this after trade-in approval, member enrollment, or credit issuance.
+ */
+export const recordSuccessfulAction = (
+  actionType: 'trade_in_approved' | 'member_enrolled' | 'credit_issued'
+) =>
+  api.post<{ success: boolean; action_type: string }>('/review-prompt/action', {
+    action_type: actionType,
+  }).then(r => r.data)

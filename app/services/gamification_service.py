@@ -79,12 +79,30 @@ class GamificationService:
             'points_reward': 500,
         },
         {
-            'name': 'Loyal Member',
-            'description': 'Been a member for 1 year',
+            'name': '1 Year Member',
+            'description': 'Been a loyal member for 1 year',
             'icon': 'calendar',
             'criteria_type': 'member_anniversary',
             'criteria_value': 365,
             'points_reward': 1000,
+        },
+        {
+            'name': '2 Year Member',
+            'description': 'Been a loyal member for 2 years',
+            'icon': 'calendar',
+            'color': '#C0C0C0',
+            'criteria_type': 'member_anniversary',
+            'criteria_value': 730,
+            'points_reward': 2000,
+        },
+        {
+            'name': '5 Year Member',
+            'description': 'A truly loyal customer - 5 years!',
+            'icon': 'heart',
+            'color': '#FFD700',
+            'criteria_type': 'member_anniversary',
+            'criteria_value': 1825,
+            'points_reward': 5000,
         },
         {
             'name': 'Weekly Warrior',
@@ -659,3 +677,80 @@ class GamificationService:
         ).update({'notified': True})
 
         db.session.commit()
+
+    # Anniversary Badge Integration
+    def award_anniversary_badge(self, member_id: int, anniversary_year: int) -> Optional[MemberBadge]:
+        """
+        Award the appropriate anniversary badge based on membership years.
+
+        This method is called by AnniversaryService when issuing anniversary rewards.
+        It awards the corresponding milestone badge (1 Year, 2 Year, or 5 Year Member).
+
+        Args:
+            member_id: ID of the member to award badge to
+            anniversary_year: The anniversary year (1, 2, 3, 4, 5, etc.)
+
+        Returns:
+            MemberBadge if a badge was awarded, None if no matching badge or already earned
+        """
+        # Map anniversary years to days for criteria matching
+        # 1 year = 365 days, 2 years = 730 days, 5 years = 1825 days
+        anniversary_days_map = {
+            1: 365,
+            2: 730,
+            5: 1825,
+        }
+
+        # Only award badges for milestone years (1, 2, 5)
+        if anniversary_year not in anniversary_days_map:
+            return None
+
+        target_days = anniversary_days_map[anniversary_year]
+
+        # Find the anniversary badge with matching criteria
+        badge = Badge.query.filter_by(
+            tenant_id=self.tenant_id,
+            criteria_type='member_anniversary',
+            criteria_value=target_days,
+            is_active=True
+        ).first()
+
+        if not badge:
+            return None
+
+        # Check if already earned
+        existing = MemberBadge.query.filter_by(
+            member_id=member_id,
+            badge_id=badge.id
+        ).first()
+
+        if existing:
+            return existing
+
+        # Award the badge
+        member_badge = MemberBadge(
+            member_id=member_id,
+            badge_id=badge.id,
+            progress=badge.criteria_value,
+            progress_max=badge.criteria_value,
+        )
+        db.session.add(member_badge)
+
+        # Award badge rewards (points/credit)
+        self._award_badge_rewards(member_id, badge)
+
+        db.session.commit()
+        return member_badge
+
+    def get_anniversary_badges(self) -> List[Badge]:
+        """
+        Get all anniversary badges for this tenant.
+
+        Returns:
+            List of Badge objects with criteria_type='member_anniversary'
+        """
+        return Badge.query.filter_by(
+            tenant_id=self.tenant_id,
+            criteria_type='member_anniversary',
+            is_active=True
+        ).order_by(Badge.criteria_value).all()

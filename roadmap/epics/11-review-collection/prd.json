@@ -1,0 +1,146 @@
+{
+  "branch": "feature/review-collection",
+  "title": "In-App Review Collection System",
+  "description": "Implement smart review prompt system to collect Shopify App Store reviews from satisfied merchants. Target: 50 reviews in first 30 days. Critical for App Store visibility and social proof.",
+  "userStories": [
+    {
+      "id": "RC-001",
+      "title": "Create review prompt tracking model",
+      "description": "Track when review prompts are shown and merchant responses.",
+      "acceptanceCriteria": [
+        "ReviewPrompt model with: id, tenant_id, prompt_shown_at, response (dismissed, clicked, reminded_later), responded_at",
+        "Alembic migration created and applied",
+        "Track prompt history per tenant",
+        "Prevent duplicate prompts"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "RC-002",
+      "title": "Define review prompt eligibility criteria",
+      "description": "Determine when a merchant is eligible for a review prompt.",
+      "acceptanceCriteria": [
+        "Merchant active for 30+ days",
+        "Merchant has processed 10+ trade-ins OR 50+ members enrolled",
+        "No review prompt in last 60 days",
+        "No recent support tickets (negative sentiment indicator)",
+        "No errors in last 7 days"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "RC-003",
+      "title": "Create review prompt service",
+      "description": "Service to determine eligibility and track review prompts.",
+      "acceptanceCriteria": [
+        "ReviewPromptService class in app/services/review_prompt_service.py",
+        "should_show_prompt(tenant_id) method",
+        "record_prompt_shown(tenant_id) method",
+        "record_prompt_response(tenant_id, response) method",
+        "get_prompt_history(tenant_id) method"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "RC-004",
+      "title": "Create review prompt UI component",
+      "description": "Non-intrusive review prompt modal for admin dashboard.",
+      "acceptanceCriteria": [
+        "ReviewPromptModal component",
+        "Friendly, appreciative message",
+        "Three options: Rate Now, Remind Me Later, Dismiss",
+        "Rate Now opens Shopify App Store in new tab",
+        "Remind Me Later schedules prompt for 7 days later",
+        "Dismiss doesn't show again for 60 days"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "RC-005",
+      "title": "Add API endpoint for review prompt",
+      "description": "API endpoints to check eligibility and record responses.",
+      "acceptanceCriteria": [
+        "GET /api/review-prompt/check - check if should show prompt",
+        "POST /api/review-prompt/shown - record prompt was shown",
+        "POST /api/review-prompt/response - record user response",
+        "Endpoints respect eligibility rules"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "RC-006",
+      "title": "Implement prompt timing logic",
+      "description": "Show prompt at optimal times (not during errors or busy periods).",
+      "acceptanceCriteria": [
+        "Don't show after error messages",
+        "Don't show during onboarding",
+        "Show after successful actions (trade-in approved, member enrolled)",
+        "Show on dashboard after 5+ successful sessions",
+        "Respect user's time zone for optimal timing"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "RC-007",
+      "title": "Track review conversion metrics",
+      "description": "Track how many prompts convert to actual reviews.",
+      "acceptanceCriteria": [
+        "Track prompt impressions",
+        "Track Rate Now clicks",
+        "Track dismiss rate",
+        "Track remind later rate",
+        "Display metrics in admin/internal dashboard"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "RC-008",
+      "title": "Add post-support review prompt",
+      "description": "Prompt for review after successful support ticket resolution.",
+      "acceptanceCriteria": [
+        "Detect support ticket resolved",
+        "Send follow-up email with review request",
+        "Only for tickets marked resolved/satisfied",
+        "Friendly, non-pushy message",
+        "Track email open and click"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "RC-009",
+      "title": "Create founding customer outreach template",
+      "description": "Email template for personal outreach to founding customers.",
+      "acceptanceCriteria": [
+        "Personal email template from founder",
+        "Explains importance of early reviews",
+        "Offers extended trial or Pro features",
+        "Clear ask for honest review",
+        "Follow-up reminder template"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "RC-010",
+      "title": "Build review tracking dashboard",
+      "description": "Internal dashboard to track review collection progress.",
+      "acceptanceCriteria": [
+        "Total reviews collected",
+        "Average rating",
+        "Prompt-to-review conversion rate",
+        "Top reviewers list",
+        "Review velocity chart (reviews per week)"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

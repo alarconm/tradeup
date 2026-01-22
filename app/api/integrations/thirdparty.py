@@ -6,6 +6,7 @@ Provides connection management for:
 - Judge.me (product reviews)
 - Recharge (subscriptions)
 """
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.orm.attributes import flag_modified
@@ -92,7 +93,7 @@ def connect_gorgias():
             'domain': domain,
             'auto_enrich_tickets': data.get('auto_enrich_tickets', True),
             'add_tier_tags': data.get('add_tier_tags', True),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')
@@ -229,7 +230,7 @@ def connect_judgeme():
             'points_per_photo_review': data.get('points_per_photo_review', 100),
             'points_per_video_review': data.get('points_per_video_review', 200),
             'max_reviews_per_day': data.get('max_reviews_per_day', 3),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')
@@ -390,7 +391,7 @@ def connect_recharge():
             'award_points_on_subscription': data.get('award_points_on_subscription', True),
             'points_per_dollar': data.get('points_per_dollar', 1),
             'count_towards_tier': data.get('count_towards_tier', True),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')

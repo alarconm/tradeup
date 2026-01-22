@@ -1,0 +1,144 @@
+{
+  "branch": "feature/ai-trade-in-pricing",
+  "title": "AI-Powered Trade-In Pricing Suggestions",
+  "description": "Use AI to auto-suggest trade-in values based on product condition, market prices, and historical data. This is a MAJOR DIFFERENTIATOR - no competitor has meaningful AI features yet. First mover advantage opportunity.",
+  "userStories": [
+    {
+      "id": "AI-001",
+      "title": "Create AI pricing service foundation",
+      "description": "Foundation service for AI-powered pricing suggestions.",
+      "acceptanceCriteria": [
+        "AIPricingService class in app/services/ai_pricing_service.py",
+        "OpenAI API integration configured",
+        "OPENAI_API_KEY environment variable documented",
+        "Graceful fallback when AI unavailable",
+        "Rate limiting to control API costs"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AI-002",
+      "title": "Implement condition parsing from description",
+      "description": "Use AI to extract condition grade from item description text.",
+      "acceptanceCriteria": [
+        "parse_condition(description) method",
+        "Returns condition grade: mint, near_mint, excellent, good, fair, poor",
+        "Returns confidence score (0-100)",
+        "Handles various description formats",
+        "Works for cards, comics, collectibles"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AI-003",
+      "title": "Add TCGPlayer price lookup integration",
+      "description": "Fetch market prices from TCGPlayer for trading cards.",
+      "acceptanceCriteria": [
+        "TCGPlayer API integration (or scraping if no API)",
+        "lookup_card_price(card_name, set_name, condition) method",
+        "Cache results for 24 hours",
+        "Handle rate limiting gracefully",
+        "Support Pokemon, MTG, Yu-Gi-Oh"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "AI-004",
+      "title": "Create price suggestion endpoint",
+      "description": "API endpoint to get AI-suggested trade-in price.",
+      "acceptanceCriteria": [
+        "POST /api/trade-ins/price-suggestion",
+        "Request: item_name, description, category, photos (optional)",
+        "Response: suggested_price, confidence, market_price, reasoning",
+        "Caches results to reduce API calls",
+        "Returns quickly (<2 seconds)"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AI-005",
+      "title": "Add suggestion UI to trade-in form",
+      "description": "Show AI price suggestions when adding trade-in items.",
+      "acceptanceCriteria": [
+        "Get Suggestion button on trade-in item form",
+        "Shows suggested price with confidence indicator",
+        "Shows reasoning for suggestion",
+        "One-click to apply suggested price",
+        "Manual override always available"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AI-006",
+      "title": "Implement historical data learning",
+      "description": "Learn from store's historical trade-in data to improve suggestions.",
+      "acceptanceCriteria": [
+        "Analyze past trade-in values for similar items",
+        "Factor in store's typical offer percentages",
+        "Adjust suggestions based on acceptance/rejection history",
+        "Improve over time with more data"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "AI-007",
+      "title": "Add inventory level consideration",
+      "description": "Adjust suggestions based on current inventory levels.",
+      "acceptanceCriteria": [
+        "Check Shopify inventory for similar products",
+        "Lower suggestion if overstocked",
+        "Higher suggestion if understocked",
+        "Configurable adjustment percentages"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "AI-008",
+      "title": "Create batch pricing mode",
+      "description": "Bulk price suggestions for multiple items at once.",
+      "acceptanceCriteria": [
+        "POST /api/trade-ins/batch-price-suggestion",
+        "Accepts array of items",
+        "Returns suggestions for all items",
+        "Optimized API calls (batch OpenAI requests)",
+        "Progress indicator for large batches"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "AI-009",
+      "title": "Add confidence threshold settings",
+      "description": "Merchant settings for minimum confidence to show suggestions.",
+      "acceptanceCriteria": [
+        "Minimum confidence threshold setting",
+        "Auto-apply suggestions above high threshold option",
+        "Review required for low confidence suggestions",
+        "Configurable in tenant settings"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "AI-010",
+      "title": "Track AI suggestion accuracy",
+      "description": "Measure how often AI suggestions are accepted vs modified.",
+      "acceptanceCriteria": [
+        "Track suggestion shown vs accepted",
+        "Track modification amounts",
+        "Calculate accuracy metrics",
+        "Display in admin analytics",
+        "Use for model improvement"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

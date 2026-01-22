@@ -2,6 +2,8 @@
 Partner Integration API endpoints.
 Manage partner configurations and sync operations.
 """
+from datetime import datetime
+
 from flask import Blueprint, request, jsonify, g
 from ..extensions import db
 from ..models import PartnerIntegration, PartnerSyncLog
@@ -134,7 +136,7 @@ def test_integration(integration_id):
     test_payload = {
         'type': 'test',
         'message': 'TradeUp connectivity test',
-        'timestamp': __import__('datetime').datetime.utcnow().isoformat()
+        'timestamp': datetime.utcnow().isoformat()
     }
 
     endpoint = f"{integration.api_url}/tradeup/test"

@@ -58,6 +58,9 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/.ralph-*
 
+# Ralph automation temp files
+.ralph-*
+
 # Flask
 instance/
 
@@ -67,6 +70,11 @@ migrations/versions/*.pyc
 # OS
 .DS_Store
 Thumbs.db
+
+# Uploaded files (page builder images, etc.)
+# Keep directory structure but ignore uploaded images
+app/static/uploads/page-builder/*/
+!app/static/uploads/page-builder/.gitkeep
 
 # Node.js
 node_modules/

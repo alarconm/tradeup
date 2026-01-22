@@ -47,6 +47,7 @@ class CreditEventType(str, Enum):
     REDEMPTION = 'redemption'         # Used credit (negative)
     EXPIRATION = 'expiration'         # Expired credit (negative)
     BIRTHDAY_REWARD = 'birthday'      # Birthday reward
+    ANNIVERSARY_REWARD = 'anniversary'  # Anniversary reward
 
 
 # ==================== Tier Cashback Configuration ====================

@@ -1,7 +1,7 @@
 """
 Member and MembershipTier models.
 """
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from ..extensions import db
 
@@ -140,6 +140,9 @@ class Member(db.Model):
     birthday = db.Column(db.Date)  # Store as date (year 2000 + month/day)
     last_birthday_reward_year = db.Column(db.Integer)  # Track last year reward was given
 
+    # Anniversary rewards
+    last_anniversary_reward_year = db.Column(db.Integer)  # Track last year anniversary reward was given
+
     # Metadata
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -159,7 +162,18 @@ class Member(db.Model):
     def __repr__(self):
         return f'<Member {self.member_number}>'
 
-    def to_dict(self, include_stats=False, include_subscription=False, include_referrals=False):
+    @property
+    def last_trade_in_at(self):
+        """Get the date of the member's most recent trade-in batch."""
+        if not self.trade_in_batches:
+            return None
+        # Get most recent completed trade-in
+        latest = self.trade_in_batches.filter_by(status='completed').order_by(
+            db.desc('created_at')
+        ).first()
+        return latest.created_at if latest else None
+
+    def to_dict(self, include_stats=False, include_subscription=False, include_referrals=False, include_anniversary=False):
         # Split name into first/last for frontend compatibility
         name_parts = (self.name or '').split(' ', 1) if self.name else ['', '']
         first_name = name_parts[0] if name_parts else ''
@@ -185,7 +199,7 @@ class Member(db.Model):
             'trade_in_count': self.total_trade_ins or 0,
             'total_trade_in_value': float(self.total_trade_value or 0),
             'total_credits_issued': float(self.total_bonus_earned or 0),
-            'last_trade_in_at': None,  # TODO: Calculate from trade_in_batches if needed
+            'last_trade_in_at': self.last_trade_in_at.isoformat() if self.last_trade_in_at else None,
             # Points
             'points_balance': self.points_balance or 0,
             'lifetime_points_earned': self.lifetime_points_earned or 0,
@@ -216,6 +230,16 @@ class Member(db.Model):
                 'referral_count': self.referral_count or 0,
                 'referral_earnings': float(self.referral_earnings or 0),
                 'referred_by': self.referred_by.member_number if self.referred_by else None
+            }
+
+        if include_anniversary:
+            today = date.today()
+            data['anniversary'] = {
+                'enrollment_date': self.get_enrollment_date().isoformat(),
+                'next_anniversary': self.get_anniversary_date(today.year if self.days_until_anniversary() > 0 or self.is_anniversary_today() else today.year + 1).isoformat(),
+                'days_until_anniversary': self.days_until_anniversary(),
+                'membership_years': self.membership_years(),
+                'is_anniversary_today': self.is_anniversary_today()
             }
 
         return data
@@ -257,3 +281,93 @@ class Member(db.Model):
         if not self.referral_code:
             self.referral_code = Member.generate_referral_code()
         return self.referral_code
+
+    def get_enrollment_date(self) -> date:
+        """
+        Get the member's enrollment date for anniversary calculations.
+        Prefers membership_start_date, falls back to created_at.
+
+        Returns:
+            date: The enrollment date
+        """
+        if self.membership_start_date:
+            return self.membership_start_date
+        if self.created_at:
+            return self.created_at.date()
+        return date.today()
+
+    def get_anniversary_date(self, for_year: int = None) -> date:
+        """
+        Calculate the member's anniversary date for a given year.
+        Uses the same month/day as enrollment date.
+
+        Args:
+            for_year: The year to calculate anniversary for (defaults to current year)
+
+        Returns:
+            date: The anniversary date for the specified year
+
+        Note:
+            For Feb 29 enrollments, returns Feb 28 in non-leap years.
+        """
+        if for_year is None:
+            for_year = date.today().year
+
+        enrollment = self.get_enrollment_date()
+        anniversary_month = enrollment.month
+        anniversary_day = enrollment.day
+
+        # Handle Feb 29 in non-leap years
+        if anniversary_month == 2 and anniversary_day == 29:
+            # Check if for_year is a leap year
+            is_leap_year = (for_year % 4 == 0 and for_year % 100 != 0) or (for_year % 400 == 0)
+            if not is_leap_year:
+                anniversary_day = 28
+
+        return date(for_year, anniversary_month, anniversary_day)
+
+    def is_anniversary_today(self) -> bool:
+        """
+        Check if today is the member's membership anniversary.
+
+        Returns:
+            bool: True if today is the anniversary date
+        """
+        today = date.today()
+        anniversary = self.get_anniversary_date(today.year)
+        return today == anniversary
+
+    def days_until_anniversary(self) -> int:
+        """
+        Calculate days until next anniversary.
+
+        Returns:
+            int: Number of days until next anniversary (0 if today is anniversary)
+        """
+        today = date.today()
+        this_year_anniversary = self.get_anniversary_date(today.year)
+
+        if today <= this_year_anniversary:
+            return (this_year_anniversary - today).days
+        else:
+            # Anniversary already passed this year, calculate for next year
+            next_year_anniversary = self.get_anniversary_date(today.year + 1)
+            return (next_year_anniversary - today).days
+
+    def membership_years(self) -> int:
+        """
+        Calculate how many full years the member has been enrolled.
+
+        Returns:
+            int: Number of complete years of membership
+        """
+        enrollment = self.get_enrollment_date()
+        today = date.today()
+
+        years = today.year - enrollment.year
+
+        # Adjust if anniversary hasn't occurred yet this year
+        if (today.month, today.day) < (enrollment.month, enrollment.day):
+            years -= 1
+
+        return max(0, years)

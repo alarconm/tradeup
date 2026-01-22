@@ -1,0 +1,337 @@
+# Loyalty Page Builder Progress
+
+## LP-001 - Create page configuration model
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created LoyaltyPage model in app/models/loyalty_page.py
+- Model supports draft and published versions
+- Registered in app/models/__init__.py
+
+## LP-002 - Create page builder API endpoints
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created app/api/loyalty_page.py with the following endpoints:
+  - GET /api/loyalty-page - get current page config (draft and published)
+  - PUT /api/loyalty-page - save page config as draft
+  - POST /api/loyalty-page/publish - publish the draft to live
+  - POST /api/loyalty-page/unpublish - unpublish the page
+  - GET /api/loyalty-page/preview - preview with latest draft config
+  - POST /api/loyalty-page/discard-draft - discard draft changes (bonus)
+- Registered blueprint in app/__init__.py at url_prefix='/api/loyalty-page'
+- Uses LoyaltyPage model for database-backed draft/publish workflow
+- Includes HTML rendering for preview functionality
+
+## LP-003 - Create section components library
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created frontend/src/components/loyalty-page/ directory with 6 section components:
+  - HeroSection - title, subtitle, CTA buttons, background image, badge support
+  - HowItWorksSection - 3-4 step icons with descriptions, auto-numbered or custom icons
+  - TierComparisonSection - tier benefits comparison (card view or table view)
+  - RewardsCatalogSection - available rewards display with points cost
+  - FAQSection - expandable FAQ items with accordion behavior
+  - CTASection - call-to-action with optional email signup form
+- Created types.ts with shared interfaces for all section props
+- Created index.ts to export all components and types
+- Updated components/index.ts to re-export loyalty-page components
+- All components support theming via SectionTheme props (primaryColor, accentColor, backgroundColor, textColor, darkMode)
+- Consistent styling patterns based on existing landing pages
+
+## LP-004 - Create visual page editor React component
+- Status: COMPLETE
+- Date: January 22, 2026
+- Enhanced frontend/src/embedded/pages/EmbeddedPageBuilder.tsx with full visual editor:
+  - Section list with add/remove/reorder using drag-and-drop
+  - Click to edit section content with comprehensive field editors for each section type
+  - Real-time preview panel in sidebar (scaled iframe preview)
+  - Full preview modal for larger view
+  - Save and Publish buttons with draft/publish workflow
+  - Undo/redo functionality using history state management
+  - Discard changes feature
+  - Status badges showing published/draft state
+  - Unsaved changes warning banner
+- Added route to admin navigation (advanced features menu)
+- Uses LP-002 API endpoints (/api/loyalty-page, /api/loyalty-page/publish, etc.)
+- Section editor supports all 8 section types:
+  - Hero: title, subtitle, CTA text/link, background/text colors
+  - How It Works: title, dynamic steps list with add/remove
+  - Tier Comparison: title, show benefits toggle
+  - Rewards Catalog: title, show points cost toggle
+  - Earning Rules: title, show multipliers toggle
+  - FAQ: title, dynamic FAQ items list with add/remove
+  - Referral Banner: title, description
+  - CTA: title, subtitle, button text/URL, email signup toggle
+
+## LP-005 - Create pre-built templates
+- Status: COMPLETE
+- Date: January 22, 2026
+- Created 3 pre-built templates stored as JSON configs in app/services/page_builder_service.py:
+  1. "Classic" template - traditional loyalty page layout
+     - Navy blue primary color with orange accent
+     - All 7 sections enabled with professional copy
+     - 4-step "How It Works" section
+     - Comprehensive FAQ items
+  2. "Modern" template - clean, minimal design
+     - Black and white with blue accent
+     - Minimalist copy and reduced section content
+     - 3-step "How It Works" section
+     - Streamlined FAQ
+  3. "Gamified" template - badges and achievements focused
+     - Purple gradient with gold accents
+     - Gaming-themed language (XP, levels, achievements)
+     - 4-step "Your Quest Begins" section
+     - Player Guide FAQ
+- All templates include all section types (hero, how_it_works, tiers, rewards, earning_rules, faq, referrals)
+- Each template has custom section_settings with tailored copy and styling
+- Added template selection UI to page builder (Templates tab)
+  - Visual template cards with color previews
+  - Template name, description, and section count
+  - "Currently Applied" badge for active template
+  - One-click "Apply Template" button
+- Updated backend apply_template() method to:
+  - Apply template-specific section settings
+  - Properly order sections based on template configuration
+  - Copy template colors and section configurations
+- API endpoints used:
+  - GET /api/page-builder/templates - fetch available templates
+  - POST /api/page-builder/templates/{id}/apply - one-click apply
+- Frontend changes in EmbeddedPageBuilder.tsx:
+  - Added Templates tab (now first tab)
+  - Template interface and API functions
+  - Templates query with React Query
+  - Apply template mutation with success/error handling
+  - Template cards with visual color preview
+
+## LP-006 - Add style customization options
+- Status: COMPLETE
+- Date: January 22, 2026
+- Added comprehensive style customization panel to the Design tab in EmbeddedPageBuilder.tsx:
+  - **Color Pickers**: Primary, secondary, accent, and background colors with native HTML5 color picker inputs and hex value text fields. Color swatches update in real-time.
+  - **Typography Selection**:
+    - Body font dropdown (System Default, Inter, Roboto, Open Sans, Lato, Poppins, Montserrat, Source Sans Pro, Nunito)
+    - Heading font dropdown (same options plus Playfair Display and Oswald for display fonts)
+    - Live font preview showing heading and body text with selected fonts
+  - **Button Style Customization**:
+    - Button shape: Square, Rounded, or Pill
+    - Button size: Small, Medium, or Large
+    - Live button preview showing primary and secondary button styles
+  - **Spacing & Layout Options**:
+    - Section spacing: Compact, Normal, or Relaxed
+    - Corner radius: None, Small, Medium, or Large
+    - Visual preview with colored blocks showing spacing and radius
+- Updated PageConfig interface to include `styles` object with:
+  - fontFamily, headingFontFamily, buttonStyle, buttonSize, sectionSpacing, borderRadius
+- Backend changes in app/services/page_builder_service.py:
+  - Added DEFAULT_STYLES constant with default style values
+  - Updated get_page_config() to include default styles and backward compatibility
+  - Updated apply_template() to apply template styles
+  - Updated get_available_templates() to include styles in template response
+  - Enhanced render_page_html() to:
+    - Use CSS custom properties for all style values
+    - Dynamically import Google Fonts based on selected fonts
+    - Apply button styles, section spacing, and border radius throughout
+    - Support all font families with proper fallback stacks
+- Added styles configuration to all 3 templates:
+  - Classic: System fonts, rounded buttons, medium spacing
+  - Modern: Inter font, pill buttons, relaxed spacing, large radius
+  - Gamified: Poppins/Montserrat fonts, large buttons, medium spacing
+- All style changes apply to sections in real-time via the preview panel
+- Styles are persisted in the page configuration and rendered in the published page
+
+## LP-007 - Create mobile preview mode
+- Status: COMPLETE
+- Date: January 22, 2026
+- Added mobile/desktop preview toggle to the page builder in EmbeddedPageBuilder.tsx:
+  - **Preview Mode State**: Added `previewMode` state variable with 'desktop' | 'mobile' type
+  - **Mobile Device Constants**: Added MOBILE_PREVIEW constants (375x667px, iPhone SE dimensions)
+  - **Editor Toolbar Toggle**: Added segmented control in toolbar next to undo/redo buttons
+    - Desktop icon button (DesktopIcon from Polaris)
+    - Mobile icon button (MobileIcon from Polaris)
+    - Visual indicator showing active mode with background highlight and shadow
+    - Accessible with aria-pressed attributes
+  - **Sidebar Preview Panel**: Updated live preview to show different views based on mode
+    - Desktop: Scaled iframe at 50% showing full-width layout
+    - Mobile: Device frame mockup with notch, rounded corners, dark bezel
+    - Mobile iframe sized to 375px width to trigger responsive styles
+    - Badge indicator showing current preview mode and device name
+  - **Quick Toggle Buttons**: Added Desktop/Mobile buttons in sidebar for fast switching
+  - **Full Preview Modal**: Updated modal to include preview mode toggle
+    - Segmented control with icons and labels (Desktop / Mobile iPhone SE)
+    - Desktop shows full-width iframe in modal
+    - Mobile shows realistic phone frame with:
+      - Dark bezel with rounded corners (44px radius)
+      - Notch at top (120px width)
+      - Home indicator bar at bottom
+      - Full-size (375x667) iframe for accurate mobile testing
+    - Gray background to make device frame stand out
+  - **Responsive URL Parameter**: Mobile preview passes ?viewport=mobile to preview URL
+    - Backend can use this to set viewport meta tag or adjust rendering
+- Imported DesktopIcon and MobileIcon from @shopify/polaris-icons
+- TypeScript compiles without errors
+- All acceptance criteria met:
+  - Toggle between desktop and mobile preview
+  - Mobile preview shows responsive layout via iframe width constraint
+  - Section components adapt to mobile width (rendered at phone dimensions)
+  - Preview frame mimics phone dimensions (iPhone SE: 375x667)
+  - Easy toggle in editor toolbar and modal
+
+## LP-008 - Integrate with app proxy for publishing
+- Status: COMPLETE
+- Date: January 22, 2026
+- Updated app/api/proxy.py to serve published loyalty pages at /apps/rewards
+- **App Proxy Integration**:
+  - Modified rewards_page() function to check for published LoyaltyPage first
+  - If tenant has a published custom page (is_published=True), renders the custom page
+  - If no published page exists, falls back to the default rewards page
+  - Imported LoyaltyPage model from app.models.loyalty_page
+- **Published Page Rendering**:
+  - Created new render_published_loyalty_page() function (500+ lines)
+  - Uses page_config from LoyaltyPage.get_published_config() (not draft)
+  - Renders all section types: hero, how_it_works, tier_comparison, rewards_catalog, earning_rules, faq, referral_banner
+  - Applies custom colors, typography, button styles, spacing, and border radius from config
+  - Includes live tier and reward data from database
+  - Supports member personalization (logged-in customer shows points balance)
+- **SEO Meta Tags**:
+  - Title tag from config.meta.title
+  - Meta description from config.meta.description
+  - Open Graph tags (og:title, og:description, og:type, og:url)
+  - Twitter card tags (twitter:card, twitter:title, twitter:description)
+- **Style Support**:
+  - Google Fonts import for custom typography (Inter, Roboto, Poppins, etc.)
+  - CSS custom properties for colors, fonts, button styles, spacing
+  - Button shape options: square, rounded, pill
+  - Button size options: small, medium, large
+  - Section spacing options: compact, normal, relaxed
+  - Border radius options: none, small, medium, large
+- **Responsive Design**:
+  - Mobile-first CSS with responsive breakpoints
+  - Member card and CTA card adapt to mobile width
+  - Steps section stacks vertically on mobile
+- **Fallback Behavior**:
+  - Unpublished pages show the default TradeUp rewards page
+  - No disruption to existing stores without custom pages
+- All acceptance criteria met:
+  - Published page accessible at /apps/rewards (via Shopify app proxy)
+  - Page uses published config (not draft) via get_published_config()
+  - Unpublished page shows default/fallback rewards page
+  - Page loads with store's theme styles (uses CSS custom properties)
+  - SEO meta tags configurable (title, description, OG tags, Twitter cards)
+
+## LP-009 - Add image upload for page sections
+- Status: COMPLETE
+- Date: January 22, 2026
+- **Backend API** (app/api/page_builder_images.py):
+  - Created new blueprint `page_builder_images_bp` at `/api/page-builder/images`
+  - POST `/upload` - Upload images via multipart/form-data or base64 JSON
+    - Validates file type (png, jpg, jpeg, gif, webp, svg)
+    - Validates file size (max 5MB)
+    - Generates unique filenames with timestamp prefix
+    - Stores files in app/static/uploads/page-builder/{tenant_id}/
+    - Returns URL, filename, size, and content_type
+  - GET `/list` - List all uploaded images for the tenant
+    - Returns array of images with url, filename, size, uploaded_at
+    - Sorted by upload date (newest first)
+  - DELETE `/delete/<filename>` - Delete an uploaded image
+    - Validates filename to prevent path traversal
+    - Returns success confirmation
+  - Registered blueprint in app/__init__.py
+- **Frontend Component** (frontend/src/embedded/components/PageBuilderImageUpload.tsx):
+  - Created reusable image upload component with 3 tabs:
+    1. **Upload Tab**: Drag-and-drop or file picker using Polaris DropZone
+    2. **URL Tab**: Enter external image URL with validation
+    3. **Library Tab**: Browse previously uploaded images
+  - Features:
+    - Image preview before and after upload
+    - Size/format validation (5MB max, supported formats)
+    - Loading state with spinner during upload
+    - Error handling with dismissible banners
+    - Library modal for browsing all uploaded images
+    - Delete functionality from library view
+    - Recommended size display for different use cases
+  - Uses React Query for fetching/caching library images
+  - Proper session token authentication for uploads
+- **Section Editor Integration** (frontend/src/embedded/pages/EmbeddedPageBuilder.tsx):
+  - Imported PageBuilderImageUpload component
+  - Updated SectionEditorProps to include `shop` parameter
+  - Added image upload fields to section editors:
+    - **Hero Section**: Background image upload (1920x600 recommended)
+    - **How It Works**: Step icon images (64x64 recommended for each step)
+    - **Referral Banner**: Background image upload (1200x400 recommended)
+    - **CTA Section**: Background image upload (1200x400 recommended)
+  - Image fields marked as optional with color fallbacks
+- **File Storage**:
+  - Created app/static/uploads/page-builder/ directory
+  - Added .gitkeep to preserve directory structure
+  - Updated .gitignore to exclude uploaded images but keep .gitkeep
+- All acceptance criteria met:
+  - Image upload component in section editors
+  - Support for hero backgrounds, icons, logos
+  - Images stored locally (can migrate to S3/Shopify Files in future)
+  - Image preview before upload
+  - Size/format validation (5MB max, standard image formats)
+
+## LP-010 - Add page analytics
+- Status: COMPLETE
+- Date: January 22, 2026
+- **New Database Models** (app/models/loyalty_page_analytics.py):
+  - `LoyaltyPageView` - Tracks individual page view events with:
+    - Session identification (anonymous tracking)
+    - Device type (desktop, mobile, tablet)
+    - Browser info
+    - Traffic source (referrer, UTM parameters)
+    - Member tracking (if logged in)
+  - `LoyaltyPageEngagement` - Tracks section-level engagement:
+    - Scroll depth (percentage visible)
+    - Time in view (seconds)
+    - Section visibility tracking
+  - `LoyaltyPageCTAClick` - Tracks CTA click events:
+    - Click details (CTA ID, text, URL)
+    - Section context
+    - Member tracking
+  - `LoyaltyPageAnalyticsSummary` - Daily aggregated analytics:
+    - View metrics (total, unique, member/guest breakdown)
+    - Device breakdown
+    - Engagement metrics (avg scroll depth, time on page, bounce rate)
+    - CTA metrics (click rate, top CTAs)
+    - Traffic sources (top referrers, UTM sources)
+- **Analytics API Endpoints** (app/api/loyalty_page_analytics.py):
+  - Public tracking endpoints (no auth, CORS enabled for storefront):
+    - POST `/track/view` - Track page view with device/referrer/UTM data
+    - POST `/track/engagement` - Track section scroll depth and time in view
+    - POST `/track/click` - Track CTA button clicks
+  - Admin dashboard endpoint (auth required):
+    - GET `/dashboard?period=30` - Comprehensive analytics dashboard with:
+      - Overview metrics (views, visitors, member vs guest)
+      - Period comparison (current vs previous)
+      - Device breakdown (desktop, mobile, tablet)
+      - Traffic sources (referrers, UTM sources)
+      - Section engagement (views, avg time, scroll depth)
+      - CTA performance (clicks, click rate, top CTAs)
+      - Daily trends (views, visitors, clicks over time)
+    - POST `/summary/refresh` - Manually refresh daily aggregations
+- **Tracking Script** (app/api/proxy.py):
+  - Added `get_analytics_tracking_script()` function generating JavaScript tracking code
+  - Tracking features:
+    - Automatic page view tracking on load
+    - Session ID generation (stored in sessionStorage)
+    - Device type detection
+    - UTM parameter extraction from URL
+    - IntersectionObserver for section visibility tracking
+    - Scroll depth calculation per section
+    - Time-in-view tracking per section
+    - CTA click tracking with section context
+    - Uses sendBeacon API for reliable page unload tracking
+  - Integrated into both:
+    - `render_rewards_page()` (default rewards page)
+    - `render_published_loyalty_page()` (custom page builder pages)
+  - Added member_id to member_data dict for tracking attribution
+- **Blueprint Registration** (app/__init__.py):
+  - Registered `loyalty_page_analytics_bp` at `/api/loyalty-page/analytics`
+- **Model Registration** (app/models/__init__.py):
+  - Exported all 4 new models: LoyaltyPageView, LoyaltyPageEngagement, LoyaltyPageCTAClick, LoyaltyPageAnalyticsSummary
+- All acceptance criteria met:
+  - Track page views with device, referrer, UTM source
+  - Track section engagement (scroll depth, time in view)
+  - Track CTA clicks with context
+  - Display analytics in admin dashboard (GET /dashboard)
+  - Integration with existing analytics system (uses same tenant/session model)

@@ -419,6 +419,53 @@ def update_general_settings():
     })
 
 
+@settings_bp.route('/milestones', methods=['GET'])
+@require_shopify_auth
+def get_milestone_settings():
+    """Get milestone celebration settings."""
+    tenant = g.tenant
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'milestones': settings['milestones']
+    })
+
+
+@settings_bp.route('/milestones', methods=['PATCH'])
+@require_shopify_auth
+def update_milestone_settings():
+    """
+    Update milestone celebration settings.
+
+    Request body:
+        enabled: bool - Master toggle for milestone celebrations
+        point_milestones: list - Point thresholds to celebrate (e.g., [100, 500, 1000])
+        trade_in_milestones: list - Trade-in count thresholds (e.g., [5, 10, 25])
+        email_on_major_milestones: bool - Send email for major milestones
+        major_point_threshold: int - Points threshold considered "major" (for email)
+        major_trade_in_threshold: int - Trade-in threshold considered "major"
+        celebration_duration_ms: int - How long to show celebration (milliseconds)
+    """
+    tenant = g.tenant
+    data = request.json
+
+    current_settings = tenant.settings or {}
+    current_milestones = current_settings.get('milestones', {})
+
+    for key, value in data.items():
+        current_milestones[key] = value
+
+    current_settings['milestones'] = current_milestones
+    tenant.settings = current_settings
+    db.session.commit()
+    invalidate_tenant_settings(tenant.id)
+
+    return jsonify({
+        'success': True,
+        'milestones': get_settings_with_defaults(tenant.settings)['milestones']
+    })
+
+
 # ==============================================
 # Shopify Customer Segments
 # ==============================================

@@ -1,0 +1,144 @@
+{
+  "branch": "feature/widget-builder",
+  "title": "Customer Widget Visual Builder",
+  "description": "Visual builder for merchants to customize the customer-facing loyalty widget appearance. Includes color picker, position settings, icon customization, and live preview. MEDIUM PRIORITY competitive feature. Estimated: 3-4 days.",
+  "userStories": [
+    {
+      "id": "WB-001",
+      "title": "Create widget configuration model",
+      "description": "Store widget configuration settings per tenant.",
+      "acceptanceCriteria": [
+        "Add widget_config JSON field to tenant settings",
+        "Config includes: position, colors, icon, launcher_text, expanded_default",
+        "Default config created for new tenants",
+        "Migration applied successfully"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-002",
+      "title": "Create widget settings API",
+      "description": "API endpoints for widget configuration.",
+      "acceptanceCriteria": [
+        "GET /api/settings/widget - get widget config",
+        "PUT /api/settings/widget - update widget config",
+        "Validation for color formats (hex)",
+        "Validation for position values"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-003",
+      "title": "Create position selector component",
+      "description": "UI to select widget position on the page.",
+      "acceptanceCriteria": [
+        "Visual selector showing corner positions",
+        "Options: bottom-right, bottom-left, top-right, top-left",
+        "Tab option (side of screen)",
+        "Preview shows position change"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-004",
+      "title": "Create color picker component",
+      "description": "Color pickers for widget theme customization.",
+      "acceptanceCriteria": [
+        "Primary color picker (button, accents)",
+        "Secondary color picker (backgrounds)",
+        "Text color picker",
+        "Auto-detect store theme colors option",
+        "Hex input for precise colors"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-005",
+      "title": "Create widget builder admin page",
+      "description": "Full widget customization page in admin.",
+      "acceptanceCriteria": [
+        "EmbeddedWidgetBuilder.tsx page component",
+        "Position selector section",
+        "Color customization section",
+        "Launcher icon/text customization",
+        "Live preview iframe",
+        "Save and reset buttons"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-006",
+      "title": "Create live preview component",
+      "description": "Real-time preview of widget with current settings.",
+      "acceptanceCriteria": [
+        "Preview shows widget in selected position",
+        "Colors update in real-time",
+        "Icon/text changes reflect immediately",
+        "Preview simulates actual widget behavior",
+        "Mobile preview option"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "WB-007",
+      "title": "Add launcher customization options",
+      "description": "Customize the widget launcher button/icon.",
+      "acceptanceCriteria": [
+        "Icon selector (gift, star, heart, custom)",
+        "Launcher text input (e.g., 'Rewards')",
+        "Show/hide notification badge option",
+        "Animation options (bounce, pulse, none)"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "WB-008",
+      "title": "Update customer-account-ui to use widget config",
+      "description": "Customer account extension reads and applies widget configuration.",
+      "acceptanceCriteria": [
+        "Extension fetches widget config from API",
+        "CSS variables set from config",
+        "Position applied correctly",
+        "Colors applied correctly",
+        "Fallback to defaults if config missing"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "WB-009",
+      "title": "Add widget presets",
+      "description": "Pre-configured widget styles merchants can choose from.",
+      "acceptanceCriteria": [
+        "Modern preset (clean, minimal)",
+        "Playful preset (bright, animated)",
+        "Professional preset (subtle, elegant)",
+        "Preset selector in builder",
+        "Presets can be customized after selection"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "WB-010",
+      "title": "Add widget visibility rules",
+      "description": "Control when and where widget appears.",
+      "acceptanceCriteria": [
+        "Show on all pages / specific pages only",
+        "Hide on checkout",
+        "Show only for logged-in customers option",
+        "Mobile visibility toggle",
+        "Schedule visibility (date range)"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

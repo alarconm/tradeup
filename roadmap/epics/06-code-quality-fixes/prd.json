@@ -1,0 +1,112 @@
+{
+  "branch": "feature/code-quality-fixes",
+  "title": "Code Quality and Security Fixes",
+  "description": "Fix code quality issues, security concerns, and anti-patterns identified in codebase review. Removes debug endpoints, fixes import anti-patterns, standardizes error responses, and cleans up unused code.",
+  "userStories": [
+    {
+      "id": "CQ-001",
+      "title": "Remove or protect debug endpoint",
+      "description": "The /api/members/debug endpoint exposes access_token_status and tenant info. This should be removed or restricted to development only.",
+      "acceptanceCriteria": [
+        "Debug endpoint returns 404 in production environment",
+        "Debug endpoint only accessible when FLASK_ENV=development",
+        "No sensitive information exposed in production",
+        "Add comment documenting this is dev-only"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "CQ-002",
+      "title": "Replace __import__() anti-pattern with proper imports",
+      "description": "Replace all instances of __import__('datetime') and similar patterns with standard import statements for better readability and maintainability.",
+      "acceptanceCriteria": [
+        "No __import__() calls in app/api/integrations/*.py",
+        "No __import__() calls in app/services/partner_sync_service.py",
+        "All files use standard 'import datetime' at top of file",
+        "Code passes linting without warnings"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "CQ-003",
+      "title": "Remove unused legacy dashboard template",
+      "description": "Remove app/templates/dashboard.html which contains TODO comments and is no longer used (React SPA handles all UI).",
+      "acceptanceCriteria": [
+        "app/templates/dashboard.html deleted",
+        "No references to dashboard.html in Flask routes",
+        "App still functions correctly without the template",
+        "Templates folder cleaned up if empty"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "CQ-004",
+      "title": "Standardize API error response format",
+      "description": "Ensure all API endpoints return errors in a consistent format: {'error': {'message': '...', 'code': 'ERROR_CODE'}}",
+      "acceptanceCriteria": [
+        "Create ErrorResponse schema/helper in app/utils/",
+        "All API endpoints use standardized error format",
+        "Error codes defined as constants (MEMBER_NOT_FOUND, INVALID_REQUEST, etc.)",
+        "Frontend api.ts updated to handle new format",
+        "Error messages are user-friendly, technical details logged only"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "CQ-005",
+      "title": "Add SECRET_KEY validation in production",
+      "description": "Fail fast if SECRET_KEY is missing or using default value in production environment.",
+      "acceptanceCriteria": [
+        "App fails to start in production if SECRET_KEY not set",
+        "App fails to start if SECRET_KEY contains 'dev' or 'change'",
+        "Clear error message explaining the issue",
+        "Development mode allows default key"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "CQ-006",
+      "title": "Remove TODO comments in member model",
+      "description": "Address or remove the TODO comment at app/models/member.py:188 about last_trade_in_at calculation.",
+      "acceptanceCriteria": [
+        "Either implement last_trade_in_at calculation from trade_in_batches",
+        "Or remove TODO comment if not needed",
+        "Member serialization includes correct last_trade_in_at value",
+        "No TODO comments left in models"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "CQ-007",
+      "title": "Use specific exception types instead of generic Exception",
+      "description": "Replace broad 'except Exception as e' with more specific exception types where appropriate for better error handling.",
+      "acceptanceCriteria": [
+        "Review and fix exception handling in services/",
+        "Use ValueError, KeyError, TypeError where appropriate",
+        "Keep generic Exception only for truly unexpected errors",
+        "Add custom exceptions for business logic errors"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "CQ-008",
+      "title": "Add type hints to core service functions",
+      "description": "Add Python type hints to the most critical service functions for better IDE support and documentation.",
+      "acceptanceCriteria": [
+        "Type hints added to member_service.py public functions",
+        "Type hints added to tier_service.py public functions",
+        "Type hints added to credit_service.py public functions",
+        "mypy passes without errors on typed files"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

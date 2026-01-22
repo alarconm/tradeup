@@ -38,7 +38,15 @@ def create_app(config_name: str = None) -> Flask:
     setup_logging()
 
     app = Flask(__name__)
-    app.config.from_object(get_config(config_name))
+    config_class = get_config(config_name)
+    app.config.from_object(config_class)
+
+    # Validate SECRET_KEY in production - fail fast if insecure
+    if config_name == 'production':
+        from .config import ProductionConfig
+        validated_key = ProductionConfig.validate_secret_key()
+        app.config['SECRET_KEY'] = validated_key
+        logger.info("SECRET_KEY validated successfully for production")
 
     # Initialize Sentry error tracking (before other extensions for full coverage)
     try:
@@ -508,6 +516,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.birthday import birthday_bp
     app.register_blueprint(birthday_bp, url_prefix='/api/birthday')
 
+    # Anniversary Rewards
+    from .api.anniversary import anniversary_bp
+    app.register_blueprint(anniversary_bp, url_prefix='/api/anniversary')
+
     # Nudges & Reminders
     from .api.nudges import nudges_bp
     app.register_blueprint(nudges_bp, url_prefix='/api/nudges')
@@ -516,26 +528,88 @@ def register_blueprints(app: Flask) -> None:
     from .api.page_builder import page_builder_bp
     app.register_blueprint(page_builder_bp, url_prefix='/api/page-builder')
 
+    # Loyalty Page API (draft/publish workflow)
+    from .api.loyalty_page import loyalty_page_bp
+    app.register_blueprint(loyalty_page_bp, url_prefix='/api/loyalty-page')
+
     # Widget Visual Builder
     from .api.widget_builder import widget_builder_bp
     app.register_blueprint(widget_builder_bp, url_prefix='/api/widget-builder')
+
+    # Page Builder Images (LP-009)
+    from .api.page_builder_images import page_builder_images_bp
+    app.register_blueprint(page_builder_images_bp, url_prefix='/api/page-builder/images')
 
     # Guest Checkout Points
     from .api.guest_points import guest_points_bp
     app.register_blueprint(guest_points_bp, url_prefix='/api/guest-points')
 
+    # Review Prompt (In-App Review Collection)
+    from .api.review_prompt import review_prompt_bp
+    app.register_blueprint(review_prompt_bp, url_prefix='/api/review-prompt')
+
+    # Support Review (Post-Support Review Prompts)
+    from .api.support_review import support_review_bp
+    app.register_blueprint(support_review_bp, url_prefix='/api/support-review')
+
+    # Review Dashboard (Aggregated Review Metrics)
+    from .api.review_dashboard import review_dashboard_bp
+    app.register_blueprint(review_dashboard_bp, url_prefix='/api/review-dashboard')
+
+    # Loyalty Page Analytics (LP-010)
+    from .api.loyalty_page_analytics import loyalty_page_analytics_bp
+    app.register_blueprint(loyalty_page_analytics_bp, url_prefix='/api/loyalty-page/analytics')
+
+    # Widget Settings API (WB-002)
+    from .api.widgets import widgets_bp
+    app.register_blueprint(widgets_bp, url_prefix='/api/widgets')
+
 
 def register_error_handlers(app: Flask) -> None:
-    """Register error handlers."""
+    """Register error handlers using standardized error format."""
+    from .utils.errors import ErrorCode
 
     @app.errorhandler(400)
     def bad_request(error):
-        return {'error': 'Bad request', 'message': str(error)}, 400
+        return {
+            'error': {
+                'code': ErrorCode.INVALID_REQUEST.value,
+                'message': str(error.description) if hasattr(error, 'description') else str(error)
+            }
+        }, 400
+
+    @app.errorhandler(401)
+    def unauthorized(error):
+        return {
+            'error': {
+                'code': ErrorCode.AUTH_REQUIRED.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Authentication required'
+            }
+        }, 401
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return {
+            'error': {
+                'code': ErrorCode.PERMISSION_DENIED.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Access denied'
+            }
+        }, 403
 
     @app.errorhandler(404)
     def not_found(error):
-        return {'error': 'Not found', 'message': str(error)}, 404
+        return {
+            'error': {
+                'code': ErrorCode.NOT_FOUND.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Resource not found'
+            }
+        }, 404
 
     @app.errorhandler(500)
     def internal_error(error):
-        return {'error': 'Internal server error', 'message': str(error)}, 500
+        return {
+            'error': {
+                'code': ErrorCode.INTERNAL_ERROR.value,
+                'message': 'An unexpected error occurred'
+            }
+        }, 500

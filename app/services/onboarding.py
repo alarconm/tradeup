@@ -11,7 +11,7 @@ https://cardflowlabs.com
 """
 from typing import Dict, List, Optional
 from ..extensions import db
-from ..models import MembershipTier, Tenant
+from ..models import MembershipTier, Tenant, seed_nudge_configs
 
 
 # Pre-built tier templates for different business types
@@ -387,6 +387,9 @@ class OnboardingService:
         # Explicitly mark the JSON column as modified
         flag_modified(self.tenant, 'settings')
         db.session.commit()
+
+        # Seed default nudge configurations for the tenant
+        seed_nudge_configs(self.tenant_id)
 
         return {
             'success': True,

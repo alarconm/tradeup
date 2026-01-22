@@ -36,6 +36,9 @@ import {
 } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { PositionSelector, WidgetPosition } from '../components/PositionSelector';
+import { ColorPicker } from '../components/ColorPicker';
+import { WidgetPreview, type PreviewDevice } from '../components/WidgetPreview';
 
 interface EmbeddedWidgetBuilderProps {
   shop: string | null;
@@ -119,6 +122,9 @@ async function fetchEmbedCode(shop: string | null): Promise<{ embed_code: string
 const POSITION_OPTIONS = [
   { label: 'Bottom Right', value: 'bottom-right' },
   { label: 'Bottom Left', value: 'bottom-left' },
+  { label: 'Top Right', value: 'top-right' },
+  { label: 'Top Left', value: 'top-left' },
+  { label: 'Center', value: 'center' },
   { label: 'Right Tab', value: 'right-tab' },
   { label: 'Left Tab', value: 'left-tab' },
 ];
@@ -146,6 +152,7 @@ const ANIMATION_OPTIONS = [
 export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
   const [selectedTab, setSelectedTab] = useState(0);
   const [showEmbedCode, setShowEmbedCode] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const queryClient = useQueryClient();
 
@@ -232,7 +239,7 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
           <Card>
             <BlockStack gap="400">
               <InlineStack align="space-between">
-                <Text as="h3" variant="headingMd">Widget Preview</Text>
+                <Text as="h3" variant="headingMd">Live Preview</Text>
                 <Checkbox
                   label="Enable Widget"
                   checked={config?.enabled !== false}
@@ -240,36 +247,27 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                 />
               </InlineStack>
 
-              {/* Widget Preview */}
-              <Box
-                padding="400"
-                background="bg-surface-secondary"
-                borderRadius="200"
-              >
-                <div style={{ position: 'relative', height: 300, display: 'flex', alignItems: 'flex-end', justifyContent: config?.position?.includes('left') ? 'flex-start' : 'flex-end' }}>
-                  {/* Mock widget button */}
-                  <div
-                    style={{
-                      width: config?.launcher?.size === 'large' ? 70 : config?.launcher?.size === 'small' ? 50 : 60,
-                      height: config?.launcher?.size === 'large' ? 70 : config?.launcher?.size === 'small' ? 50 : 60,
-                      borderRadius: config?.appearance?.border_radius || 16,
-                      background: config?.appearance?.primary_color || '#e85d27',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: config?.appearance?.text_color || '#fff',
-                      fontSize: 24,
-                      boxShadow: config?.appearance?.shadow ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {config?.launcher?.icon === 'gift' ? '🎁' :
-                     config?.launcher?.icon === 'star' ? '⭐' :
-                     config?.launcher?.icon === 'heart' ? '❤️' :
-                     config?.launcher?.icon === 'trophy' ? '🏆' : '🎁'}
-                  </div>
-                </div>
-              </Box>
+              {/* Widget Preview - Real-time with mobile/desktop toggle */}
+              {config && (
+                <WidgetPreview
+                  config={{
+                    enabled: config.enabled,
+                    position: config.position,
+                    theme: config.theme,
+                    appearance: config.appearance,
+                    launcher: config.launcher,
+                    panel: config.panel,
+                    branding: config.branding,
+                    display_rules: config.display_rules,
+                  }}
+                  showDeviceToggle={true}
+                  defaultDevice={previewDevice}
+                  onDeviceChange={setPreviewDevice}
+                  showExpandedPanel={false}
+                  showPageContext={true}
+                  storeName={shop?.replace('.myshopify.com', '') || 'your-store'}
+                />
+              )}
             </BlockStack>
           </Card>
 
@@ -314,34 +312,43 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                   <Divider />
 
                   <Text as="h3" variant="headingMd">Colors</Text>
-                  <FormLayout>
-                    <FormLayout.Group>
-                      <TextField
+                  <InlineStack gap="400" wrap>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Primary Color"
                         value={config?.appearance?.primary_color || '#e85d27'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, primary_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="primary"
+                        helpText="Buttons and launcher"
                       />
-                      <TextField
+                    </Box>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Text Color"
                         value={config?.appearance?.text_color || '#ffffff'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, text_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="text"
+                        helpText="Launcher icon text"
                       />
-                    </FormLayout.Group>
-                    <FormLayout.Group>
-                      <TextField
+                    </Box>
+                  </InlineStack>
+                  <InlineStack gap="400" wrap>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Background Color"
                         value={config?.appearance?.background_color || '#ffffff'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, background_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="background"
+                        helpText="Panel background"
                       />
+                    </Box>
+                    <Box minWidth="200px">
                       <TextField
                         label="Border Radius"
                         type="number"
@@ -351,21 +358,35 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                         })}
                         suffix="px"
                         autoComplete="off"
+                        helpText="Corner roundness"
                       />
-                    </FormLayout.Group>
-                  </FormLayout>
+                    </Box>
+                  </InlineStack>
 
                   <Divider />
 
-                  <Text as="h3" variant="headingMd">Position & Size</Text>
+                  <Text as="h3" variant="headingMd">Position</Text>
+                  <PositionSelector
+                    value={(config?.position as WidgetPosition) || 'bottom-right'}
+                    onChange={(position) => updateConfigMutation.mutate({ position })}
+                    showTabPositions={true}
+                    widgetPreview={{
+                      icon: config?.launcher?.icon === 'gift' ? '🎁' :
+                            config?.launcher?.icon === 'star' ? '⭐' :
+                            config?.launcher?.icon === 'heart' ? '❤️' :
+                            config?.launcher?.icon === 'trophy' ? '🏆' : '🎁',
+                      primaryColor: config?.appearance?.primary_color || '#e85d27',
+                      size: config?.launcher?.size === 'large' ? 56 : config?.launcher?.size === 'small' ? 40 : 48,
+                      borderRadius: config?.appearance?.border_radius || 24,
+                    }}
+                    helpText="Click a position on the page preview to place your widget"
+                  />
+
+                  <Divider />
+
+                  <Text as="h3" variant="headingMd">Size & Icon</Text>
                   <FormLayout>
                     <FormLayout.Group>
-                      <Select
-                        label="Position"
-                        options={POSITION_OPTIONS}
-                        value={config?.position || 'bottom-right'}
-                        onChange={(v) => updateConfigMutation.mutate({ position: v })}
-                      />
                       <Select
                         label="Launcher Size"
                         options={SIZE_OPTIONS}
@@ -374,8 +395,6 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                           launcher: { ...config?.launcher, size: v }
                         })}
                       />
-                    </FormLayout.Group>
-                    <FormLayout.Group>
                       <Select
                         label="Launcher Icon"
                         options={ICON_OPTIONS}
@@ -384,6 +403,8 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                           launcher: { ...config?.launcher, icon: v }
                         })}
                       />
+                    </FormLayout.Group>
+                    <FormLayout.Group>
                       <Select
                         label="Animation"
                         options={ANIMATION_OPTIONS}

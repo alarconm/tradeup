@@ -4,6 +4,7 @@ SMS Integration API endpoints for TradeUp.
 Provides connection management and sync operations for
 Postscript and Attentive SMS marketing integrations.
 """
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.orm.attributes import flag_modified
@@ -141,7 +142,7 @@ def connect_postscript():
                 'trade_in_completed',
                 'credit_issued'
             ]),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')
@@ -270,7 +271,7 @@ def connect_attentive():
                 'trade_in_completed',
                 'credit_issued'
             ]),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')

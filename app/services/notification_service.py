@@ -282,6 +282,194 @@ Your Code: {referral_code}
     <p>{shop_name}</p>
 </div>
 '''
+        },
+        'anniversary_reward': {
+            'subject': 'Happy {anniversary_year} Anniversary, {member_name}! {shop_name} has a gift for you',
+            'text': '''Hi {member_name},
+
+Happy {anniversary_year} Anniversary with {shop_name}!
+
+We're celebrating {years_number} year(s) of you being a valued member of our rewards program. Time flies when we're having fun together!
+
+YOUR ANNIVERSARY GIFT:
+{reward_description}
+
+{custom_message}
+
+Don't let this special gift go to waste - visit us today and treat yourself to something you love!
+
+Shop Now: {shop_url}
+
+Thank you for being part of our community. Here's to many more years together!
+
+Warmly,
+The {shop_name} Team
+''',
+            'html': '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Happy Anniversary!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        /* Reset styles */
+        body, table, td, p, a, li, blockquote {{
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }}
+        table, td {{
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }}
+        img {{
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }}
+        body {{
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            background-color: #f4f4f4;
+        }}
+        /* Mobile styles */
+        @media only screen and (max-width: 600px) {{
+            .wrapper {{
+                width: 100% !important;
+                padding: 10px !important;
+            }}
+            .content {{
+                padding: 20px !important;
+            }}
+            .hero-text {{
+                font-size: 24px !important;
+            }}
+            .reward-box {{
+                padding: 20px !important;
+            }}
+            .cta-button {{
+                width: 100% !important;
+                padding: 16px 20px !important;
+            }}
+        }}
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <!-- Preview text -->
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        Celebrating {years_number} year(s) with you! We have a special anniversary gift waiting for you.
+    </div>
+
+    <!-- Main wrapper -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Email container -->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="wrapper" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+
+                    <!-- Header with celebration banner -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">&#127881;</div>
+                            <h1 class="hero-text" style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.2;">
+                                Happy {anniversary_year} Anniversary!
+                            </h1>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 0;">
+                                Celebrating {years_number} year(s) together
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td class="content" style="padding: 40px 30px;">
+                            <!-- Greeting -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Hi <strong>{member_name}</strong>,
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Time flies when we're having fun together! We're thrilled to celebrate
+                                <strong>{years_number} year(s)</strong> of you being a valued member of
+                                <strong>{shop_name}</strong>'s rewards program.
+                            </p>
+
+                            <!-- Reward box -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0;">
+                                <tr>
+                                    <td class="reward-box" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 30px; border-radius: 12px; text-align: center; border-left: 4px solid #4caf50;">
+                                        <div style="font-size: 32px; margin-bottom: 12px;">&#127873;</div>
+                                        <p style="color: #2e7d32; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0;">
+                                            Your Anniversary Gift
+                                        </p>
+                                        <p style="color: #1b5e20; font-size: 24px; font-weight: 700; margin: 0;">
+                                            {reward_description}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Custom message if present -->
+                            <p style="color: #555555; font-size: 15px; line-height: 1.6; margin: 0 0 30px 0; font-style: italic; background-color: #fafafa; padding: 16px; border-radius: 8px;">
+                                "{custom_message}"
+                            </p>
+
+                            <!-- CTA Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{shop_url}" class="cta-button" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);">
+                                            Shop Now & Celebrate
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Closing message -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
+                                Thank you for being part of our community. Here's to many more years together!
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 20px 0 0 0;">
+                                Warmly,<br>
+                                <strong>The {shop_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 24px 30px; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #888888; font-size: 13px; margin: 0 0 8px 0;">
+                                You're receiving this email because you're a rewards member at {shop_name}.
+                            </p>
+                            <p style="color: #888888; font-size: 13px; margin: 0;">
+                                Member since {enrollment_date}
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+'''
         }
     }
 
@@ -985,6 +1173,379 @@ Your Code: {referral_code}
             subject=rendered['subject'],
             text_content=rendered['text'],
             html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
+
+    def send_anniversary_reward(
+        self,
+        tenant_id: int,
+        member_id: int,
+        anniversary_year: int,
+        reward_type: str,
+        reward_amount: float,
+        custom_message: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Send notification when anniversary reward is issued.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            anniversary_year: Which anniversary year (1, 2, 3, etc.)
+            reward_type: Type of reward ('points', 'credit', 'discount_code')
+            reward_amount: Amount of the reward
+            custom_message: Optional custom message from tenant settings
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member, Tenant
+        settings = self._get_tenant_settings(tenant_id)
+
+        # Check if anniversary notifications are enabled
+        if not settings.get('enabled'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        # Check tenant's anniversary notification setting
+        anniversary_email_enabled = settings.get('anniversary_email', True)
+        if not anniversary_email_enabled:
+            return {'success': False, 'skipped': True, 'reason': 'Anniversary email disabled'}
+
+        member = Member.query.get(member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        # Get tenant for shop URL
+        tenant = Tenant.query.get(tenant_id)
+        shop_domain = tenant.shop_domain if tenant else ''
+        shop_url = f"https://{shop_domain}" if shop_domain else '#'
+
+        # Format reward description based on type
+        if reward_type == 'points':
+            reward_description = f"{int(reward_amount)} bonus points"
+        elif reward_type == 'credit':
+            reward_description = f"${reward_amount:.2f} store credit"
+        elif reward_type == 'discount_code':
+            reward_description = f"${reward_amount:.2f} discount code"
+        else:
+            reward_description = f"{reward_amount} reward"
+
+        # Format anniversary year as ordinal (1st, 2nd, 3rd, etc.)
+        ordinal_year = self._ordinal(anniversary_year)
+
+        # Get enrollment date for email footer
+        enrollment_date = ''
+        if hasattr(member, 'get_enrollment_date') and callable(member.get_enrollment_date):
+            try:
+                enrollment = member.get_enrollment_date()
+                if enrollment:
+                    enrollment_date = enrollment.strftime('%B %d, %Y')
+            except Exception:
+                pass
+        if not enrollment_date and member.created_at:
+            enrollment_date = member.created_at.strftime('%B %d, %Y')
+
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'anniversary_year': ordinal_year,
+            'years_number': anniversary_year,
+            'reward_description': reward_description,
+            'custom_message': custom_message or 'Thank you for being a loyal member!',
+            'shop_url': shop_url,
+            'enrollment_date': enrollment_date or 'the beginning'
+        }
+
+        rendered = self._render_template('anniversary_reward', variables, settings)
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=rendered['subject'],
+            text_content=rendered['text'],
+            html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
+
+    @staticmethod
+    def _ordinal(n: int) -> str:
+        """Convert a number to its ordinal representation (1st, 2nd, 3rd, etc.)."""
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
+
+    def send_anniversary_reminder(
+        self,
+        tenant_id: int,
+        member_id: int,
+        anniversary_year: int,
+        days_until: int,
+        reward_preview: str,
+        custom_message: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Send advance reminder email for upcoming anniversary.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            anniversary_year: Which anniversary year (1, 2, 3, etc.)
+            days_until: Days until the anniversary
+            reward_preview: Description of upcoming reward (e.g., "100 bonus points")
+            custom_message: Optional custom message from tenant settings
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member, Tenant
+        settings = self._get_tenant_settings(tenant_id)
+
+        # Check if anniversary notifications are enabled
+        if not settings.get('enabled'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        # Check tenant's anniversary notification setting
+        anniversary_email_enabled = settings.get('anniversary_email', True)
+        if not anniversary_email_enabled:
+            return {'success': False, 'skipped': True, 'reason': 'Anniversary email disabled'}
+
+        member = Member.query.get(member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        # Get tenant for shop URL
+        tenant = Tenant.query.get(tenant_id)
+        shop_domain = tenant.shop_domain if tenant else ''
+        shop_url = f"https://{shop_domain}" if shop_domain else '#'
+
+        # Format anniversary year as ordinal (1st, 2nd, 3rd, etc.)
+        ordinal_year = self._ordinal(anniversary_year)
+
+        # Get enrollment date for email
+        enrollment_date = ''
+        if hasattr(member, 'get_enrollment_date') and callable(member.get_enrollment_date):
+            try:
+                enrollment = member.get_enrollment_date()
+                if enrollment:
+                    enrollment_date = enrollment.strftime('%B %d, %Y')
+            except Exception:
+                pass
+        if not enrollment_date and member.created_at:
+            enrollment_date = member.created_at.strftime('%B %d, %Y')
+
+        # Build variables for template
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'anniversary_year': ordinal_year,
+            'years_number': anniversary_year,
+            'days_until': days_until,
+            'reward_preview': reward_preview,
+            'custom_message': custom_message or 'We appreciate your loyalty!',
+            'shop_url': shop_url,
+            'enrollment_date': enrollment_date or 'the beginning'
+        }
+
+        # Build email content
+        subject = f"Your {ordinal_year} Anniversary is Coming! {settings.get('shop_name', 'TradeUp')} has a gift for you"
+
+        text_content = f"""Hi {variables['member_name']},
+
+Your {ordinal_year} Anniversary with {settings.get('shop_name', 'TradeUp')} is just {days_until} day(s) away!
+
+We can't believe it's already been {anniversary_year} year(s) since you joined our rewards program. Time really does fly!
+
+WHAT'S COMING YOUR WAY:
+{reward_preview}
+
+{custom_message}
+
+We're so grateful to have you as part of our community. Stop by soon and let us celebrate with you!
+
+Shop Now: {shop_url}
+
+Warmly,
+The {settings.get('shop_name', 'TradeUp')} Team
+
+---
+You're receiving this email because you're a rewards member.
+Member since {enrollment_date}
+"""
+
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Anniversary Coming Soon!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        /* Reset styles */
+        body, table, td, p, a, li, blockquote {{
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }}
+        table, td {{
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }}
+        img {{
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }}
+        body {{
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            background-color: #f4f4f4;
+        }}
+        /* Mobile styles */
+        @media only screen and (max-width: 600px) {{
+            .wrapper {{
+                width: 100% !important;
+                padding: 10px !important;
+            }}
+            .content {{
+                padding: 20px !important;
+            }}
+            .hero-text {{
+                font-size: 24px !important;
+            }}
+            .countdown-box {{
+                padding: 20px !important;
+            }}
+            .cta-button {{
+                width: 100% !important;
+                padding: 16px 20px !important;
+            }}
+        }}
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <!-- Preview text -->
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        Just {days_until} day(s) until your {ordinal_year} anniversary! A special gift awaits you.
+    </div>
+
+    <!-- Main wrapper -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Email container -->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="wrapper" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+
+                    <!-- Header with countdown banner -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">&#128197;</div>
+                            <h1 class="hero-text" style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.2;">
+                                Your {ordinal_year} Anniversary is Coming!
+                            </h1>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 0;">
+                                Just <strong>{days_until}</strong> day(s) away
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td class="content" style="padding: 40px 30px;">
+                            <!-- Greeting -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Hi <strong>{variables['member_name']}</strong>,
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Your <strong>{ordinal_year} anniversary</strong> with
+                                <strong>{settings.get('shop_name', 'TradeUp')}</strong> is almost here!
+                                We can't believe it's already been <strong>{anniversary_year} year(s)</strong> since you joined us.
+                            </p>
+
+                            <!-- Countdown box -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0;">
+                                <tr>
+                                    <td class="countdown-box" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); padding: 30px; border-radius: 12px; text-align: center; border-left: 4px solid #ff9800;">
+                                        <div style="font-size: 32px; margin-bottom: 12px;">&#127873;</div>
+                                        <p style="color: #e65100; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0;">
+                                            What's Coming Your Way
+                                        </p>
+                                        <p style="color: #bf360c; font-size: 24px; font-weight: 700; margin: 0;">
+                                            {reward_preview}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Custom message if present -->
+                            <p style="color: #555555; font-size: 15px; line-height: 1.6; margin: 0 0 30px 0; font-style: italic; background-color: #fafafa; padding: 16px; border-radius: 8px;">
+                                "{variables['custom_message']}"
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                We're so grateful to have you as part of our community. Stop by soon and let us celebrate with you!
+                            </p>
+
+                            <!-- CTA Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{shop_url}" class="cta-button" style="display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);">
+                                            Shop Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Closing message -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
+                                Warmly,<br>
+                                <strong>The {settings.get('shop_name', 'TradeUp')} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 24px 30px; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #888888; font-size: 13px; margin: 0 0 8px 0;">
+                                You're receiving this email because you're a rewards member at {settings.get('shop_name', 'TradeUp')}.
+                            </p>
+                            <p style="color: #888888; font-size: 13px; margin: 0;">
+                                Member since {enrollment_date}
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=subject,
+            text_content=text_content,
+            html_content=html_content,
             from_email=settings['from_email'],
             from_name=settings['from_name']
         )

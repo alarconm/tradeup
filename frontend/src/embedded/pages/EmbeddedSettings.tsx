@@ -29,7 +29,7 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, GiftIcon, NotificationIcon, SendIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -104,6 +104,15 @@ interface SettingsResponse {
     general: {
       currency: string;
       timezone: string;
+    };
+    anniversary: {
+      enabled: boolean;
+      reward_type: string;
+      reward_amount: number;
+      email_days_before: number;
+      message: string;
+      tiered_rewards_enabled: boolean;
+      tiered_rewards: Record<string, number>;
     };
   };
   tenant: {
@@ -330,6 +339,48 @@ async function fetchTiers(shop: string | null): Promise<TiersResponse> {
   return response.json();
 }
 
+// Review Prompt Metrics (RC-007)
+interface ReviewMetrics {
+  period_days: number | string;
+  tenant_id: number | null;
+  total_impressions: number;
+  clicked_count: number;
+  dismissed_count: number;
+  reminded_later_count: number;
+  no_response_count: number;
+  click_rate: number;
+  dismiss_rate: number;
+  remind_later_rate: number;
+  response_rate: number;
+  funnel: {
+    impressions: number;
+    engaged: number;
+    converted: number;
+    engagement_rate: number;
+    conversion_rate: number;
+  };
+  unique_tenants: number;
+  daily_trend: Array<{
+    date: string;
+    impressions: number;
+    clicked: number;
+    dismissed: number;
+    reminded_later: number;
+  }>;
+  summary: string;
+}
+
+interface ReviewMetricsResponse {
+  success: boolean;
+  metrics: ReviewMetrics;
+}
+
+async function fetchReviewMetrics(shop: string | null, days: number = 30): Promise<ReviewMetricsResponse> {
+  const response = await authFetch(`${getApiUrl()}/review-prompt/metrics?days=${days}`, shop);
+  if (!response.ok) throw new Error('Failed to fetch review metrics');
+  return response.json();
+}
+
 async function createTier(shop: string | null, data: Partial<MembershipTier>): Promise<MembershipTier> {
   const response = await authFetch(`${getApiUrl()}/members/tiers`, shop, {
     method: 'POST',
@@ -399,6 +450,88 @@ interface RunTaskResponse {
   success: boolean;
   message: string;
   result: MonthlyCreditPreview;
+}
+
+// Nudge Configuration Types
+interface NudgeConfig {
+  id: number;
+  tenant_id: number;
+  nudge_type: string;
+  is_enabled: boolean;
+  frequency_days: number;
+  message_template: string;
+  config_options: Record<string, unknown>;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface NudgeConfigsResponse {
+  success: boolean;
+  configs: NudgeConfig[];
+}
+
+interface TestNudgeResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  nudge_type?: string;
+}
+
+// Nudge type labels for display
+const NUDGE_TYPE_LABELS: Record<string, { label: string; description: string; icon: string }> = {
+  points_expiring: {
+    label: 'Points Expiring',
+    description: 'Remind members when their points are about to expire',
+    icon: 'clock',
+  },
+  tier_progress: {
+    label: 'Tier Progress',
+    description: 'Notify members when they are close to reaching the next tier',
+    icon: 'trending-up',
+  },
+  inactive_reminder: {
+    label: 'Inactive Re-engagement',
+    description: 'Re-engage members who have been inactive for a while',
+    icon: 'refresh',
+  },
+  trade_in_reminder: {
+    label: 'Trade-In Reminder',
+    description: 'Remind members to bring in items for trade-in',
+    icon: 'exchange',
+  },
+};
+
+async function fetchNudgeConfigs(shop: string | null): Promise<NudgeConfigsResponse> {
+  const response = await authFetch(`${getApiUrl()}/nudges/configs`, shop);
+  if (!response.ok) throw new Error('Failed to fetch nudge configs');
+  return response.json();
+}
+
+async function updateNudgeConfig(
+  shop: string | null,
+  nudgeType: string,
+  data: Partial<NudgeConfig>
+): Promise<{ success: boolean; config: NudgeConfig }> {
+  const response = await authFetch(`${getApiUrl()}/nudges/configs/${nudgeType}`, shop, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update nudge config');
+  return response.json();
+}
+
+async function sendTestNudge(
+  shop: string | null,
+  nudgeType: string,
+  toEmail?: string,
+  toName?: string
+): Promise<TestNudgeResponse> {
+  const response = await authFetch(`${getApiUrl()}/nudges/test-send`, shop, {
+    method: 'POST',
+    body: JSON.stringify({ nudge_type: nudgeType, to_email: toEmail, to_name: toName }),
+  });
+  if (!response.ok) throw new Error('Failed to send test nudge');
+  return response.json();
 }
 
 async function fetchMonthlyCreditsPreview(shop: string | null): Promise<MonthlyCreditPreview> {
@@ -646,6 +779,74 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
   } = useQuery({
     queryKey: ['email-templates', shop],
     queryFn: () => fetchEmailTemplates(shop),
+    enabled: !!shop,
+  });
+
+  // Nudge Configurations (NR-006)
+  const {
+    data: nudgeConfigsData,
+    isLoading: nudgeConfigsLoading,
+    refetch: refetchNudgeConfigs,
+  } = useQuery({
+    queryKey: ['nudge-configs', shop],
+    queryFn: () => fetchNudgeConfigs(shop),
+    enabled: !!shop,
+  });
+
+  const [nudgeTestOpen, setNudgeTestOpen] = useState(false);
+  const [selectedNudgeType, setSelectedNudgeType] = useState<string | null>(null);
+  const [nudgeTestEmail, setNudgeTestEmail] = useState('');
+  const [nudgeTestName, setNudgeTestName] = useState('');
+  const [nudgeSuccess, setNudgeSuccess] = useState('');
+  const [nudgeError, setNudgeError] = useState('');
+
+  const updateNudgeConfigMutation = useMutation({
+    mutationFn: ({ nudgeType, data }: { nudgeType: string; data: Partial<NudgeConfig> }) =>
+      updateNudgeConfig(shop, nudgeType, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nudge-configs'] });
+      setNudgeSuccess('Nudge settings updated');
+      setTimeout(() => setNudgeSuccess(''), 3000);
+    },
+    onError: (err: Error) => {
+      setNudgeError(err.message);
+    },
+  });
+
+  const sendTestNudgeMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedNudgeType) throw new Error('No nudge type selected');
+      return sendTestNudge(shop, selectedNudgeType, nudgeTestEmail || undefined, nudgeTestName || undefined);
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setNudgeSuccess(data.message || 'Test nudge sent');
+        setNudgeTestOpen(false);
+        setNudgeTestEmail('');
+        setNudgeTestName('');
+        setTimeout(() => setNudgeSuccess(''), 5000);
+      } else {
+        setNudgeError(data.error || 'Failed to send test nudge');
+      }
+    },
+    onError: (err: Error) => setNudgeError(err.message),
+  });
+
+  const openNudgeTest = useCallback((nudgeType: string) => {
+    setSelectedNudgeType(nudgeType);
+    setNudgeError('');
+    setNudgeTestOpen(true);
+  }, []);
+
+  // Review Prompt Metrics (RC-007)
+  const [reviewMetricsDays, setReviewMetricsDays] = useState(30);
+  const {
+    data: reviewMetricsData,
+    isLoading: reviewMetricsLoading,
+    refetch: refetchReviewMetrics,
+  } = useQuery({
+    queryKey: ['review-metrics', shop, reviewMetricsDays],
+    queryFn: () => fetchReviewMetrics(shop, reviewMetricsDays),
     enabled: !!shop,
   });
 
@@ -1153,6 +1354,170 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </Card>
         </Layout.AnnotatedSection>
 
+        {/* Anniversary Rewards */}
+        <Layout.AnnotatedSection
+          id="anniversary-rewards"
+          title="Anniversary Rewards"
+          description="Automatically reward members on their membership anniversary"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack gap="200" blockAlign="center">
+                <Icon source={GiftIcon} tone="base" />
+                <Text as="h3" variant="headingSm">
+                  Member Anniversary Rewards
+                </Text>
+              </InlineStack>
+
+              <Checkbox
+                label="Enable anniversary rewards"
+                checked={getValue('anniversary', 'enabled', false)}
+                onChange={(value) => handleChange('anniversary', 'enabled', value)}
+                helpText="Automatically send rewards to members on their membership anniversary"
+              />
+
+              <Divider />
+
+              <Select
+                label="Reward Type"
+                options={[
+                  { label: 'Points', value: 'points' },
+                  { label: 'Store Credit', value: 'credit' },
+                  { label: 'Discount Code', value: 'discount_code' },
+                ]}
+                value={getValue('anniversary', 'reward_type', 'points')}
+                onChange={(value) => handleChange('anniversary', 'reward_type', value)}
+                helpText="Choose how to reward members on their anniversary"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <TextField
+                label="Reward Amount"
+                type="number"
+                value={String(getValue('anniversary', 'reward_amount', 100))}
+                onChange={(value) =>
+                  handleChange('anniversary', 'reward_amount', parseFloat(value) || 0)
+                }
+                prefix={getValue('anniversary', 'reward_type', 'points') === 'points' ? '' : '$'}
+                suffix={getValue('anniversary', 'reward_type', 'points') === 'points' ? 'points' : ''}
+                helpText={
+                  getValue('anniversary', 'reward_type', 'points') === 'points'
+                    ? 'Number of bonus points to award'
+                    : getValue('anniversary', 'reward_type', 'points') === 'credit'
+                    ? 'Dollar amount of store credit to award'
+                    : 'Discount percentage for the code'
+                }
+                autoComplete="off"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <Select
+                label="Send Email"
+                options={[
+                  { label: 'On anniversary day', value: '0' },
+                  { label: '1 day before', value: '1' },
+                  { label: '3 days before', value: '3' },
+                  { label: '7 days before', value: '7' },
+                ]}
+                value={String(getValue('anniversary', 'email_days_before', 0))}
+                onChange={(value) => handleChange('anniversary', 'email_days_before', parseInt(value))}
+                helpText="When to send the anniversary reward email"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <Divider />
+
+              <Checkbox
+                label="Enable tiered anniversary rewards"
+                checked={getValue('anniversary', 'tiered_rewards_enabled', false)}
+                onChange={(value) => handleChange('anniversary', 'tiered_rewards_enabled', value)}
+                helpText="Give different reward amounts based on anniversary year (e.g., Year 1 = $5, Year 2 = $10, Year 5 = $25)"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              {getValue('anniversary', 'tiered_rewards_enabled', false) && getValue('anniversary', 'enabled', false) && (
+                <BlockStack gap="300">
+                  <Text as="h4" variant="headingSm">Tiered Reward Amounts</Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Set custom reward amounts for specific anniversary years. Years not configured will use the default amount above.
+                  </Text>
+                  <BlockStack gap="200">
+                    {[1, 2, 3, 5, 10].map((year) => {
+                      const tieredRewards = getValue('anniversary', 'tiered_rewards', {}) as Record<string, number>;
+                      const currentValue = tieredRewards[String(year)] ?? '';
+                      const rewardType = getValue('anniversary', 'reward_type', 'points');
+                      return (
+                        <InlineStack key={year} gap="200" blockAlign="center">
+                          <Box minWidth="100px">
+                            <Text as="span" variant="bodyMd" fontWeight="semibold">
+                              Year {year}:
+                            </Text>
+                          </Box>
+                          <Box width="150px">
+                            <TextField
+                              label={`Year ${year} reward`}
+                              labelHidden
+                              type="number"
+                              value={String(currentValue)}
+                              onChange={(value) => {
+                                const newTieredRewards = { ...tieredRewards };
+                                if (value === '' || value === '0') {
+                                  delete newTieredRewards[String(year)];
+                                } else {
+                                  newTieredRewards[String(year)] = parseFloat(value) || 0;
+                                }
+                                handleChange('anniversary', 'tiered_rewards', newTieredRewards);
+                              }}
+                              prefix={rewardType === 'points' ? '' : '$'}
+                              suffix={rewardType === 'points' ? 'pts' : ''}
+                              placeholder={`${getValue('anniversary', 'reward_amount', 100)}`}
+                              autoComplete="off"
+                            />
+                          </Box>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            {currentValue ? '' : '(uses default)'}
+                          </Text>
+                        </InlineStack>
+                      );
+                    })}
+                  </BlockStack>
+                  <Banner tone="info">
+                    <p>
+                      {(() => {
+                        const tieredRewards = getValue('anniversary', 'tiered_rewards', {}) as Record<string, number>;
+                        const rewardType = getValue('anniversary', 'reward_type', 'points');
+                        const defaultAmount = getValue('anniversary', 'reward_amount', 100);
+                        const formatAmount = (amount: number) =>
+                          rewardType === 'points' ? `${amount} points` : `$${amount}`;
+                        const examples = [];
+                        for (const year of [1, 2, 5]) {
+                          const amount = tieredRewards[String(year)] ?? defaultAmount;
+                          examples.push(`Year ${year}: ${formatAmount(amount)}`);
+                        }
+                        return `Example: ${examples.join(', ')}`;
+                      })()}
+                    </p>
+                  </Banner>
+                </BlockStack>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h4" variant="headingSm">How Anniversary Rewards Work</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  When enabled, members will automatically receive their reward on the anniversary
+                  of their membership enrollment. The reward is delivered based on the reward type
+                  you select above. A celebratory email is sent according to your timing preference.
+                  {getValue('anniversary', 'tiered_rewards_enabled', false) && (
+                    ' With tiered rewards enabled, members receive different amounts based on their anniversary year.'
+                  )}
+                </Text>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
         {/* Membership Tiers Configuration - Only show when advanced features ON */}
         {getValue('features', 'advanced_features_enabled', false) && (
         <Layout.AnnotatedSection
@@ -1348,6 +1713,184 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 helpText="Sender email (must be verified with SendGrid)"
                 autoComplete="email"
               />
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Nudges & Reminders (NR-006) */}
+        <Layout.AnnotatedSection
+          id="nudges"
+          title="Nudges & Reminders"
+          description="Automated messages to engage members and drive activity"
+        >
+          <Card>
+            <BlockStack gap="400">
+              {nudgeSuccess && (
+                <Banner tone="success" onDismiss={() => setNudgeSuccess('')}>
+                  <p>{nudgeSuccess}</p>
+                </Banner>
+              )}
+              {nudgeError && (
+                <Banner tone="critical" onDismiss={() => setNudgeError('')}>
+                  <p>{nudgeError}</p>
+                </Banner>
+              )}
+
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={NotificationIcon} tone="base" />
+                    <Text as="h3" variant="headingMd">
+                      Engagement Nudges
+                    </Text>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Configure automated reminders to keep members engaged with your loyalty program.
+                  </Text>
+                </BlockStack>
+                <Button
+                  onClick={() => refetchNudgeConfigs()}
+                  loading={nudgeConfigsLoading}
+                  icon={RefreshIcon}
+                >
+                  Refresh
+                </Button>
+              </InlineStack>
+
+              <Divider />
+
+              {nudgeConfigsLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm" tone="subdued">Loading nudge settings...</Text>
+                </InlineStack>
+              ) : nudgeConfigsData?.configs && nudgeConfigsData.configs.length > 0 ? (
+                <BlockStack gap="400">
+                  {nudgeConfigsData.configs.map((config) => {
+                    const typeInfo = NUDGE_TYPE_LABELS[config.nudge_type] || {
+                      label: config.nudge_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                      description: 'Configure this nudge type',
+                    };
+                    return (
+                      <Box
+                        key={config.id || config.nudge_type}
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="050">
+                              <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                                {typeInfo.label}
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {typeInfo.description}
+                              </Text>
+                            </BlockStack>
+                            <InlineStack gap="200">
+                              <Checkbox
+                                label=""
+                                labelHidden
+                                checked={config.is_enabled}
+                                onChange={(value) => {
+                                  updateNudgeConfigMutation.mutate({
+                                    nudgeType: config.nudge_type,
+                                    data: { is_enabled: value },
+                                  });
+                                }}
+                              />
+                              <Badge tone={config.is_enabled ? 'success' : undefined}>
+                                {config.is_enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            </InlineStack>
+                          </InlineStack>
+
+                          {config.is_enabled && (
+                            <>
+                              <Divider />
+                              <InlineStack gap="400" wrap>
+                                <Box minWidth="200px">
+                                  <TextField
+                                    label="Frequency"
+                                    type="number"
+                                    value={String(config.frequency_days)}
+                                    onChange={(value) => {
+                                      updateNudgeConfigMutation.mutate({
+                                        nudgeType: config.nudge_type,
+                                        data: { frequency_days: parseInt(value) || 7 },
+                                      });
+                                    }}
+                                    suffix="days"
+                                    autoComplete="off"
+                                    helpText="Time between nudges"
+                                  />
+                                </Box>
+                              </InlineStack>
+
+                              <BlockStack gap="200">
+                                <Text as="h5" variant="bodySm" fontWeight="semibold">
+                                  Message Preview
+                                </Text>
+                                <Box
+                                  padding="300"
+                                  background="bg-surface"
+                                  borderRadius="100"
+                                  borderWidth="025"
+                                  borderColor="border"
+                                >
+                                  <Text as="p" variant="bodySm" tone="subdued">
+                                    {config.message_template || 'No message template configured'}
+                                  </Text>
+                                </Box>
+                              </BlockStack>
+
+                              <InlineStack gap="200">
+                                <Button
+                                  icon={SendIcon}
+                                  onClick={() => openNudgeTest(config.nudge_type)}
+                                  size="slim"
+                                >
+                                  Send Test
+                                </Button>
+                              </InlineStack>
+                            </>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    );
+                  })}
+                </BlockStack>
+              ) : (
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200" inlineAlign="center">
+                    <Text as="p" tone="subdued">No nudge configurations found.</Text>
+                    <Button onClick={() => refetchNudgeConfigs()}>
+                      Load Default Configurations
+                    </Button>
+                  </BlockStack>
+                </Box>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">How Nudges Work</Text>
+                <List type="bullet">
+                  <List.Item>
+                    <strong>Points Expiring:</strong> Reminds members before their points expire
+                  </List.Item>
+                  <List.Item>
+                    <strong>Tier Progress:</strong> Encourages members who are close to the next tier
+                  </List.Item>
+                  <List.Item>
+                    <strong>Inactive Re-engagement:</strong> Reaches out to members who have not visited recently
+                  </List.Item>
+                  <List.Item>
+                    <strong>Trade-In Reminder:</strong> Prompts members to bring in items for trade-in
+                  </List.Item>
+                </List>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -2078,6 +2621,139 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </BlockStack>
         </Layout.AnnotatedSection>
 
+        {/* Review Prompt Metrics (RC-007) */}
+        <Layout.AnnotatedSection
+          id="review-metrics"
+          title="Review Prompt Metrics"
+          description="Track how many prompts convert to actual reviews"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={StarIcon} tone="base" />
+                    <Text as="h3" variant="headingMd">
+                      Review Collection Performance
+                    </Text>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Metrics for in-app review prompts shown to merchants.
+                  </Text>
+                </BlockStack>
+                <InlineStack gap="200">
+                  <Select
+                    label=""
+                    labelHidden
+                    options={[
+                      { label: 'Last 7 days', value: '7' },
+                      { label: 'Last 30 days', value: '30' },
+                      { label: 'Last 90 days', value: '90' },
+                      { label: 'All time', value: '0' },
+                    ]}
+                    value={String(reviewMetricsDays)}
+                    onChange={(value) => setReviewMetricsDays(parseInt(value))}
+                  />
+                  <Button
+                    onClick={() => refetchReviewMetrics()}
+                    loading={reviewMetricsLoading}
+                    icon={RefreshIcon}
+                  >
+                    Refresh
+                  </Button>
+                </InlineStack>
+              </InlineStack>
+
+              <Divider />
+
+              {reviewMetricsLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm">Loading metrics...</Text>
+                </InlineStack>
+              ) : reviewMetricsData?.metrics ? (
+                <BlockStack gap="400">
+                  {/* Key Metrics Grid */}
+                  <InlineStack gap="400" wrap>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Prompt Impressions</Text>
+                      <Text as="p" variant="headingLg">{reviewMetricsData.metrics.total_impressions}</Text>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Rate Now Clicks</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.clicked_count}</Text>
+                        <Badge tone="success">{reviewMetricsData.metrics.click_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Dismissed</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.dismissed_count}</Text>
+                        <Badge>{reviewMetricsData.metrics.dismiss_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Remind Later</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <Text as="p" variant="headingLg">{reviewMetricsData.metrics.reminded_later_count}</Text>
+                        <Badge tone="info">{reviewMetricsData.metrics.remind_later_rate}%</Badge>
+                      </InlineStack>
+                    </BlockStack>
+                  </InlineStack>
+
+                  <Divider />
+
+                  {/* Conversion Funnel */}
+                  <BlockStack gap="200">
+                    <Text as="h4" variant="headingSm">Conversion Funnel</Text>
+                    <InlineStack gap="400" wrap>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Impressions</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.impressions}
+                        </Text>
+                      </BlockStack>
+                      <Text as="span" variant="bodyMd" tone="subdued">→</Text>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Engaged</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.engaged} ({reviewMetricsData.metrics.funnel.engagement_rate}%)
+                        </Text>
+                      </BlockStack>
+                      <Text as="span" variant="bodyMd" tone="subdued">→</Text>
+                      <BlockStack gap="100">
+                        <Text as="p" variant="bodySm" tone="subdued">Converted (Clicked)</Text>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {reviewMetricsData.metrics.funnel.converted} ({reviewMetricsData.metrics.funnel.conversion_rate}%)
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                  </BlockStack>
+
+                  {/* Summary */}
+                  <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                    <Text as="p" variant="bodySm">
+                      {reviewMetricsData.metrics.summary}
+                    </Text>
+                  </Box>
+
+                  {/* Link to Full Dashboard */}
+                  <InlineStack align="end">
+                    <Button url="/app/review-dashboard" variant="plain">
+                      View Full Review Dashboard
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
+              ) : (
+                <Text as="p" variant="bodySm" tone="subdued">
+                  No review prompt data available yet. Prompts will be tracked once merchants start seeing them.
+                </Text>
+              )}
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
         {/* Support & Feedback */}
         <Layout.AnnotatedSection
           id="support"
@@ -2432,6 +3108,61 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         </button>
         <button onClick={handleDiscard}>Discard</button>
       </SaveBar>
+
+      {/* Test Nudge Modal (NR-006) */}
+      <Modal
+        open={nudgeTestOpen}
+        onClose={() => {
+          setNudgeTestOpen(false);
+          setNudgeError('');
+        }}
+        title={`Send Test: ${selectedNudgeType ? NUDGE_TYPE_LABELS[selectedNudgeType]?.label || selectedNudgeType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Nudge'}`}
+        primaryAction={{
+          content: 'Send Test Nudge',
+          onAction: () => sendTestNudgeMutation.mutate(),
+          loading: sendTestNudgeMutation.isPending,
+        }}
+        secondaryActions={[
+          {
+            content: 'Cancel',
+            onAction: () => {
+              setNudgeTestOpen(false);
+              setNudgeError('');
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {nudgeError && (
+              <Banner tone="critical" onDismiss={() => setNudgeError('')}>
+                <p>{nudgeError}</p>
+              </Banner>
+            )}
+            <Text as="p" variant="bodySm" tone="subdued">
+              Send a test nudge to verify your configuration. The test will use sample data
+              and will be clearly marked as a test message.
+            </Text>
+            <TextField
+              label="Recipient Email"
+              type="email"
+              value={nudgeTestEmail}
+              onChange={setNudgeTestEmail}
+              placeholder="you@example.com (defaults to store email)"
+              autoComplete="email"
+              helpText="Leave blank to send to your store's email address"
+            />
+            <TextField
+              label="Recipient Name"
+              value={nudgeTestName}
+              onChange={setNudgeTestName}
+              placeholder="Store Owner"
+              autoComplete="name"
+              helpText="Name used in the greeting"
+            />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
 
       {/* Bug Report Modal */}
       <BugReportModal

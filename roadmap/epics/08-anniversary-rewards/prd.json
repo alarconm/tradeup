@@ -1,0 +1,149 @@
+{
+  "branch": "feature/anniversary-rewards",
+  "title": "Anniversary Rewards System",
+  "description": "Implement anniversary rewards to automatically celebrate and reward members on their membership anniversary. Uses existing signup date - no extra data collection needed. HIGH PRIORITY competitive feature. Estimated: 1-2 days.",
+  "userStories": [
+    {
+      "id": "AR-001",
+      "title": "Ensure membership anniversary date is tracked",
+      "description": "Verify members have created_at or enrolled_at date that can be used for anniversary calculation.",
+      "acceptanceCriteria": [
+        "Member model has created_at or enrolled_at timestamp",
+        "All existing members have this field populated",
+        "New members get timestamp on enrollment",
+        "Anniversary date calculation works correctly (same month/day each year)"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AR-002",
+      "title": "Create anniversary rewards settings",
+      "description": "Settings for merchants to configure anniversary reward type and amount.",
+      "acceptanceCriteria": [
+        "Add anniversary_rewards_enabled boolean to tenant settings",
+        "Add anniversary_reward_type (points, credit, discount_code)",
+        "Add anniversary_reward_amount (numeric value)",
+        "Add anniversary_email_days_before (0, 1, 3, 7)",
+        "Settings saved and retrieved correctly"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AR-003",
+      "title": "Add anniversary settings UI to admin",
+      "description": "UI for merchants to configure anniversary rewards in settings.",
+      "acceptanceCriteria": [
+        "Anniversary rewards section in Settings page",
+        "Toggle to enable/disable anniversary rewards",
+        "Dropdown for reward type selection",
+        "Input for reward amount",
+        "Dropdown for advance email days",
+        "Settings save successfully"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AR-004",
+      "title": "Create anniversary reward service",
+      "description": "Service to process anniversary rewards and send them to members.",
+      "acceptanceCriteria": [
+        "AnniversaryService class in app/services/anniversary_service.py",
+        "get_todays_anniversaries(tenant_id) method",
+        "get_anniversary_year(member) method (1st, 2nd, 3rd year, etc.)",
+        "issue_anniversary_reward(member_id) method",
+        "Track anniversary rewards issued (prevent duplicates for same year)",
+        "Support all three reward types (points, credit, discount)"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AR-005",
+      "title": "Create anniversary rewards scheduled job",
+      "description": "Daily scheduled job to process anniversary rewards for all members.",
+      "acceptanceCriteria": [
+        "Scheduled job runs daily at configured time",
+        "Processes all tenants with anniversary rewards enabled",
+        "Issues rewards to all members with anniversary today",
+        "Sends anniversary email to members",
+        "Job logs execution results",
+        "Job handles errors gracefully without stopping"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "AR-006",
+      "title": "Create anniversary email template",
+      "description": "Email template for anniversary reward notification.",
+      "acceptanceCriteria": [
+        "Anniversary email template with reward details",
+        "Template shows which anniversary (1 year, 2 years, etc.)",
+        "Template uses store branding (name, logo)",
+        "Shows reward type and amount clearly",
+        "Includes call-to-action to shop",
+        "Template is mobile-responsive"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "AR-007",
+      "title": "Add milestone anniversary badges",
+      "description": "Special badges for membership anniversary milestones.",
+      "acceptanceCriteria": [
+        "1 Year Member badge created",
+        "2 Year Member badge created",
+        "5 Year Member badge created (loyal customer)",
+        "Badges awarded when anniversary reward issued",
+        "Integration with gamification system"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "AR-008",
+      "title": "Track anniversary rewards in member history",
+      "description": "Record anniversary reward issuance in member's activity history.",
+      "acceptanceCriteria": [
+        "Anniversary reward events visible in member activity",
+        "Shows date, anniversary year, reward type, and amount",
+        "Included in member export CSV",
+        "Queryable via API"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "AR-009",
+      "title": "Add anniversary reminder email (advance notice)",
+      "description": "Optional advance email letting member know their anniversary reward is coming.",
+      "acceptanceCriteria": [
+        "Advance email sent X days before anniversary (configurable)",
+        "Email template with upcoming reward preview",
+        "Shows how long they've been a member",
+        "Only sent if advance email days > 0",
+        "Respects member email preferences"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "AR-010",
+      "title": "Add tiered anniversary rewards",
+      "description": "Allow different reward amounts based on anniversary year (bigger rewards for longer members).",
+      "acceptanceCriteria": [
+        "Support different rewards per anniversary year",
+        "Example: Year 1 = $5, Year 2 = $10, Year 5 = $25",
+        "Configurable tiers in settings",
+        "Default to base amount if tier not configured",
+        "UI to configure tiered rewards"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

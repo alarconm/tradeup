@@ -47,8 +47,20 @@ from .loyalty_points import (
     DEFAULT_REWARDS,
 )
 from .cashback_campaign import CashbackCampaign, CashbackRedemption
-from .gamification import Badge, MemberBadge, MemberStreak, Milestone, MemberMilestone
+from .gamification import Badge, MemberBadge, MemberStreak, Milestone, MemberMilestone, MemberActivity
 from .guest_points import GuestPoints
+from .review_prompt import ReviewPrompt, ReviewPromptResponse
+from .support_ticket import SupportTicket, TicketStatus, TicketSatisfaction
+from .nudge_config import NudgeConfig, NudgeType, seed_nudge_configs, DEFAULT_NUDGE_TEMPLATES, DEFAULT_NUDGE_FREQUENCY
+from .nudge_sent import NudgeSent
+from .loyalty_page import LoyaltyPage, DEFAULT_PAGE_CONFIG
+from .loyalty_page_analytics import (
+    LoyaltyPageView,
+    LoyaltyPageEngagement,
+    LoyaltyPageCTAClick,
+    LoyaltyPageAnalyticsSummary,
+)
+from .widget import Widget, WidgetType, DEFAULT_WIDGET_CONFIGS, seed_widgets
 
 __all__ = [
     'Tenant',
@@ -106,6 +118,35 @@ __all__ = [
     'MemberStreak',
     'Milestone',
     'MemberMilestone',
+    'MemberActivity',
     # Guest Points
     'GuestPoints',
+    # Review Collection
+    'ReviewPrompt',
+    'ReviewPromptResponse',
+    # Support Tickets
+    'SupportTicket',
+    'TicketStatus',
+    'TicketSatisfaction',
+    # Nudge Config
+    'NudgeConfig',
+    'NudgeType',
+    'seed_nudge_configs',
+    'DEFAULT_NUDGE_TEMPLATES',
+    'DEFAULT_NUDGE_FREQUENCY',
+    # Nudge Sent
+    'NudgeSent',
+    # Loyalty Page Builder
+    'LoyaltyPage',
+    'DEFAULT_PAGE_CONFIG',
+    # Loyalty Page Analytics
+    'LoyaltyPageView',
+    'LoyaltyPageEngagement',
+    'LoyaltyPageCTAClick',
+    'LoyaltyPageAnalyticsSummary',
+    # Widget Builder
+    'Widget',
+    'WidgetType',
+    'DEFAULT_WIDGET_CONFIGS',
+    'seed_widgets',
 ]

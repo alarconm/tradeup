@@ -1,0 +1,149 @@
+{
+  "branch": "feature/gamification-system",
+  "title": "Gamification System - Badges, Achievements & Streaks",
+  "description": "Implement a comprehensive gamification system to increase member engagement. Includes achievement badges, progress tracking, milestone celebrations, and streak tracking. This is a HIGH PRIORITY competitive feature that Smile.io and Rivo have but TradeUp lacks.",
+  "userStories": [
+    {
+      "id": "GS-001",
+      "title": "Create badge database models",
+      "description": "Create database tables for badges and member badge assignments to track achievements.",
+      "acceptanceCriteria": [
+        "Badge model with: id, name, description, icon_url, criteria_type, criteria_value, points_reward, is_active, created_at",
+        "MemberBadge model with: id, member_id, badge_id, earned_at, notified_at",
+        "Foreign key relationships properly defined",
+        "Alembic migration created and applied",
+        "Indexes on member_id and badge_id for efficient queries"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "GS-002",
+      "title": "Create badge CRUD API endpoints",
+      "description": "API endpoints for merchants to create, manage, and view badges.",
+      "acceptanceCriteria": [
+        "GET /api/badges - list all badges for tenant",
+        "POST /api/badges - create new badge",
+        "PUT /api/badges/{id} - update badge",
+        "DELETE /api/badges/{id} - delete badge (soft delete if members have it)",
+        "GET /api/members/{id}/badges - get member's earned badges"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "GS-003",
+      "title": "Implement badge criteria evaluation service",
+      "description": "Service to check if a member qualifies for badges based on their activity.",
+      "acceptanceCriteria": [
+        "BadgeService class in app/services/badge_service.py",
+        "check_and_award_badges(member_id) method",
+        "Support criteria types: first_purchase, purchase_count, total_spent, trade_in_count, referral_count, tier_reached, streak_days",
+        "Badges awarded only once per member",
+        "Badge award triggers notification"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "GS-004",
+      "title": "Create default badge templates",
+      "description": "Pre-configured badges that merchants can enable out of the box.",
+      "acceptanceCriteria": [
+        "First Purchase badge (first order placed)",
+        "Trade-In Pro badge (10+ trade-ins completed)",
+        "Big Spender badge ($500+ lifetime spend)",
+        "Referral Champion badge (5+ successful referrals)",
+        "Loyal Member badge (12 months membership)",
+        "Hot Streak badge (3 consecutive months active)",
+        "Seed data script to create default badges"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "GS-005",
+      "title": "Add streak tracking to members",
+      "description": "Track consecutive activity periods for members to enable streak-based achievements.",
+      "acceptanceCriteria": [
+        "Add current_streak and longest_streak columns to members table",
+        "Alembic migration for new columns",
+        "Streak increments on monthly activity (purchase or trade-in)",
+        "Streak resets after 30 days of inactivity",
+        "Streak displayed in member profile"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "GS-006",
+      "title": "Create badge management UI in admin",
+      "description": "React components for merchants to manage badges in the admin dashboard.",
+      "acceptanceCriteria": [
+        "EmbeddedBadges.tsx page component",
+        "Badge list with enable/disable toggle",
+        "Badge create/edit modal with criteria configuration",
+        "Badge preview showing icon and description",
+        "Route added to admin navigation"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "GS-007",
+      "title": "Add badge showcase to customer account extension",
+      "description": "Display earned badges in the customer-facing rewards dashboard.",
+      "acceptanceCriteria": [
+        "BadgeShowcase component in customer-account-ui",
+        "Shows earned badges with earned date",
+        "Shows locked badges with progress toward earning",
+        "Badges displayed with icons and descriptions",
+        "Responsive grid layout"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "GS-008",
+      "title": "Create achievement unlocked celebration modal",
+      "description": "Celebratory modal shown when customer earns a new badge.",
+      "acceptanceCriteria": [
+        "AchievementUnlocked component with animation",
+        "Shows badge icon, name, and points earned",
+        "Confetti or particle effect animation",
+        "Share to social option (optional)",
+        "Modal triggered when viewing page after earning badge"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "GS-009",
+      "title": "Add progress bars for tier advancement",
+      "description": "Visual progress indicators showing how close member is to next tier.",
+      "acceptanceCriteria": [
+        "Progress bar component shows points/spend toward next tier",
+        "Percentage complete calculated correctly",
+        "Displays requirement for next tier",
+        "Integrated into customer account extension",
+        "Updates in real-time after transactions"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "GS-010",
+      "title": "Implement milestone celebrations",
+      "description": "Special celebrations for significant point milestones (100, 500, 1000, etc.).",
+      "acceptanceCriteria": [
+        "Milestone thresholds configurable in settings",
+        "Celebration shown when milestone crossed",
+        "Optional bonus points/credit for milestones",
+        "Milestone history tracked per member",
+        "Email notification for major milestones"
+      ],
+      "priority": 3,
+      "passes": true
+    }
+  ]
+}

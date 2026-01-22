@@ -105,6 +105,27 @@ DEFAULT_SETTINGS = {
     'general': {
         'currency': 'USD',
         'timezone': 'America/Los_Angeles',
+    },
+    'milestones': {
+        'enabled': True,  # Master toggle for milestone celebrations
+        'point_milestones': [100, 500, 1000, 2500, 5000, 10000],  # Point thresholds to celebrate
+        'trade_in_milestones': [5, 10, 25, 50, 100],  # Trade-in count thresholds
+        'email_on_major_milestones': True,  # Send email for 1000+ points, 25+ trade-ins
+        'major_point_threshold': 1000,  # Points threshold considered "major"
+        'major_trade_in_threshold': 25,  # Trade-in threshold considered "major"
+        'celebration_duration_ms': 5000,  # How long to show celebration (milliseconds)
+    },
+    'anniversary': {
+        'enabled': False,  # Master toggle for anniversary rewards
+        'reward_type': 'points',  # points, credit, or discount_code
+        'reward_amount': 100,  # Amount of points/credit or discount percentage (default/base amount)
+        'email_days_before': 0,  # 0 = on anniversary, 1, 3, or 7 days before
+        'message': 'Happy Anniversary! Thank you for being a loyal member!',  # Customizable message
+        'tiered_rewards_enabled': False,  # Enable different rewards per anniversary year
+        'tiered_rewards': {  # Reward amounts by anniversary year (overrides reward_amount)
+            # Example: '1': 5, '2': 10, '5': 25, '10': 50
+            # Years not configured will use the default reward_amount
+        },
     }
 }
 

@@ -1387,6 +1387,68 @@ def export_analytics():
                 ])
             filename = f'rewards_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
 
+        elif export_type == 'anniversary_rewards':
+            # Export anniversary reward activities
+            from ..models.gamification import MemberActivity
+
+            writer.writerow([
+                'Date', 'Member Number', 'Member Name', 'Email', 'Anniversary Year',
+                'Reward Type', 'Reward Amount', 'Reference', 'Description'
+            ])
+
+            activities = MemberActivity.query.join(
+                Member, Member.id == MemberActivity.member_id
+            ).filter(
+                MemberActivity.tenant_id == tenant_id,
+                MemberActivity.activity_type == 'anniversary_reward',
+                MemberActivity.activity_date >= start_date
+            ).order_by(MemberActivity.activity_date.desc()).all()
+
+            for activity in activities:
+                member = activity.member
+                writer.writerow([
+                    activity.activity_date.strftime('%Y-%m-%d %H:%M') if activity.activity_date else '',
+                    member.member_number if member else 'Unknown',
+                    member.name if member else '',
+                    member.email if member else '',
+                    activity.anniversary_year or '',
+                    activity.reward_type or '',
+                    float(activity.reward_amount) if activity.reward_amount else 0,
+                    activity.reward_reference or '',
+                    activity.description or ''
+                ])
+            filename = f'anniversary_rewards_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
+        elif export_type == 'member_activities':
+            # Export all member activities
+            from ..models.gamification import MemberActivity
+
+            writer.writerow([
+                'Date', 'Member Number', 'Member Name', 'Activity Type',
+                'Description', 'Reward Type', 'Reward Amount', 'Reference'
+            ])
+
+            activities = MemberActivity.query.join(
+                Member, Member.id == MemberActivity.member_id
+            ).filter(
+                MemberActivity.tenant_id == tenant_id,
+                MemberActivity.activity_date >= start_date
+            ).order_by(MemberActivity.activity_date.desc()).all()
+
+            for activity in activities:
+                member = activity.member
+                writer.writerow([
+                    activity.activity_date.strftime('%Y-%m-%d %H:%M') if activity.activity_date else '',
+                    member.member_number if member else 'Unknown',
+                    member.name if member else '',
+                    activity.activity_type or '',
+                    activity.description or '',
+                    activity.reward_type or '',
+                    float(activity.reward_amount) if activity.reward_amount else 0,
+                    activity.reward_reference or ''
+                ])
+            filename = f'member_activities_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
         else:  # summary
             writer.writerow(['Metric', 'Value'])
 

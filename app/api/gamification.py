@@ -305,3 +305,117 @@ def get_gamification_stats():
             'total_badges_earned': total_earned,
         },
     })
+
+
+# Milestone CRUD Endpoints
+@gamification_bp.route('/milestones/<int:milestone_id>', methods=['GET'])
+@require_shopify_auth
+def get_milestone(milestone_id):
+    """Get a specific milestone."""
+    milestone = Milestone.query.filter_by(
+        id=milestone_id,
+        tenant_id=g.tenant.id
+    ).first()
+
+    if not milestone:
+        return jsonify({'error': 'Milestone not found'}), 404
+
+    return jsonify({
+        'success': True,
+        'milestone': milestone.to_dict(),
+    })
+
+
+@gamification_bp.route('/milestones/<int:milestone_id>', methods=['PUT'])
+@require_shopify_auth
+def update_milestone(milestone_id):
+    """Update a milestone."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    milestone = Milestone.query.filter_by(
+        id=milestone_id,
+        tenant_id=g.tenant.id
+    ).first()
+
+    if not milestone:
+        return jsonify({'error': 'Milestone not found'}), 404
+
+    # Update allowed fields
+    allowed_fields = ['name', 'description', 'milestone_type', 'threshold',
+                      'points_reward', 'credit_reward', 'badge_id',
+                      'celebration_message', 'is_active']
+
+    for field in allowed_fields:
+        if field in data:
+            setattr(milestone, field, data[field])
+
+    from app import db
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'milestone': milestone.to_dict(),
+    })
+
+
+@gamification_bp.route('/milestones/<int:milestone_id>', methods=['DELETE'])
+@require_shopify_auth
+def delete_milestone(milestone_id):
+    """Delete a milestone."""
+    milestone = Milestone.query.filter_by(
+        id=milestone_id,
+        tenant_id=g.tenant.id
+    ).first()
+
+    if not milestone:
+        return jsonify({'error': 'Milestone not found'}), 404
+
+    from app import db
+    db.session.delete(milestone)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Milestone deleted',
+    })
+
+
+# Member Milestone Operations
+@gamification_bp.route('/members/<int:member_id>/milestones', methods=['GET'])
+@require_shopify_auth
+def get_member_milestones(member_id):
+    """Get milestones achieved by a member."""
+    from ..models.gamification import MemberMilestone
+
+    member_milestones = MemberMilestone.query.filter_by(member_id=member_id).all()
+
+    milestones = []
+    for mm in member_milestones:
+        milestone = Milestone.query.get(mm.milestone_id)
+        if milestone:
+            milestones.append({
+                **milestone.to_dict(),
+                'achieved_at': mm.achieved_at.isoformat() if mm.achieved_at else None,
+            })
+
+    return jsonify({
+        'success': True,
+        'milestones': milestones,
+        'count': len(milestones),
+    })
+
+
+@gamification_bp.route('/members/<int:member_id>/check-milestones', methods=['POST'])
+@require_shopify_auth
+def check_member_milestones(member_id):
+    """Check and award any achieved milestones for a member."""
+    service = get_service()
+    achieved = service.check_milestones(member_id)
+
+    return jsonify({
+        'success': True,
+        'achieved': [mm.to_dict() for mm in achieved],
+        'count': len(achieved),
+    })

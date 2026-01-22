@@ -2,6 +2,7 @@
 Partner Sync Service.
 Handles synchronization of data with external partner systems.
 """
+import json
 import requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -245,7 +246,7 @@ class PartnerSyncService:
                 try:
                     # Strip UTF-8 BOM if present and parse JSON
                     text = response.text.lstrip('\ufeff')
-                    body = __import__('json').loads(text)
+                    body = json.loads(text)
                 except Exception:
                     body = {'text': response.text}
             else:

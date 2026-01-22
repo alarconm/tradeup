@@ -1,0 +1,179 @@
+Widget Builder Epic Progress
+============================
+
+WB-004 - Create color picker component
+--------------------------------------
+Date: 2026-01-22
+Status: COMPLETE
+
+Implementation Summary:
+- Created ColorPicker.tsx component at frontend/src/embedded/components/ColorPicker.tsx
+- Component includes:
+  * Preset brand colors organized by category (brand, neutral, accent)
+  * Custom hex input with validation
+  * RGB input fields for precise color selection
+  * Live color preview with contrast text sample
+  * Support for primary, secondary, text, and background color types
+  * Color type-specific preset recommendations
+  * Tooltips showing color names
+  * Visual feedback for selected colors
+  * Error handling for invalid hex values
+
+- Also created WidgetColorPickerGroup component for grouped color selection
+  * Combines all four color pickers (primary, secondary, text, background)
+  * Shows combined preview of all colors together
+  * Ideal for complete widget theming
+
+- Integrated ColorPicker into EmbeddedWidgetBuilder.tsx
+  * Replaced TextField color inputs with ColorPicker components
+  * Added colorType prop for context-aware presets
+  * Added helpful descriptions for each color's purpose
+
+Acceptance Criteria Met:
+[x] Color picker with preset brand colors
+[x] Custom hex/RGB input option
+[x] Preview of selected color
+[x] Support for primary, secondary, text colors
+[x] Save color preferences (via existing mutation)
+
+Files Modified:
+- frontend/src/embedded/components/ColorPicker.tsx (NEW)
+- frontend/src/embedded/pages/EmbeddedWidgetBuilder.tsx (UPDATED)
+
+WB-005 - Create widget builder admin page
+-----------------------------------------
+Date: 2026-01-22
+Status: COMPLETE
+
+Implementation Summary:
+- Created EmbeddedWidgets.tsx at frontend/src/embedded/pages/EmbeddedWidgets.tsx
+- Comprehensive admin page for managing all 4 widget types:
+  * Points Balance - floating points display
+  * Tier Badge - membership tier indicator
+  * Rewards Launcher - button to open rewards panel
+  * Referral Prompt - referral banner/prompt
+
+Key Features:
+- Widget list with enable/disable toggle for each type
+- Configuration modal for detailed settings per widget
+- Live preview showing widget appearance with current settings
+- Position settings:
+  * Fixed position selector (visual and dropdown)
+  * Offset controls (X/Y)
+  * CSS selector for inline widgets (tier badge)
+- Styling settings:
+  * Background color picker (using ColorPicker component)
+  * Text color picker
+  * Accent/icon color picker
+  * Border radius, font size, shadow toggle
+  * Badge style (pill/square/rounded for tier badge)
+- Content settings (widget-type specific):
+  * Points Balance: icon, label, tier indicator
+  * Tier Badge: name, icon, progress bar
+  * Rewards Launcher: icon selection, tooltip, notification badge
+  * Referral Prompt: title, description, CTA text, reward amount
+- Behavior settings:
+  * Mobile visibility
+  * Animation settings
+  * Trigger options (scroll, delay, exit intent)
+  * Panel position for rewards launcher
+- Save and reset to defaults functionality
+- Integrated PositionSelector component for visual position selection
+
+Route & Navigation:
+- Added route at /app/widgets
+- Added "Widgets" link to NavMenu (advanced features)
+- Lazy-loaded for optimal performance
+
+API Integration:
+- Uses existing /api/widgets endpoints
+- GET /api/widgets - list all widgets
+- PUT /api/widgets/{type} - update widget config
+- POST /api/widgets/{type}/enable - enable widget
+- POST /api/widgets/{type}/disable - disable widget
+- POST /api/widgets/{type}/reset - reset to defaults
+
+Acceptance Criteria Met:
+[x] EmbeddedWidgets.tsx page component
+[x] List of all widget types with toggle
+[x] Click to configure each widget
+[x] Position and color settings per widget
+[x] Save and preview functionality
+[x] Route added to admin navigation
+
+Files Created/Modified:
+- frontend/src/embedded/pages/EmbeddedWidgets.tsx (NEW - 753 lines)
+- frontend/src/embedded/EmbeddedApp.tsx (UPDATED - added route and nav link)
+
+WB-006 - Create live preview component
+--------------------------------------
+Date: 2026-01-22
+Status: COMPLETE
+
+Implementation Summary:
+- Created WidgetPreview.tsx component at frontend/src/embedded/components/WidgetPreview.tsx
+- Comprehensive live preview component for real-time widget visualization
+
+Key Features:
+1. Real-time preview updates:
+   - Widget appearance updates instantly as settings change
+   - Reflects all configuration options (colors, position, size, etc.)
+   - Uses React useMemo for performance optimization
+
+2. Mobile/desktop toggle:
+   - ButtonGroup with segmented desktop/mobile buttons
+   - Desktop view: 480px wide mockup with full browser chrome
+   - Mobile view: 220px wide with phone-style rounded corners and bezel
+   - Smooth CSS transitions between device modes
+
+3. Mock store page context:
+   - Browser chrome with URL bar showing store domain
+   - Mock store header with logo placeholder and navigation
+   - Mock product grid that adapts to device size
+   - Realistic store layout for accurate preview
+
+4. Widget components:
+   - WidgetLauncherPreview: Floating button with position support
+     * Supports all 7 positions (corners, center, left/right tabs)
+     * Respects size settings (small/medium/large)
+     * Shows points badge when enabled
+     * Respects hide_on_mobile display rule
+   - WidgetPanelPreview: Expandable rewards panel
+     * Shows points balance with current config
+     * Shows tier progress bar
+     * Shows available rewards list
+     * Shows powered_by footer
+     * Panel position adapts to widget position
+
+5. Additional controls:
+   - Toggle button to show/hide expanded panel
+   - Device info text showing current preview dimensions
+   - Warning when widget is hidden on mobile
+   - Disabled state overlay when widget is disabled
+
+Component API:
+- config: WidgetConfig - Current widget configuration
+- showDeviceToggle: boolean - Show mobile/desktop toggle (default: true)
+- defaultDevice: PreviewDevice - Initial device mode (default: 'desktop')
+- onDeviceChange: callback - Notified when device changes
+- showExpandedPanel: boolean - Start with panel open (default: false)
+- height: number - Custom preview height
+- showPageContext: boolean - Show mock store elements (default: true)
+- storeName: string - Store name for URL bar
+
+Integration:
+- Integrated into EmbeddedWidgetBuilder.tsx
+- Replaced basic inline preview with full WidgetPreview component
+- Added previewDevice state for device toggle persistence
+- Passes shop domain for realistic URL bar display
+
+Acceptance Criteria Met:
+[x] Preview panel showing widget
+[x] Updates in real-time as settings change
+[x] Shows widget in context (mock store page)
+[x] Mobile/desktop toggle for responsive preview
+[x] Accurate representation of final output
+
+Files Created/Modified:
+- frontend/src/embedded/components/WidgetPreview.tsx (NEW - 580 lines)
+- frontend/src/embedded/pages/EmbeddedWidgetBuilder.tsx (UPDATED - integrated WidgetPreview)

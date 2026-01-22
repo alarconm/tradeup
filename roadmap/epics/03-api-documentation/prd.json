@@ -14,7 +14,7 @@
         "Swagger UI available at /api/docs"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-002",
@@ -28,7 +28,7 @@
         "Request/response examples provided"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-003",
@@ -41,7 +41,7 @@
         "Eligibility rules schema documented"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-004",
@@ -54,7 +54,7 @@
         "Status transitions documented"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-005",
@@ -67,7 +67,7 @@
         "All credit endpoints documented"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-006",
@@ -80,7 +80,7 @@
         "Default values documented"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-007",
@@ -93,7 +93,7 @@
         "Error handling documented"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-008",
@@ -106,7 +106,7 @@
         "UI customized with TradeUp branding"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-009",
@@ -119,7 +119,7 @@
         "Frontend uses generated types"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AD-010",
@@ -132,7 +132,7 @@
         "Deprecation policy documented"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

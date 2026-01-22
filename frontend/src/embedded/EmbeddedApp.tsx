@@ -40,8 +40,10 @@ const EmbeddedBenchmarks = lazy(() => import('./pages/EmbeddedBenchmarks').then(
 const EmbeddedGamification = lazy(() => import('./pages/EmbeddedGamification').then(m => ({ default: m.EmbeddedGamification })));
 const EmbeddedPageBuilder = lazy(() => import('./pages/EmbeddedPageBuilder').then(m => ({ default: m.EmbeddedPageBuilder })));
 const EmbeddedWidgetBuilder = lazy(() => import('./pages/EmbeddedWidgetBuilder').then(m => ({ default: m.EmbeddedWidgetBuilder })));
+const EmbeddedWidgets = lazy(() => import('./pages/EmbeddedWidgets').then(m => ({ default: m.EmbeddedWidgets })));
 const EmbeddedStoreCreditEvents = lazy(() => import('./pages/EmbeddedStoreCreditEvents').then(m => ({ default: m.EmbeddedStoreCreditEvents })));
 const EmbeddedPendingDistributions = lazy(() => import('./pages/EmbeddedPendingDistributions').then(m => ({ default: m.EmbeddedPendingDistributions })));
+const EmbeddedReviewDashboard = lazy(() => import('./pages/EmbeddedReviewDashboard').then(m => ({ default: m.EmbeddedReviewDashboard })));
 
 // Components - SupportButton is small, can load sync
 import { SupportButton } from './components/SupportChatWidget';
@@ -102,6 +104,8 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         {showAdvanced && <Link to="/app/tiers">Membership Tiers</Link>}
         {showAdvanced && <Link to="/app/integrations">Integrations</Link>}
         {showAdvanced && <Link to="/app/gamification">Gamification</Link>}
+        {showAdvanced && <Link to="/app/page-builder">Page Builder</Link>}
+        {showAdvanced && <Link to="/app/widgets">Widgets</Link>}
         {showAdvanced && <Link to="/app/analytics">Analytics</Link>}
         <Link to="/app/settings">Settings</Link>
       </NavMenu>
@@ -131,10 +135,12 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
           <Route path="/gamification" element={<EmbeddedGamification shop={shop} />} />
           <Route path="/page-builder" element={<EmbeddedPageBuilder shop={shop} />} />
           <Route path="/widget-builder" element={<EmbeddedWidgetBuilder shop={shop} />} />
+          <Route path="/widgets" element={<EmbeddedWidgets shop={shop} />} />
           <Route path="/onboarding" element={<EmbeddedOnboarding shop={shop} />} />
           <Route path="/products/wizard" element={<EmbeddedProductWizard shop={shop} />} />
           <Route path="/theme-blocks" element={<EmbeddedThemeBlocks shop={shop} />} />
           <Route path="/pending-distributions" element={<EmbeddedPendingDistributions shop={shop} />} />
+          <Route path="/review-dashboard" element={<EmbeddedReviewDashboard shop={shop} />} />
         </Routes>
       </Suspense>
 

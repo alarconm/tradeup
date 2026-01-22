@@ -4,6 +4,7 @@ Klaviyo Integration API endpoints for TradeUp.
 Provides connection management, sync operations, and
 configuration for Klaviyo email marketing integration.
 """
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.orm.attributes import flag_modified
@@ -98,7 +99,7 @@ def connect():
                 'credit_issued',
                 'points_earned'
             ]),
-            'connected_at': __import__('datetime').datetime.utcnow().isoformat()
+            'connected_at': datetime.utcnow().isoformat()
         }
 
         flag_modified(tenant, 'settings')

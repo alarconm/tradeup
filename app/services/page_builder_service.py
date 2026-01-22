@@ -101,50 +101,222 @@ DEFAULT_SECTIONS = [
     },
 ]
 
-# Pre-built templates
+# Default styles configuration
+DEFAULT_STYLES = {
+    'fontFamily': 'system-ui',
+    'headingFontFamily': '',
+    'buttonStyle': 'rounded',
+    'buttonSize': 'medium',
+    'sectionSpacing': 'normal',
+    'borderRadius': 'medium',
+}
+
+# Pre-built templates - stored as JSON configs
+# Each template includes all section types with appropriate enabled states
 TEMPLATES = {
-    'minimal': {
-        'name': 'Minimal',
-        'description': 'Clean, simple design focused on essentials',
-        'sections': ['hero', 'how_it_works', 'tiers'],
+    'classic': {
+        'name': 'Classic',
+        'description': 'Traditional loyalty page layout with all essential sections',
+        'preview_image': '/static/templates/classic-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'system-ui',
+            'headingFontFamily': '',
+            'buttonStyle': 'rounded',
+            'buttonSize': 'medium',
+            'sectionSpacing': 'normal',
+            'borderRadius': 'medium',
+        },
+        'section_settings': {
+            'hero': {
+                'title': 'Welcome to Our Rewards Program',
+                'subtitle': 'Join thousands of loyal customers earning points on every purchase',
+                'cta_text': 'Join Now - It\'s Free!',
+                'cta_link': '/account/register',
+                'background_type': 'solid',
+                'background_color': '#1a365d',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'How Our Program Works',
+                'steps': [
+                    {'icon': 'user-plus', 'title': 'Sign Up', 'description': 'Create your free rewards account in seconds'},
+                    {'icon': 'shopping-bag', 'title': 'Shop & Earn', 'description': 'Earn 1 point for every dollar you spend'},
+                    {'icon': 'arrow-up-circle', 'title': 'Level Up', 'description': 'Unlock higher tiers for more benefits'},
+                    {'icon': 'gift', 'title': 'Redeem Rewards', 'description': 'Use your points for discounts and perks'},
+                ]
+            },
+            'tiers': {
+                'title': 'Membership Tiers',
+                'show_benefits': True,
+                'show_prices': True,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Rewards Catalog',
+                'show_points_cost': True,
+                'max_items': 6,
+            },
+            'earning_rules': {
+                'title': 'Ways to Earn Points',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Frequently Asked Questions',
+                'items': [
+                    {'question': 'How do I join the rewards program?', 'answer': 'Simply create an account during checkout or visit our rewards page to sign up. It\'s completely free!'},
+                    {'question': 'How do I earn points?', 'answer': 'Earn points on every purchase. The more you spend, the more points you earn. Higher tier members earn bonus points!'},
+                    {'question': 'How do I redeem my points?', 'answer': 'Use your points at checkout for instant discounts, or browse our rewards catalog for exclusive perks.'},
+                    {'question': 'Do my points expire?', 'answer': 'Points remain active as long as you make at least one purchase every 12 months.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Refer Friends & Earn Bonus Points',
+                'description': 'Share your unique referral link. You and your friend both earn 500 bonus points when they make their first purchase!',
+                'show_code_input': True,
+            },
+        },
         'colors': {
-            'primary': '#000000',
-            'secondary': '#666666',
+            'primary': '#1a365d',
+            'secondary': '#2d4a6f',
             'accent': '#e85d27',
             'background': '#ffffff',
         }
     },
-    'bold': {
-        'name': 'Bold',
-        'description': 'Vibrant colors and large typography',
-        'sections': ['hero', 'how_it_works', 'rewards', 'earning_rules', 'referrals'],
+    'modern': {
+        'name': 'Modern',
+        'description': 'Clean, minimal design with contemporary aesthetics',
+        'preview_image': '/static/templates/modern-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'Inter',
+            'headingFontFamily': 'Inter',
+            'buttonStyle': 'pill',
+            'buttonSize': 'medium',
+            'sectionSpacing': 'relaxed',
+            'borderRadius': 'large',
+        },
+        'section_settings': {
+            'hero': {
+                'title': 'Earn While You Shop',
+                'subtitle': 'Simple. Rewarding. Worth it.',
+                'cta_text': 'Get Started',
+                'cta_link': '/account/register',
+                'background_type': 'gradient',
+                'background_color': '#000000',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'Three Simple Steps',
+                'steps': [
+                    {'icon': 'check-circle', 'title': 'Join', 'description': 'Free to sign up'},
+                    {'icon': 'coins', 'title': 'Earn', 'description': 'Points on every order'},
+                    {'icon': 'sparkles', 'title': 'Enjoy', 'description': 'Exclusive rewards'},
+                ]
+            },
+            'tiers': {
+                'title': 'Member Levels',
+                'show_benefits': True,
+                'show_prices': False,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Your Rewards',
+                'show_points_cost': True,
+                'max_items': 4,
+            },
+            'earning_rules': {
+                'title': 'Earn More',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Questions?',
+                'items': [
+                    {'question': 'Is it free to join?', 'answer': 'Yes, always free. No hidden fees.'},
+                    {'question': 'How fast do I earn?', 'answer': 'Instantly. Points added after each purchase.'},
+                    {'question': 'Can I combine with other offers?', 'answer': 'Yes! Rewards work with most promotions.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Share the Love',
+                'description': 'Invite friends. Both of you earn rewards.',
+                'show_code_input': True,
+            },
+        },
         'colors': {
-            'primary': '#e85d27',
-            'secondary': '#ff7a50',
-            'accent': '#ffd700',
-            'background': '#1a1a2e',
+            'primary': '#000000',
+            'secondary': '#4a4a4a',
+            'accent': '#0066ff',
+            'background': '#fafafa',
         }
     },
-    'elegant': {
-        'name': 'Elegant',
-        'description': 'Sophisticated design with premium feel',
-        'sections': ['hero', 'tiers', 'rewards', 'faq'],
-        'colors': {
-            'primary': '#2c3e50',
-            'secondary': '#34495e',
-            'accent': '#d4af37',
-            'background': '#f8f9fa',
-        }
-    },
-    'playful': {
-        'name': 'Playful',
-        'description': 'Fun, colorful design for collectibles',
-        'sections': ['hero', 'how_it_works', 'rewards', 'earning_rules', 'referrals', 'faq'],
+    'gamified': {
+        'name': 'Gamified',
+        'description': 'Badges and achievements focused with engaging visuals',
+        'preview_image': '/static/templates/gamified-preview.png',
+        'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'Poppins',
+            'headingFontFamily': 'Montserrat',
+            'buttonStyle': 'rounded',
+            'buttonSize': 'large',
+            'sectionSpacing': 'normal',
+            'borderRadius': 'medium',
+        },
+        'section_settings': {
+            'hero': {
+                'title': 'Level Up Your Shopping!',
+                'subtitle': 'Earn XP, unlock achievements, and claim epic rewards',
+                'cta_text': 'Start Your Adventure',
+                'cta_link': '/account/register',
+                'background_type': 'gradient',
+                'background_color': '#6366f1',
+                'text_color': '#ffffff',
+            },
+            'how_it_works': {
+                'title': 'Your Quest Begins',
+                'steps': [
+                    {'icon': 'trophy', 'title': 'Create Profile', 'description': 'Set up your player account'},
+                    {'icon': 'zap', 'title': 'Earn XP', 'description': 'Gain experience with every purchase'},
+                    {'icon': 'award', 'title': 'Unlock Badges', 'description': 'Complete challenges for achievements'},
+                    {'icon': 'star', 'title': 'Claim Rewards', 'description': 'Redeem your points for loot'},
+                ]
+            },
+            'tiers': {
+                'title': 'Player Ranks',
+                'show_benefits': True,
+                'show_prices': True,
+                'highlight_tier': None,
+            },
+            'rewards': {
+                'title': 'Reward Shop',
+                'show_points_cost': True,
+                'max_items': 8,
+            },
+            'earning_rules': {
+                'title': 'XP Multipliers',
+                'show_points_values': True,
+            },
+            'faq': {
+                'title': 'Player Guide',
+                'items': [
+                    {'question': 'How do I level up?', 'answer': 'Earn XP through purchases and completing challenges. Each level unlocks new rewards and benefits!'},
+                    {'question': 'What are achievements?', 'answer': 'Special badges you unlock by reaching milestones. Collect them all for bonus rewards!'},
+                    {'question': 'Do I keep my progress?', 'answer': 'Your XP and achievements are saved forever. Keep climbing the leaderboard!'},
+                    {'question': 'Are there limited-time events?', 'answer': 'Yes! Watch for special events with double XP and exclusive rewards.'},
+                ]
+            },
+            'referrals': {
+                'title': 'Recruit Your Squad',
+                'description': 'Invite friends and both earn a 1000 XP bonus when they join the adventure!',
+                'show_code_input': True,
+            },
+        },
         'colors': {
             'primary': '#6366f1',
-            'secondary': '#a855f7',
-            'accent': '#22d3ee',
-            'background': '#faf5ff',
+            'secondary': '#8b5cf6',
+            'accent': '#fbbf24',
+            'background': '#0f0f23',
         }
     },
 }
@@ -165,9 +337,10 @@ class PageBuilderService:
             # Return default config
             return {
                 'enabled': True,
-                'template': 'minimal',
+                'template': 'classic',
                 'sections': DEFAULT_SECTIONS.copy(),
-                'colors': TEMPLATES['minimal']['colors'].copy(),
+                'colors': TEMPLATES['classic']['colors'].copy(),
+                'styles': DEFAULT_STYLES.copy(),
                 'custom_css': '',
                 'meta': {
                     'title': 'Rewards Program',
@@ -175,6 +348,10 @@ class PageBuilderService:
                 },
                 'last_updated': None,
             }
+
+        # Ensure styles exist in config (for backward compatibility)
+        if 'styles' not in page_config:
+            page_config['styles'] = DEFAULT_STYLES.copy()
 
         return page_config
 
@@ -202,23 +379,46 @@ class PageBuilderService:
         return current_config
 
     def apply_template(self, template_name: str) -> Dict[str, Any]:
-        """Apply a pre-built template."""
+        """Apply a pre-built template with one-click functionality.
+
+        Applies template colors, section configurations, and custom section
+        settings to create a complete starting point for the loyalty page.
+        """
         if template_name not in TEMPLATES:
             raise ValueError(f"Unknown template: {template_name}")
 
         template = TEMPLATES[template_name]
+        template_section_settings = template.get('section_settings', {})
 
         # Create section config based on template
         sections = []
+        order = 0
         for section in DEFAULT_SECTIONS:
-            section_copy = section.copy()
-            section_copy['enabled'] = section['id'] in template['sections']
+            section_copy = {
+                'id': section['id'],
+                'type': section['type'],
+                'enabled': section['id'] in template['sections'],
+                'order': order if section['id'] in template['sections'] else 999,
+                'settings': section['settings'].copy(),
+            }
+
+            # Apply template-specific section settings if available
+            if section['id'] in template_section_settings:
+                section_copy['settings'] = template_section_settings[section['id']].copy()
+
+            if section['id'] in template['sections']:
+                order += 1
+
             sections.append(section_copy)
+
+        # Sort sections by order
+        sections.sort(key=lambda s: s['order'])
 
         config = {
             'template': template_name,
             'sections': sections,
             'colors': template['colors'].copy(),
+            'styles': template.get('styles', DEFAULT_STYLES).copy(),
         }
 
         return self.update_page_config(config)
@@ -262,13 +462,16 @@ class PageBuilderService:
         return self.update_page_config(config)
 
     def get_available_templates(self) -> List[Dict[str, Any]]:
-        """Get list of available templates."""
+        """Get list of available templates with preview info."""
         return [
             {
                 'id': key,
                 'name': val['name'],
                 'description': val['description'],
                 'colors': val['colors'],
+                'styles': val.get('styles', DEFAULT_STYLES),
+                'preview_image': val.get('preview_image'),
+                'sections': val['sections'],
             }
             for key, val in TEMPLATES.items()
         ]
@@ -287,8 +490,73 @@ class PageBuilderService:
         active_sections = [s for s in config.get('sections', []) if s.get('enabled', False)]
         active_sections.sort(key=lambda s: s.get('order', 999))
 
-        colors = config.get('colors', TEMPLATES['minimal']['colors'])
+        colors = config.get('colors', TEMPLATES['classic']['colors'])
+        styles = config.get('styles', DEFAULT_STYLES)
         meta = config.get('meta', {})
+
+        # Compute style values
+        font_family = styles.get('fontFamily', 'system-ui')
+        heading_font = styles.get('headingFontFamily') or font_family
+        button_style = styles.get('buttonStyle', 'rounded')
+        button_size = styles.get('buttonSize', 'medium')
+        section_spacing = styles.get('sectionSpacing', 'normal')
+        border_radius = styles.get('borderRadius', 'medium')
+
+        # Map style values to CSS
+        font_map = {
+            'system-ui': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'Inter': '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Roboto': '"Roboto", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Open Sans': '"Open Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Lato': '"Lato", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Poppins': '"Poppins", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Montserrat': '"Montserrat", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Source Sans Pro': '"Source Sans Pro", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Nunito': '"Nunito", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Playfair Display': '"Playfair Display", Georgia, serif',
+            'Oswald': '"Oswald", -apple-system, BlinkMacSystemFont, sans-serif',
+        }
+
+        button_radius_map = {
+            'square': '0px',
+            'rounded': '8px',
+            'pill': '999px',
+        }
+
+        button_padding_map = {
+            'small': '8px 16px',
+            'medium': '12px 24px',
+            'large': '16px 32px',
+        }
+
+        section_padding_map = {
+            'compact': '40px 20px',
+            'normal': '60px 20px',
+            'relaxed': '80px 20px',
+        }
+
+        border_radius_map = {
+            'none': '0px',
+            'small': '4px',
+            'medium': '8px',
+            'large': '16px',
+        }
+
+        body_font_css = font_map.get(font_family, font_map['system-ui'])
+        heading_font_css = font_map.get(heading_font, body_font_css)
+        btn_radius = button_radius_map.get(button_style, '8px')
+        btn_padding = button_padding_map.get(button_size, '12px 24px')
+        section_padding = section_padding_map.get(section_spacing, '60px 20px')
+        card_radius = border_radius_map.get(border_radius, '8px')
+
+        # Google Fonts imports for custom fonts
+        google_fonts = []
+        for font in [font_family, heading_font]:
+            if font and font != 'system-ui' and font in font_map:
+                google_fonts.append(font.replace(' ', '+'))
+        google_fonts_link = ''
+        if google_fonts:
+            google_fonts_link = f'<link href="https://fonts.googleapis.com/css2?family={":wght@400;500;600;700&family=".join(set(google_fonts))}:wght@400;500;600;700&display=swap" rel="stylesheet">'
 
         # Build HTML (simplified version - in production, use templates)
         html_parts = [
@@ -298,6 +566,7 @@ class PageBuilderService:
             f'<title>{meta.get("title", "Rewards")}</title>',
             f'<meta name="description" content="{meta.get("description", "")}">',
             '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            google_fonts_link,
             '<link rel="stylesheet" href="https://unpkg.com/@shopify/polaris@latest/build/esm/styles.css">',
             f'<style>',
             f':root {{',
@@ -305,14 +574,23 @@ class PageBuilderService:
             f'  --color-secondary: {colors.get("secondary", "#666")};',
             f'  --color-accent: {colors.get("accent", "#ffd700")};',
             f'  --color-background: {colors.get("background", "#fff")};',
+            f'  --font-body: {body_font_css};',
+            f'  --font-heading: {heading_font_css};',
+            f'  --button-radius: {btn_radius};',
+            f'  --button-padding: {btn_padding};',
+            f'  --section-padding: {section_padding};',
+            f'  --card-radius: {card_radius};',
             f'}}',
-            'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: var(--color-background); }',
-            '.hero { padding: 80px 20px; text-align: center; background: var(--color-primary); color: white; }',
-            '.section { padding: 60px 20px; max-width: 1200px; margin: 0 auto; }',
-            '.section-title { font-size: 2rem; margin-bottom: 30px; text-align: center; }',
+            f'body {{ font-family: var(--font-body); margin: 0; padding: 0; background: var(--color-background); }}',
+            f'h1, h2, h3, h4, h5, h6 {{ font-family: var(--font-heading); }}',
+            f'.hero {{ padding: var(--section-padding); text-align: center; background: var(--color-primary); color: white; }}',
+            f'.section {{ padding: var(--section-padding); max-width: 1200px; margin: 0 auto; }}',
+            f'.section-title {{ font-size: 2rem; margin-bottom: 30px; text-align: center; font-family: var(--font-heading); }}',
             '.steps { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }',
-            '.step { text-align: center; max-width: 200px; }',
-            '.cta-button { display: inline-block; padding: 15px 30px; background: white; color: var(--color-primary); text-decoration: none; border-radius: 4px; font-weight: bold; }',
+            f'.step {{ text-align: center; max-width: 200px; background: #f9f9f9; padding: 24px; border-radius: var(--card-radius); }}',
+            f'.cta-button {{ display: inline-block; padding: var(--button-padding); background: white; color: var(--color-primary); text-decoration: none; border-radius: var(--button-radius); font-weight: bold; font-family: var(--font-body); }}',
+            f'.cta-button:hover {{ opacity: 0.9; }}',
+            f'.faq-item {{ background: #f9f9f9; padding: 20px; margin-bottom: 12px; border-radius: var(--card-radius); }}',
             config.get('custom_css', ''),
             '</style>',
             '</head>',
@@ -363,7 +641,7 @@ class PageBuilderService:
             elif section_type == 'faq':
                 faq_html = ''
                 for item in settings.get('items', []):
-                    faq_html += f'<div style="margin-bottom: 20px;"><strong>{item.get("question", "")}</strong><p>{item.get("answer", "")}</p></div>'
+                    faq_html += f'<div class="faq-item"><strong>{item.get("question", "")}</strong><p>{item.get("answer", "")}</p></div>'
                 html_parts.append(f'''
                 <div class="section">
                     <h2 class="section-title">{settings.get("title", "FAQ")}</h2>

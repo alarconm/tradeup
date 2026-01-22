@@ -52,7 +52,44 @@ class ProductionConfig(BaseConfig):
     }
 
     # Override SECRET_KEY for production - must be set via environment
-    SECRET_KEY = os.getenv('SECRET_KEY') or 'MISSING-SECRET-KEY-SET-IN-ENV'
+    _secret_key = os.getenv('SECRET_KEY', '')
+
+    @classmethod
+    def validate_secret_key(cls) -> str:
+        """
+        Validate SECRET_KEY in production environment.
+
+        Raises:
+            RuntimeError: If SECRET_KEY is missing, empty, or contains unsafe values
+        """
+        if not cls._secret_key:
+            raise RuntimeError(
+                "CRITICAL: SECRET_KEY environment variable is not set!\n"
+                "Production deployments MUST have a secure SECRET_KEY.\n"
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+
+        # Check for obvious insecure values
+        insecure_patterns = ['dev', 'change', 'default', 'test', 'secret', 'password']
+        lower_key = cls._secret_key.lower()
+        for pattern in insecure_patterns:
+            if pattern in lower_key:
+                raise RuntimeError(
+                    f"CRITICAL: SECRET_KEY contains '{pattern}' which suggests it's not secure!\n"
+                    "Production deployments require a unique, random SECRET_KEY.\n"
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+
+        # Minimum length check
+        if len(cls._secret_key) < 32:
+            raise RuntimeError(
+                "CRITICAL: SECRET_KEY is too short (minimum 32 characters required)!\n"
+                "Generate a secure key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+
+        return cls._secret_key
+
+    SECRET_KEY = _secret_key  # Will be validated at app startup
 
 
 class TestingConfig(BaseConfig):
@@ -71,3 +108,20 @@ config_map = {
 def get_config(config_name: str = 'development'):
     """Get configuration class by name."""
     return config_map.get(config_name, DevelopmentConfig)
+
+
+def validate_config(config_name: str = 'development') -> None:
+    """
+    Validate configuration before app startup.
+
+    In production, this ensures SECRET_KEY is properly configured.
+    Called from create_app() after loading config.
+
+    Args:
+        config_name: The configuration environment name
+
+    Raises:
+        RuntimeError: If validation fails in production
+    """
+    if config_name == 'production':
+        ProductionConfig.validate_secret_key()

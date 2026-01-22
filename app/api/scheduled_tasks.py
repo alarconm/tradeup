@@ -373,6 +373,145 @@ def process_expiration_batch():
     })
 
 
+# ==================== NUDGES PROCESSING ====================
+
+@scheduled_tasks_bp.route('/nudges/preview', methods=['GET'])
+@require_shopify_auth
+def preview_nudges():
+    """
+    Preview all pending nudges for the tenant.
+
+    Shows members eligible for:
+    - Points expiring reminders
+    - Tier progress reminders
+    - Inactive re-engagement
+    - Trade-in reminders
+    """
+    tenant_id = g.tenant_id
+    settings = g.tenant.settings or {}
+
+    from ..services.nudges_service import NudgesService
+
+    nudge_service = NudgesService(tenant_id, settings)
+    nudges = nudge_service.get_all_pending_nudges()
+
+    return jsonify(nudges)
+
+
+@scheduled_tasks_bp.route('/nudges/run', methods=['POST'])
+@require_shopify_auth
+def run_nudges():
+    """
+    Manually trigger nudges processing for this tenant.
+
+    Processes all enabled nudge types:
+    - Points expiring reminders
+    - Tier progress reminders
+    - Inactive member re-engagement
+    - Trade-in reminders
+
+    Query params:
+        max_emails: int - Maximum total emails to send (default: 100)
+    """
+    tenant_id = g.tenant_id
+    settings = g.tenant.settings or {}
+    max_emails = request.args.get('max_emails', 100, type=int)
+
+    from ..services.nudges_service import NudgesService
+
+    nudge_service = NudgesService(tenant_id, settings)
+
+    # Check if nudges are enabled
+    nudge_settings = nudge_service.get_nudge_settings()
+    if not nudge_settings.get('enabled', True):
+        return jsonify({
+            'success': False,
+            'error': 'Nudges are disabled for this tenant',
+        }), 400
+
+    results = {
+        'success': True,
+        'total_sent': 0,
+        'points_expiring': None,
+        'tier_progress': None,
+        'inactive_reengagement': None,
+        'trade_in_reminder': None,
+    }
+
+    emails_sent = 0
+    max_per_type = min(50, max_emails // 4)  # Split across 4 types
+
+    # 1. Points expiring
+    if nudge_service.is_nudge_enabled('points_expiring') and emails_sent < max_emails:
+        result = nudge_service.process_points_expiring_reminders()
+        results['points_expiring'] = result
+        if result.get('success'):
+            emails_sent += result.get('reminders_sent', 0)
+
+    # 2. Tier progress
+    if nudge_service.is_nudge_enabled('tier_progress') and emails_sent < max_emails:
+        result = nudge_service.process_tier_progress_reminders()
+        results['tier_progress'] = result
+        if result.get('success'):
+            emails_sent += result.get('reminders_sent', 0)
+
+    # 3. Inactive re-engagement
+    if nudge_service.is_nudge_enabled('inactive_reminder') and emails_sent < max_emails:
+        remaining = max_emails - emails_sent
+        result = nudge_service.process_reengagement_emails(max_emails=remaining)
+        results['inactive_reengagement'] = result
+        if result.get('success'):
+            emails_sent += result.get('emails_sent', 0)
+
+    # 4. Trade-in reminders
+    if nudge_service.is_nudge_enabled('trade_in_reminder') and emails_sent < max_emails:
+        remaining = max_emails - emails_sent
+        result = nudge_service.process_trade_in_reminders(max_emails=remaining)
+        results['trade_in_reminder'] = result
+        if result.get('success'):
+            emails_sent += result.get('reminders_sent', 0)
+
+    results['total_sent'] = emails_sent
+    results['message'] = f'Processed nudges: {emails_sent} emails sent'
+
+    return jsonify(results)
+
+
+@scheduled_tasks_bp.route('/nudges/stats', methods=['GET'])
+@require_shopify_auth
+def get_nudges_stats():
+    """
+    Get nudge statistics and effectiveness metrics.
+
+    Query params:
+        days: int - Days to analyze (default: 30)
+    """
+    tenant_id = g.tenant_id
+    settings = g.tenant.settings or {}
+    days = request.args.get('days', 30, type=int)
+
+    from ..services.nudges_service import NudgesService
+    from ..models.nudge_sent import NudgeSent
+
+    nudge_service = NudgesService(tenant_id, settings)
+
+    # Get stats from NudgeSent model
+    overall_stats = NudgeSent.get_stats_for_tenant(tenant_id, days=days)
+
+    # Get effectiveness stats for each type
+    effectiveness = {
+        'reengagement': nudge_service.get_reengagement_stats(days=days),
+        'trade_in_reminder': nudge_service.get_trade_in_reminder_stats(days=days),
+    }
+
+    return jsonify({
+        'success': True,
+        'period_days': days,
+        'overall': overall_stats,
+        'effectiveness': effectiveness,
+    })
+
+
 # ==================== SCHEDULER STATUS ====================
 
 @scheduled_tasks_bp.route('/scheduler/status', methods=['GET'])

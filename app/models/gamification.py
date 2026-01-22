@@ -200,3 +200,180 @@ class MemberMilestone(db.Model):
             'milestone_id': self.milestone_id,
             'achieved_at': self.achieved_at.isoformat() if self.achieved_at else None,
         }
+
+
+class MemberActivity(db.Model):
+    """
+    General activity log for member events.
+
+    Tracks various member activities including:
+    - Anniversary rewards
+    - Birthday rewards
+    - Badge achievements
+    - Milestone completions
+    - Tier changes
+    - Special promotions
+    """
+
+    __tablename__ = 'member_activities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False, index=True)
+
+    # Activity type and details
+    activity_type = db.Column(db.String(50), nullable=False, index=True)
+    # Types: anniversary_reward, birthday_reward, badge_earned, milestone_achieved,
+    #        tier_changed, points_earned, credit_issued, referral_completed
+
+    # Activity-specific data
+    activity_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    description = db.Column(db.String(500))
+
+    # For anniversary rewards specifically
+    anniversary_year = db.Column(db.Integer)  # 1, 2, 3, etc.
+
+    # Reward details (applicable to reward activities)
+    reward_type = db.Column(db.String(30))  # points, credit, discount_code
+    reward_amount = db.Column(db.Numeric(10, 2))  # Amount of points/credit/discount
+    reward_reference = db.Column(db.String(100))  # Reference ID for the reward (ledger entry, transaction, etc.)
+
+    # Related entities
+    related_badge_id = db.Column(db.Integer, db.ForeignKey('badges.id'))
+    related_milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'))
+    related_tier_id = db.Column(db.Integer, db.ForeignKey('membership_tiers.id'))
+
+    # Extra data
+    activity_data = db.Column(db.JSON, default=dict)  # Additional activity-specific data
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tenant = db.relationship('Tenant', backref=db.backref('member_activities', lazy='dynamic'))
+    member = db.relationship('Member', backref=db.backref('activities', lazy='dynamic'))
+    badge = db.relationship('Badge', backref='activity_logs')
+    milestone = db.relationship('Milestone', backref='activity_logs')
+
+    # Indexes for common queries
+    __table_args__ = (
+        db.Index('ix_member_activity_type', 'member_id', 'activity_type'),
+        db.Index('ix_member_activity_date', 'member_id', 'activity_date'),
+        db.Index('ix_tenant_activity_type', 'tenant_id', 'activity_type'),
+    )
+
+    def __repr__(self):
+        return f'<MemberActivity {self.id}: {self.activity_type} for member {self.member_id}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'member_id': self.member_id,
+            'activity_type': self.activity_type,
+            'activity_date': self.activity_date.isoformat() if self.activity_date else None,
+            'description': self.description,
+            'anniversary_year': self.anniversary_year,
+            'reward_type': self.reward_type,
+            'reward_amount': float(self.reward_amount) if self.reward_amount else None,
+            'reward_reference': self.reward_reference,
+            'related_badge_id': self.related_badge_id,
+            'related_milestone_id': self.related_milestone_id,
+            'related_tier_id': self.related_tier_id,
+            'activity_data': self.activity_data,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    @classmethod
+    def log_anniversary_reward(
+        cls,
+        tenant_id: int,
+        member_id: int,
+        anniversary_year: int,
+        reward_type: str,
+        reward_amount: float,
+        reward_reference: str = None,
+        description: str = None,
+        badge_id: int = None
+    ):
+        """
+        Log an anniversary reward activity.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            anniversary_year: Which anniversary year (1, 2, 3, etc.)
+            reward_type: Type of reward (points, credit, discount_code)
+            reward_amount: Amount of the reward
+            reward_reference: Reference ID for the reward transaction
+            description: Optional description override
+            badge_id: Optional badge ID if a badge was also awarded
+
+        Returns:
+            MemberActivity: The created activity record
+        """
+        from decimal import Decimal
+
+        if not description:
+            ordinal = cls._ordinal(anniversary_year)
+            description = f"{ordinal} Anniversary Reward: {reward_type} ({reward_amount})"
+
+        activity = cls(
+            tenant_id=tenant_id,
+            member_id=member_id,
+            activity_type='anniversary_reward',
+            description=description,
+            anniversary_year=anniversary_year,
+            reward_type=reward_type,
+            reward_amount=Decimal(str(reward_amount)),
+            reward_reference=reward_reference,
+            related_badge_id=badge_id,
+            activity_data={
+                'anniversary_year': anniversary_year,
+                'reward_type': reward_type,
+                'reward_amount': reward_amount,
+            }
+        )
+        db.session.add(activity)
+        return activity
+
+    @classmethod
+    def get_member_anniversary_history(cls, member_id: int, limit: int = 50):
+        """
+        Get anniversary reward history for a member.
+
+        Args:
+            member_id: Member ID
+            limit: Maximum number of records to return
+
+        Returns:
+            List of MemberActivity records for anniversary rewards
+        """
+        return cls.query.filter(
+            cls.member_id == member_id,
+            cls.activity_type == 'anniversary_reward'
+        ).order_by(cls.activity_date.desc()).limit(limit).all()
+
+    @classmethod
+    def get_member_activity_history(cls, member_id: int, activity_type: str = None, limit: int = 100):
+        """
+        Get activity history for a member.
+
+        Args:
+            member_id: Member ID
+            activity_type: Optional filter by activity type
+            limit: Maximum number of records to return
+
+        Returns:
+            List of MemberActivity records
+        """
+        query = cls.query.filter(cls.member_id == member_id)
+        if activity_type:
+            query = query.filter(cls.activity_type == activity_type)
+        return query.order_by(cls.activity_date.desc()).limit(limit).all()
+
+    @staticmethod
+    def _ordinal(n: int) -> str:
+        """Convert number to ordinal (1st, 2nd, 3rd, etc.)."""
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
