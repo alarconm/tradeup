@@ -243,8 +243,8 @@ class MemberActivity(db.Model):
     related_milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'))
     related_tier_id = db.Column(db.Integer, db.ForeignKey('membership_tiers.id'))
 
-    # Metadata
-    metadata = db.Column(db.JSON, default=dict)  # Additional activity-specific data
+    # Extra data
+    activity_data = db.Column(db.JSON, default=dict)  # Additional activity-specific data
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -277,7 +277,7 @@ class MemberActivity(db.Model):
             'related_badge_id': self.related_badge_id,
             'related_milestone_id': self.related_milestone_id,
             'related_tier_id': self.related_tier_id,
-            'metadata': self.metadata,
+            'activity_data': self.activity_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -325,7 +325,7 @@ class MemberActivity(db.Model):
             reward_amount=Decimal(str(reward_amount)),
             reward_reference=reward_reference,
             related_badge_id=badge_id,
-            metadata={
+            activity_data={
                 'anniversary_year': anniversary_year,
                 'reward_type': reward_type,
                 'reward_amount': reward_amount,
