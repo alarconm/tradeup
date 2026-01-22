@@ -15,7 +15,7 @@
         "Grouped by category (Database, Shopify, etc.)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-002",
@@ -29,7 +29,7 @@
         "Environment variables loaded from .env"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-003",
@@ -42,7 +42,7 @@
         "App waits for DB to be ready"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-004",
@@ -55,7 +55,7 @@
         "Optional (app works without Redis)"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-005",
@@ -69,7 +69,7 @@
         "PR process documented"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-006",
@@ -84,7 +84,7 @@
         "Hooks run on commit"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-007",
@@ -98,7 +98,7 @@
         "Description section provided"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-008",
@@ -111,7 +111,7 @@
         "Feature template includes acceptance criteria"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-009",
@@ -124,7 +124,7 @@
         "Test mode setup instructions"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "DX-010",
@@ -139,7 +139,7 @@
         "GitLens recommended"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

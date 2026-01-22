@@ -15,7 +15,7 @@
         "HTML coverage report generated in htmlcov/"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-002",
@@ -30,7 +30,7 @@
         "All member API tests pass"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-003",
@@ -44,7 +44,7 @@
         "Tests cover tier benefits application"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-004",
@@ -59,7 +59,7 @@
         "Tests cover credit issuance on approval"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-005",
@@ -73,7 +73,7 @@
         "Tests cover credit expiration"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-006",
@@ -89,7 +89,7 @@
         "All webhook tests use realistic mock payloads"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-007",
@@ -103,7 +103,7 @@
         "Tests cover points to credit conversion"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-008",
@@ -118,7 +118,7 @@
         "Tests cover usage warning thresholds"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-009",
@@ -132,7 +132,7 @@
         "All frontend tests pass with npm test"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-010",
@@ -146,7 +146,7 @@
         "E2E tests run in CI"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

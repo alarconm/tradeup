@@ -14,7 +14,7 @@
         "All log fields standardized (timestamp, level, message, extra)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-002",
@@ -27,7 +27,7 @@
         "Request ID included in all log messages"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-003",
@@ -41,7 +41,7 @@
         "Response time of health check <500ms"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-004",
@@ -55,7 +55,7 @@
         "Active request gauge"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-005",
@@ -68,7 +68,7 @@
         "Metrics update on relevant operations"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-006",
@@ -81,7 +81,7 @@
         "Monitoring covers production URL"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-007",
@@ -94,7 +94,7 @@
         "Alert rules documented"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-008",
@@ -107,7 +107,7 @@
         "Runbook link in alert"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-009",
@@ -121,7 +121,7 @@
         "Dashboard accessible to team"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "MO-010",
@@ -134,7 +134,7 @@
         "Documentation for future OTEL setup"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

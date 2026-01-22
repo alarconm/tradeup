@@ -58,6 +58,9 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/.ralph-*
 
+# Ralph automation temp files
+.ralph-*
+
 # Flask
 instance/
 

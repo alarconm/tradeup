@@ -15,7 +15,7 @@
         "Rate limiting to control API costs"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-002",
@@ -29,7 +29,7 @@
         "Works for cards, comics, collectibles"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-003",
@@ -43,7 +43,7 @@
         "Support Pokemon, MTG, Yu-Gi-Oh"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-004",
@@ -57,7 +57,7 @@
         "Returns quickly (<2 seconds)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-005",
@@ -71,7 +71,7 @@
         "Manual override always available"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-006",
@@ -84,7 +84,7 @@
         "Improve over time with more data"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-007",
@@ -97,7 +97,7 @@
         "Configurable adjustment percentages"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-008",
@@ -111,7 +111,7 @@
         "Progress indicator for large batches"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-009",
@@ -124,7 +124,7 @@
         "Configurable in tenant settings"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AI-010",
@@ -138,7 +138,7 @@
         "Use for model improvement"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

@@ -14,7 +14,7 @@
         "Prevent duplicate prompts"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-002",
@@ -28,7 +28,7 @@
         "No errors in last 7 days"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-003",
@@ -42,7 +42,7 @@
         "get_prompt_history(tenant_id) method"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-004",
@@ -57,7 +57,7 @@
         "Dismiss doesn't show again for 60 days"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-005",
@@ -70,7 +70,7 @@
         "Endpoints respect eligibility rules"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-006",
@@ -84,7 +84,7 @@
         "Respect user's time zone for optimal timing"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-007",
@@ -98,7 +98,7 @@
         "Display metrics in admin/internal dashboard"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-008",
@@ -112,7 +112,7 @@
         "Track email open and click"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-009",
@@ -126,7 +126,7 @@
         "Follow-up reminder template"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "RC-010",
@@ -140,7 +140,7 @@
         "Review velocity chart (reviews per week)"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

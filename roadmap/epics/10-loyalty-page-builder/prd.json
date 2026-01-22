@@ -14,7 +14,7 @@
         "Support for draft and published versions"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-002",
@@ -28,7 +28,7 @@
         "GET /api/loyalty-page/preview - preview with latest config"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-003",
@@ -43,7 +43,7 @@
         "CTASection - call-to-action with signup form"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-004",
@@ -58,7 +58,7 @@
         "Undo/redo functionality"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-005",
@@ -72,7 +72,7 @@
         "Templates provide good starting point"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-006",
@@ -86,7 +86,7 @@
         "Styles preview in real-time"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-007",
@@ -99,7 +99,7 @@
         "Mobile-specific style overrides supported"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-008",
@@ -113,7 +113,7 @@
         "SEO meta tags configurable"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-009",
@@ -127,7 +127,7 @@
         "Fallback to default images"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "LP-010",
@@ -140,7 +140,7 @@
         "Integration with existing analytics"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

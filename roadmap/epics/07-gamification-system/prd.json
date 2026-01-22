@@ -15,7 +15,7 @@
         "Indexes on member_id and badge_id for efficient queries"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-002",
@@ -29,7 +29,7 @@
         "GET /api/members/{id}/badges - get member's earned badges"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-003",
@@ -43,7 +43,7 @@
         "Badge award triggers notification"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-004",
@@ -59,7 +59,7 @@
         "Seed data script to create default badges"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-005",
@@ -73,7 +73,7 @@
         "Streak displayed in member profile"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-006",
@@ -87,7 +87,7 @@
         "Route added to admin navigation"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-007",
@@ -101,7 +101,7 @@
         "Responsive grid layout"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-008",
@@ -115,7 +115,7 @@
         "Modal triggered when viewing page after earning badge"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-009",
@@ -129,7 +129,7 @@
         "Updates in real-time after transactions"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-010",
@@ -143,7 +143,7 @@
         "Email notification for major milestones"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

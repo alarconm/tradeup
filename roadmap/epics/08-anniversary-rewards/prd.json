@@ -14,7 +14,7 @@
         "Anniversary date calculation works correctly (same month/day each year)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-002",
@@ -28,7 +28,7 @@
         "Settings saved and retrieved correctly"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-003",
@@ -43,7 +43,7 @@
         "Settings save successfully"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-004",
@@ -58,7 +58,7 @@
         "Support all three reward types (points, credit, discount)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-005",
@@ -73,7 +73,7 @@
         "Job handles errors gracefully without stopping"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-006",
@@ -88,7 +88,7 @@
         "Template is mobile-responsive"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-007",
@@ -102,7 +102,7 @@
         "Integration with gamification system"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-008",
@@ -115,7 +115,7 @@
         "Queryable via API"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-009",
@@ -129,7 +129,7 @@
         "Respects member email preferences"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "AR-010",
@@ -143,7 +143,7 @@
         "UI to configure tiered rewards"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

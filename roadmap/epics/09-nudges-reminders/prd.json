@@ -14,7 +14,7 @@
         "Default nudge configs created on tenant setup"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-002",
@@ -28,7 +28,7 @@
         "Configurable days-before threshold"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-003",
@@ -42,7 +42,7 @@
         "Don't send if already at highest tier"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-004",
@@ -56,7 +56,7 @@
         "Track response rate"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-005",
@@ -70,7 +70,7 @@
         "Only for stores with trade-ins enabled"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-006",
@@ -84,7 +84,7 @@
         "Test send button (sends to store owner)"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-007",
@@ -99,7 +99,7 @@
         "Mobile-responsive design"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-008",
@@ -113,7 +113,7 @@
         "Job handles errors without failing completely"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-009",
@@ -127,7 +127,7 @@
         "Calculate ROI of nudge campaigns"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "NR-010",
@@ -141,7 +141,7 @@
         "Non-intrusive design"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }
