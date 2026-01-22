@@ -87,7 +87,7 @@
         "Route added to admin navigation"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "GS-007",
