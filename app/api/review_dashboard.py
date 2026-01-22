@@ -175,7 +175,7 @@ def _get_top_reviewers(tenant_id: int, cutoff: datetime = None, limit: int = 10)
             'name': m.name or m.email or f'Member #{m.member_number}',
             'member_number': m.member_number,
             'joined_at': m.created_at.isoformat() if m.created_at else None,
-            'total_trade_ins': len(m.trade_in_batches) if hasattr(m, 'trade_in_batches') else 0,
+            'total_trade_ins': m.total_trade_ins or 0,
         }
         for m in members
     ]
