@@ -3177,3 +3177,103 @@ npm run test:e2e:report # Show HTML report
 - [x] E2E tests run in CI (.github/workflows/e2e.yml)
 
 ---
+
+
+## TC-003 - Test Tier management logic
+**Date:** 2026-01-22
+**Status:** Complete
+
+### What Was Done
+Created comprehensive tests for TierService in `tests/test_tier_service.py` covering all acceptance criteria:
+
+#### Test Classes and Coverage
+1. **TestTierServiceInit** (2 tests)
+   - Service initialization with tenant_id
+   - Service initialization with custom shopify_client
+
+2. **TestTierAssignment** (4 tests)
+   - Assign tier to member
+   - Error handling for non-existent member
+   - Error handling for non-existent tier
+   - Audit log creation on tier assignment
+
+3. **TestTierRemoval** (2 tests)
+   - Remove tier from member
+   - Handle member with no tier
+
+4. **TestSourcePriority** (3 tests)
+   - Staff can override any source (highest priority)
+   - Lower priority cannot override higher priority
+   - Force flag overrides priority rules
+
+5. **TestTierEligibility** (3 tests)
+   - Check eligibility when no rules configured
+   - Check eligibility with spend threshold rule
+   - Check eligibility below threshold
+
+6. **TestAutoUpgrade** (2 tests)
+   - Auto-upgrade when member meets criteria
+   - No upgrade if member already has higher tier
+
+7. **TestAutoDowngrade** (1 test)
+   - Downgrade when member no longer meets requirements
+
+8. **TestTierExpiration** (2 tests)
+   - Process expired tier assignments
+   - Assign tier with expiration date
+
+9. **TestBulkOperations** (1 test)
+   - Bulk tier assignment to multiple members
+
+10. **TestTierHistory** (1 test)
+    - Get tier change history for member
+
+11. **TestPromotionalTiers** (3 tests)
+    - Apply valid promotion to member
+    - Reject expired promotion
+    - Handle max uses limit
+
+12. **TestSubscriptionTiers** (3 tests)
+    - Process subscription started
+    - Process subscription cancelled (immediate)
+    - Process subscription cancelled (non-immediate)
+
+13. **TestPurchaseTiers** (2 tests)
+    - Process tier purchase from order
+    - Process refund for tier purchase
+
+14. **TestDetermineChangeType** (3 tests)
+    - Determine upgrade change type
+    - Determine downgrade change type
+    - Determine change type for new assignment
+
+15. **TestEvaluateRule** (3 tests)
+    - Evaluate rule with >= operator
+    - Evaluate rule with < operator
+    - Evaluate rule with between operator
+
+16. **TestMemberStats** (1 test)
+    - Get member stats for eligibility checking
+
+17. **TestTierBenefits** (4 tests)
+    - Tier benefits JSON field storage/retrieval
+    - Tier to_dict includes benefits
+    - Tier cashback configuration
+    - Tier monthly credit configuration
+
+### Test Results
+- **Total Tests:** 40
+- **Passed:** 40
+- **Failed:** 0
+
+### Acceptance Criteria Verification
+- [x] Tests cover tier CRUD operations (TestTierAssignment, TestTierRemoval)
+- [x] Tests cover tier eligibility calculation (TestTierEligibility, TestEvaluateRule, TestMemberStats)
+- [x] Tests cover auto-upgrade logic (TestAutoUpgrade)
+- [x] Tests cover downgrade with expiration (TestAutoDowngrade, TestTierExpiration)
+- [x] Tests cover tier benefits application (TestTierBenefits)
+
+### Files Created/Modified
+- Created: `tests/test_tier_service.py` - 40 comprehensive tier service tests
+
+---
