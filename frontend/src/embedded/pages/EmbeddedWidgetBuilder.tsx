@@ -36,6 +36,7 @@ import {
 } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { PositionSelector, WidgetPosition } from '../components/PositionSelector';
 
 interface EmbeddedWidgetBuilderProps {
   shop: string | null;
@@ -119,6 +120,9 @@ async function fetchEmbedCode(shop: string | null): Promise<{ embed_code: string
 const POSITION_OPTIONS = [
   { label: 'Bottom Right', value: 'bottom-right' },
   { label: 'Bottom Left', value: 'bottom-left' },
+  { label: 'Top Right', value: 'top-right' },
+  { label: 'Top Left', value: 'top-left' },
+  { label: 'Center', value: 'center' },
   { label: 'Right Tab', value: 'right-tab' },
   { label: 'Left Tab', value: 'left-tab' },
 ];
@@ -246,27 +250,50 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                 background="bg-surface-secondary"
                 borderRadius="200"
               >
-                <div style={{ position: 'relative', height: 300, display: 'flex', alignItems: 'flex-end', justifyContent: config?.position?.includes('left') ? 'flex-start' : 'flex-end' }}>
+                <div style={{
+                  position: 'relative',
+                  height: 300,
+                  display: 'flex',
+                  alignItems: config?.position?.includes('top') ? 'flex-start' :
+                              config?.position === 'center' ? 'center' :
+                              config?.position?.includes('tab') ? 'center' : 'flex-end',
+                  justifyContent: config?.position?.includes('left') ? 'flex-start' :
+                                  config?.position === 'center' ? 'center' : 'flex-end',
+                }}>
                   {/* Mock widget button */}
                   <div
                     style={{
-                      width: config?.launcher?.size === 'large' ? 70 : config?.launcher?.size === 'small' ? 50 : 60,
-                      height: config?.launcher?.size === 'large' ? 70 : config?.launcher?.size === 'small' ? 50 : 60,
-                      borderRadius: config?.appearance?.border_radius || 16,
+                      width: config?.position?.includes('tab') ? 24 :
+                             config?.launcher?.size === 'large' ? 70 :
+                             config?.launcher?.size === 'small' ? 50 : 60,
+                      height: config?.position?.includes('tab') ? 80 :
+                              config?.launcher?.size === 'large' ? 70 :
+                              config?.launcher?.size === 'small' ? 50 : 60,
+                      borderRadius: config?.position?.includes('tab')
+                        ? (config?.position === 'left-tab' ? '0 8px 8px 0' : '8px 0 0 8px')
+                        : config?.appearance?.border_radius || 16,
                       background: config?.appearance?.primary_color || '#e85d27',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: config?.appearance?.text_color || '#fff',
-                      fontSize: 24,
+                      fontSize: config?.position?.includes('tab') ? 12 : 24,
                       boxShadow: config?.appearance?.shadow ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
                       cursor: 'pointer',
+                      writingMode: config?.position?.includes('tab') ? 'vertical-rl' : 'horizontal-tb',
+                      position: config?.position?.includes('tab') ? 'absolute' : 'relative',
+                      left: config?.position === 'left-tab' ? 0 : 'auto',
+                      right: config?.position === 'right-tab' ? 0 : 'auto',
+                      top: config?.position?.includes('tab') ? '50%' : 'auto',
+                      transform: config?.position?.includes('tab') ? 'translateY(-50%)' : 'none',
                     }}
                   >
-                    {config?.launcher?.icon === 'gift' ? '🎁' :
-                     config?.launcher?.icon === 'star' ? '⭐' :
-                     config?.launcher?.icon === 'heart' ? '❤️' :
-                     config?.launcher?.icon === 'trophy' ? '🏆' : '🎁'}
+                    {config?.position?.includes('tab') ? 'Rewards' : (
+                      config?.launcher?.icon === 'gift' ? '🎁' :
+                      config?.launcher?.icon === 'star' ? '⭐' :
+                      config?.launcher?.icon === 'heart' ? '❤️' :
+                      config?.launcher?.icon === 'trophy' ? '🏆' : '🎁'
+                    )}
                   </div>
                 </div>
               </Box>
@@ -357,15 +384,28 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
 
                   <Divider />
 
-                  <Text as="h3" variant="headingMd">Position & Size</Text>
+                  <Text as="h3" variant="headingMd">Position</Text>
+                  <PositionSelector
+                    value={(config?.position as WidgetPosition) || 'bottom-right'}
+                    onChange={(position) => updateConfigMutation.mutate({ position })}
+                    showTabPositions={true}
+                    widgetPreview={{
+                      icon: config?.launcher?.icon === 'gift' ? '🎁' :
+                            config?.launcher?.icon === 'star' ? '⭐' :
+                            config?.launcher?.icon === 'heart' ? '❤️' :
+                            config?.launcher?.icon === 'trophy' ? '🏆' : '🎁',
+                      primaryColor: config?.appearance?.primary_color || '#e85d27',
+                      size: config?.launcher?.size === 'large' ? 56 : config?.launcher?.size === 'small' ? 40 : 48,
+                      borderRadius: config?.appearance?.border_radius || 24,
+                    }}
+                    helpText="Click a position on the page preview to place your widget"
+                  />
+
+                  <Divider />
+
+                  <Text as="h3" variant="headingMd">Size & Icon</Text>
                   <FormLayout>
                     <FormLayout.Group>
-                      <Select
-                        label="Position"
-                        options={POSITION_OPTIONS}
-                        value={config?.position || 'bottom-right'}
-                        onChange={(v) => updateConfigMutation.mutate({ position: v })}
-                      />
                       <Select
                         label="Launcher Size"
                         options={SIZE_OPTIONS}
@@ -374,8 +414,6 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                           launcher: { ...config?.launcher, size: v }
                         })}
                       />
-                    </FormLayout.Group>
-                    <FormLayout.Group>
                       <Select
                         label="Launcher Icon"
                         options={ICON_OPTIONS}
@@ -384,6 +422,8 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                           launcher: { ...config?.launcher, icon: v }
                         })}
                       />
+                    </FormLayout.Group>
+                    <FormLayout.Group>
                       <Select
                         label="Animation"
                         options={ANIMATION_OPTIONS}

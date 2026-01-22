@@ -14,7 +14,7 @@
         "Migration applied successfully"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "WB-002",
@@ -27,7 +27,7 @@
         "Validation for position values"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "WB-003",
@@ -40,7 +40,7 @@
         "Preview shows position change"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "WB-004",

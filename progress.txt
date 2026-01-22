@@ -2905,3 +2905,56 @@ Created REST API endpoints for managing widget configurations per tenant.
 - [x] PUT /api/widgets/{type} - update widget config
 - [x] POST /api/widgets/{type}/enable - enable widget
 - [x] POST /api/widgets/{type}/disable - disable widget
+
+---
+
+## Story: WB-003 - Create position selector component
+Date: 2026-01-22
+
+### What I Did
+Created a visual PositionSelector React component for the Widget Builder that allows merchants to visually select where their loyalty widget appears on the page.
+
+### Implementation Details
+
+**New Component: PositionSelector.tsx**
+- Visual page mockup showing a browser window with position options
+- Supports 7 position options:
+  - `top-left` - Top left corner
+  - `top-right` - Top right corner
+  - `bottom-left` - Bottom left corner
+  - `bottom-right` - Bottom right corner (default)
+  - `center` - Center of the page
+  - `left-tab` - Left side tab
+  - `right-tab` - Right side tab
+- Click-to-select interaction on the visual mockup
+- Live preview shows widget icon in selected position
+- Configurable widget preview (icon, color, size, border radius)
+- Position legend shows all available positions with selected state
+- Tab positions have special styling (vertical text, different shape)
+
+**Updated EmbeddedWidgetBuilder.tsx**
+- Integrated PositionSelector component in the Appearance tab
+- Replaced simple Select dropdown with visual position selector
+- Updated widget preview to handle all new positions (top, center, tabs)
+- Added POSITION_OPTIONS for all 7 positions
+- Preview now shows correct alignment for top/center/tab positions
+
+### Key Features
+1. **Visual Page Mockup** - Shows a mini browser window with fake content
+2. **Interactive Position Grid** - 3x3 grid with clickable position markers
+3. **Real-time Preview** - Widget icon appears in selected position
+4. **Tab Position Support** - Special styling for left/right tab positions
+5. **Customizable Preview** - Preview reflects actual widget appearance settings
+6. **Position Legend** - Clear labels showing which position is selected
+
+### Files Changed
+- `frontend/src/embedded/components/PositionSelector.tsx` - New component (~280 lines)
+- `frontend/src/embedded/pages/EmbeddedWidgetBuilder.tsx` - Integrated component
+
+### Acceptance Criteria Verification
+- [x] Visual page mockup showing position options
+- [x] Positions: top-left, top-right, bottom-left, bottom-right, center
+- [x] Click to select position
+- [x] Preview shows widget in selected position
+- [x] Works for floating widgets
+- [x] Tab positions supported (left-tab, right-tab)
