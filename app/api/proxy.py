@@ -19,6 +19,7 @@ from ..models.tenant import Tenant
 from ..models.loyalty_points import Reward, RewardRedemption
 from ..models import PointsTransaction
 from ..models.referral import ReferralProgram
+from ..models.loyalty_page import LoyaltyPage
 
 proxy_bp = Blueprint('proxy', __name__)
 
@@ -112,7 +113,8 @@ def rewards_page():
     Main rewards landing page.
     Accessible at: store.myshopify.com/apps/rewards
 
-    Renders a beautiful HTML page with:
+    If a custom loyalty page is published, renders that page.
+    Otherwise, renders the default rewards page with:
     - Customer points balance (if logged in)
     - How to earn points
     - Available rewards catalog
@@ -127,6 +129,69 @@ def rewards_page():
     if not tenant:
         return Response('Store not found', status=404)
 
+    # Check for published custom loyalty page
+    loyalty_page = LoyaltyPage.query.filter_by(
+        tenant_id=tenant.id,
+        is_published=True
+    ).first()
+
+    if loyalty_page and loyalty_page.is_published:
+        # Render the published custom loyalty page
+        published_config = loyalty_page.get_published_config()
+        if published_config:
+            # Get customer data for personalization
+            member = get_customer_member(tenant.id)
+            member_data = None
+            points_balance = 0
+
+            if member:
+                points_balance = db.session.query(
+                    func.coalesce(func.sum(PointsTransaction.points), 0)
+                ).filter(
+                    PointsTransaction.member_id == member.id,
+                    PointsTransaction.reversed_at.is_(None)
+                ).scalar()
+
+                member_data = {
+                    'name': member.name or 'Member',
+                    'tier': member.tier.name if member.tier else 'Member',
+                    'points': int(points_balance),
+                    'member_since': member.membership_start_date.strftime('%B %Y') if member.membership_start_date else None
+                }
+
+            # Get live data for dynamic sections
+            tiers = MembershipTier.query.filter_by(
+                tenant_id=tenant.id,
+                is_active=True
+            ).order_by(MembershipTier.display_order).all()
+
+            now = datetime.utcnow()
+            rewards = Reward.query.filter(
+                Reward.tenant_id == tenant.id,
+                Reward.is_active == True,
+                (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
+                (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
+                (Reward.available_quantity.is_(None) | (Reward.available_quantity > 0))
+            ).order_by(Reward.points_cost.asc()).limit(12).all()
+
+            referral_program = ReferralProgram.query.filter_by(
+                tenant_id=tenant.id,
+                is_active=True
+            ).first()
+
+            html = render_published_loyalty_page(
+                config=published_config,
+                shop=shop,
+                tenant=tenant,
+                member=member_data,
+                points_balance=int(points_balance),
+                tiers=tiers,
+                rewards=rewards,
+                referral_program=referral_program
+            )
+            return Response(html, mimetype='text/html')
+
+    # Fallback: Render the default rewards page
     # Get customer data if logged in
     member = get_customer_member(tenant.id)
 
@@ -1071,6 +1136,632 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
 '''
 
     return html
+
+
+def render_published_loyalty_page(config, shop, tenant, member, points_balance, tiers, rewards, referral_program):
+    """
+    Render the published custom loyalty page from page builder configuration.
+
+    Uses the published config to render a customized loyalty page with:
+    - Custom sections (hero, how it works, tiers, rewards, FAQ, referrals)
+    - Custom colors and typography
+    - Custom styles (button shape, spacing, etc.)
+    - SEO meta tags from configuration
+    - Live data for tiers, rewards, and referral program
+
+    Args:
+        config: Published page configuration from LoyaltyPage model
+        shop: Shop domain
+        tenant: Tenant instance
+        member: Member data dict (or None)
+        points_balance: Customer's points balance
+        tiers: List of MembershipTier objects
+        rewards: List of Reward objects
+        referral_program: ReferralProgram instance (or None)
+
+    Returns:
+        HTML string
+    """
+    # Dollar sign for f-string formatting
+    dollar = "$"
+
+    # Get active sections sorted by order
+    active_sections = [s for s in config.get('sections', []) if s.get('enabled', False)]
+    active_sections.sort(key=lambda s: s.get('order', 999))
+
+    # Get colors with defaults
+    colors = config.get('colors', {
+        'primary': '#e85d27',
+        'secondary': '#666666',
+        'accent': '#ffd700',
+        'background': '#ffffff',
+    })
+
+    # Get styles with defaults
+    styles = config.get('styles', {
+        'fontFamily': 'system-ui',
+        'headingFontFamily': '',
+        'buttonStyle': 'rounded',
+        'buttonSize': 'medium',
+        'sectionSpacing': 'normal',
+        'borderRadius': 'medium',
+    })
+
+    # Get SEO meta tags
+    meta = config.get('meta', {
+        'title': 'Rewards Program',
+        'description': 'Join our rewards program and earn points on every purchase',
+    })
+
+    # Map font family to CSS
+    font_map = {
+        'system-ui': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        'Inter': '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Roboto': '"Roboto", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Open Sans': '"Open Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Lato': '"Lato", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Poppins': '"Poppins", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Montserrat': '"Montserrat", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Source Sans Pro': '"Source Sans Pro", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Nunito': '"Nunito", -apple-system, BlinkMacSystemFont, sans-serif',
+        'Playfair Display': '"Playfair Display", Georgia, serif',
+        'Oswald': '"Oswald", -apple-system, BlinkMacSystemFont, sans-serif',
+    }
+
+    button_radius_map = {
+        'square': '0px',
+        'rounded': '8px',
+        'pill': '999px',
+    }
+
+    button_padding_map = {
+        'small': '8px 16px',
+        'medium': '12px 24px',
+        'large': '16px 32px',
+    }
+
+    section_padding_map = {
+        'compact': '40px 20px',
+        'normal': '60px 20px',
+        'relaxed': '80px 20px',
+    }
+
+    border_radius_map = {
+        'none': '0px',
+        'small': '4px',
+        'medium': '8px',
+        'large': '16px',
+    }
+
+    # Compute style values
+    font_family = styles.get('fontFamily', 'system-ui')
+    heading_font = styles.get('headingFontFamily') or font_family
+
+    body_font_css = font_map.get(font_family, font_map['system-ui'])
+    heading_font_css = font_map.get(heading_font, body_font_css)
+    btn_radius = button_radius_map.get(styles.get('buttonStyle', 'rounded'), '8px')
+    btn_padding = button_padding_map.get(styles.get('buttonSize', 'medium'), '12px 24px')
+    section_padding = section_padding_map.get(styles.get('sectionSpacing', 'normal'), '60px 20px')
+    card_radius = border_radius_map.get(styles.get('borderRadius', 'medium'), '8px')
+
+    # Google Fonts imports for custom fonts
+    google_fonts = []
+    for font in [font_family, heading_font]:
+        if font and font != 'system-ui' and font in font_map:
+            google_fonts.append(font.replace(' ', '+'))
+    google_fonts_link = ''
+    if google_fonts:
+        unique_fonts = list(set(google_fonts))
+        google_fonts_link = f'<link href="https://fonts.googleapis.com/css2?family={":wght@400;500;600;700&family=".join(unique_fonts)}:wght@400;500;600;700&display=swap" rel="stylesheet">'
+
+    # Build member section for personalization
+    member_section = ''
+    if member:
+        member_section = f'''
+        <div class="lp-member-card">
+            <div class="lp-member-header">
+                <div class="lp-avatar">
+                    <span>{member['name'][0].upper()}</span>
+                </div>
+                <div class="lp-member-info">
+                    <h3>Welcome back, {member['name']}!</h3>
+                    <p class="lp-tier-badge">{member['tier']}</p>
+                </div>
+            </div>
+            <div class="lp-points-display">
+                <div class="lp-points-value">{points_balance:,}</div>
+                <div class="lp-points-label">Points Available</div>
+            </div>
+        </div>
+        '''
+    else:
+        member_section = '''
+        <div class="lp-cta-card">
+            <h3>Join Our Rewards Program</h3>
+            <p>Earn points on every purchase and unlock exclusive rewards!</p>
+            <a href="/account/login" class="lp-btn lp-btn-primary">Sign In to Get Started</a>
+        </div>
+        '''
+
+    # Start building HTML
+    html_parts = [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '<meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        f'<title>{meta.get("title", "Rewards Program")}</title>',
+        f'<meta name="description" content="{meta.get("description", "")}">',
+        # Open Graph meta tags for social sharing
+        f'<meta property="og:title" content="{meta.get("title", "Rewards Program")}">',
+        f'<meta property="og:description" content="{meta.get("description", "")}">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:url" content="https://{shop}/apps/rewards">',
+        # Twitter card meta tags
+        '<meta name="twitter:card" content="summary">',
+        f'<meta name="twitter:title" content="{meta.get("title", "Rewards Program")}">',
+        f'<meta name="twitter:description" content="{meta.get("description", "")}">',
+        google_fonts_link,
+        '<style>',
+        ':root {',
+        f'  --lp-primary: {colors.get("primary", "#e85d27")};',
+        f'  --lp-secondary: {colors.get("secondary", "#666666")};',
+        f'  --lp-accent: {colors.get("accent", "#ffd700")};',
+        f'  --lp-background: {colors.get("background", "#ffffff")};',
+        f'  --lp-font-body: {body_font_css};',
+        f'  --lp-font-heading: {heading_font_css};',
+        f'  --lp-btn-radius: {btn_radius};',
+        f'  --lp-btn-padding: {btn_padding};',
+        f'  --lp-section-padding: {section_padding};',
+        f'  --lp-card-radius: {card_radius};',
+        '}',
+        '''
+        * { box-sizing: border-box; }
+        body {
+            font-family: var(--lp-font-body);
+            margin: 0;
+            padding: 0;
+            background: var(--lp-background);
+            color: #1f2937;
+            line-height: 1.5;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--lp-font-heading);
+            margin: 0 0 0.5em 0;
+        }
+        .lp-container { max-width: 1200px; margin: 0 auto; }
+
+        /* Hero Section */
+        .lp-hero {
+            padding: 80px 20px;
+            text-align: center;
+            color: white;
+        }
+        .lp-hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+        .lp-hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 24px;
+        }
+
+        /* Sections */
+        .lp-section {
+            padding: var(--lp-section-padding);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .lp-section-title {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--lp-primary);
+        }
+
+        /* Buttons */
+        .lp-btn {
+            display: inline-block;
+            padding: var(--lp-btn-padding);
+            border-radius: var(--lp-btn-radius);
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            font-family: var(--lp-font-body);
+        }
+        .lp-btn-primary {
+            background: var(--lp-primary);
+            color: white;
+        }
+        .lp-btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .lp-btn-secondary {
+            background: white;
+            color: var(--lp-primary);
+            border: 2px solid var(--lp-primary);
+        }
+
+        /* Member Card */
+        .lp-member-card {
+            background: white;
+            border-radius: var(--lp-card-radius);
+            padding: 32px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin: -60px auto 40px;
+            max-width: 500px;
+            position: relative;
+            z-index: 10;
+        }
+        .lp-member-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .lp-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--lp-primary), var(--lp-accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .lp-member-info h3 { margin: 0 0 4px 0; font-size: 1.25rem; }
+        .lp-tier-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #f3f4f6;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--lp-primary);
+            font-weight: 500;
+            margin: 0;
+        }
+        .lp-points-display {
+            text-align: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: var(--lp-card-radius);
+        }
+        .lp-points-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--lp-primary);
+            line-height: 1;
+        }
+        .lp-points-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        /* CTA Card */
+        .lp-cta-card {
+            background: white;
+            border-radius: var(--lp-card-radius);
+            padding: 40px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin: -60px auto 40px;
+            max-width: 500px;
+            position: relative;
+            z-index: 10;
+            text-align: center;
+        }
+        .lp-cta-card h3 { margin: 0 0 12px 0; font-size: 1.5rem; }
+        .lp-cta-card p { color: #6b7280; margin: 0 0 24px 0; }
+
+        /* Steps (How It Works) */
+        .lp-steps {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .lp-step {
+            text-align: center;
+            max-width: 250px;
+            background: white;
+            padding: 30px;
+            border-radius: var(--lp-card-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .lp-step-icon {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+        .lp-step h4 {
+            color: var(--lp-primary);
+            margin-bottom: 8px;
+        }
+        .lp-step p {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Tiers Grid */
+        .lp-tiers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        .lp-tier-card {
+            background: white;
+            border-radius: var(--lp-card-radius);
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .lp-tier-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .lp-tier-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .lp-tier-header h4 { margin: 0; font-size: 1.25rem; }
+        .lp-tier-benefits { list-style: none; padding: 0; margin: 0; }
+        .lp-tier-benefits li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+        }
+        .lp-tier-benefits li:last-child { border-bottom: none; }
+        .lp-tier-benefits strong { color: var(--lp-primary); }
+
+        /* Rewards Grid */
+        .lp-rewards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        .lp-reward-card {
+            background: white;
+            border-radius: var(--lp-card-radius);
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        .lp-reward-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .lp-reward-placeholder {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, var(--lp-primary), var(--lp-accent));
+        }
+        .lp-reward-content { padding: 20px; }
+        .lp-reward-content h4 { margin: 0 0 8px 0; font-size: 1.125rem; }
+        .lp-reward-points {
+            font-weight: 600;
+            color: var(--lp-primary);
+        }
+
+        /* FAQ */
+        .lp-faq-item {
+            background: #f9fafb;
+            padding: 20px;
+            margin-bottom: 12px;
+            border-radius: var(--lp-card-radius);
+        }
+        .lp-faq-item strong { color: var(--lp-primary); display: block; margin-bottom: 8px; }
+        .lp-faq-item p { margin: 0; color: #4b5563; }
+
+        /* Referral Banner */
+        .lp-referral-banner {
+            background: linear-gradient(135deg, var(--lp-primary), var(--lp-accent));
+            border-radius: var(--lp-card-radius);
+            padding: 40px;
+            text-align: center;
+            color: white;
+        }
+        .lp-referral-banner h2 { color: white; margin-bottom: 16px; }
+        .lp-referral-banner p { margin: 0 0 24px 0; opacity: 0.9; }
+
+        /* Footer */
+        .lp-footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        .lp-footer a { color: var(--lp-primary); text-decoration: none; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .lp-hero h1 { font-size: 1.875rem; }
+            .lp-hero p { font-size: 1rem; }
+            .lp-member-card, .lp-cta-card {
+                margin: -40px 16px 30px;
+                padding: 24px;
+            }
+            .lp-points-value { font-size: 2.5rem; }
+            .lp-steps { flex-direction: column; align-items: center; }
+            .lp-step { max-width: 100%; }
+        }
+        ''',
+        config.get('custom_css', ''),
+        '</style>',
+        '</head>',
+        '<body>',
+    ]
+
+    # Render sections
+    for section in active_sections:
+        section_type = section.get('type')
+        settings = section.get('settings', {})
+
+        if section_type == 'hero':
+            bg_color = settings.get('background_color', colors.get('primary', '#e85d27'))
+            text_color = settings.get('text_color', '#ffffff')
+            html_parts.append(f'''
+            <div class="lp-hero" style="background: {bg_color}; color: {text_color};">
+                <h1>{settings.get("title", "Join Our Rewards Program")}</h1>
+                <p>{settings.get("subtitle", "Earn points on every purchase")}</p>
+                <a href="{settings.get("cta_link", "/account/register")}" class="lp-btn" style="background: {text_color}; color: {bg_color};">{settings.get("cta_text", "Join Now")}</a>
+            </div>
+            {member_section}
+            ''')
+
+        elif section_type == 'how_it_works':
+            steps_html = ''
+            icon_map = {
+                'star': '&#11088;', 'shopping-cart': '&#128722;', 'gift': '&#127873;',
+                'user-plus': '&#128100;', 'shopping-bag': '&#128092;', 'arrow-up-circle': '&#9650;',
+                'check-circle': '&#10004;', 'coins': '&#128176;', 'sparkles': '&#10024;',
+                'trophy': '&#127942;', 'zap': '&#9889;', 'award': '&#127941;',
+            }
+            for step in settings.get('steps', []):
+                icon = icon_map.get(step.get('icon', 'star'), '&#11088;')
+                steps_html += f'''
+                <div class="lp-step">
+                    <div class="lp-step-icon">{icon}</div>
+                    <h4>{step.get("title", "")}</h4>
+                    <p>{step.get("description", "")}</p>
+                </div>
+                '''
+            html_parts.append(f'''
+            <div class="lp-section">
+                <h2 class="lp-section-title">{settings.get("title", "How It Works")}</h2>
+                <div class="lp-steps">{steps_html}</div>
+            </div>
+            ''')
+
+        elif section_type == 'tier_comparison':
+            # Render live tier data
+            tiers_html = ''
+            for tier in tiers:
+                earning_mult = getattr(tier, 'points_earning_multiplier', 1) or 1
+                cashback = getattr(tier, 'purchase_cashback_pct', 0) or 0
+                trade_bonus = getattr(tier, 'trade_in_bonus_pct', 0) or 0
+                monthly_credit = getattr(tier, 'monthly_credit_amount', 0) or 0
+
+                tiers_html += f'''
+                <div class="lp-tier-card">
+                    <div class="lp-tier-header">
+                        <h4>{tier.name}</h4>
+                    </div>
+                    <ul class="lp-tier-benefits">
+                        <li><strong>{earning_mult}x</strong> points on purchases</li>
+                        {f'<li><strong>{cashback}%</strong> cashback</li>' if cashback else ''}
+                        {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
+                        {f'<li><strong>{dollar}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
+                    </ul>
+                </div>
+                '''
+
+            html_parts.append(f'''
+            <div class="lp-section">
+                <h2 class="lp-section-title">{settings.get("title", "Membership Tiers")}</h2>
+                <div class="lp-tiers-grid">{tiers_html}</div>
+            </div>
+            ''')
+
+        elif section_type == 'rewards_catalog':
+            # Render live rewards data
+            max_items = settings.get('max_items', 6)
+            display_rewards = rewards[:max_items] if rewards else []
+            rewards_html = ''
+
+            for reward in display_rewards:
+                rewards_html += f'''
+                <div class="lp-reward-card">
+                    <div class="lp-reward-placeholder"></div>
+                    <div class="lp-reward-content">
+                        <h4>{reward.name}</h4>
+                        <span class="lp-reward-points">{reward.points_cost:,} pts</span>
+                    </div>
+                </div>
+                '''
+
+            if not rewards_html:
+                rewards_html = '<p style="text-align: center; color: #6b7280;">No rewards available yet.</p>'
+
+            html_parts.append(f'''
+            <div class="lp-section">
+                <h2 class="lp-section-title">{settings.get("title", "Available Rewards")}</h2>
+                <div class="lp-rewards-grid">{rewards_html}</div>
+            </div>
+            ''')
+
+        elif section_type == 'earning_rules':
+            html_parts.append(f'''
+            <div class="lp-section">
+                <h2 class="lp-section-title">{settings.get("title", "Ways to Earn")}</h2>
+                <div class="lp-steps">
+                    <div class="lp-step">
+                        <div class="lp-step-icon">&#128722;</div>
+                        <h4>Shop & Earn</h4>
+                        <p>Earn points on every purchase</p>
+                    </div>
+                    <div class="lp-step">
+                        <div class="lp-step-icon">&#127873;</div>
+                        <h4>Trade-Ins</h4>
+                        <p>Earn bonus points when you trade in items</p>
+                    </div>
+                    <div class="lp-step">
+                        <div class="lp-step-icon">&#128101;</div>
+                        <h4>Referrals</h4>
+                        <p>Get rewarded when friends join</p>
+                    </div>
+                </div>
+            </div>
+            ''')
+
+        elif section_type == 'faq':
+            faq_html = ''
+            for item in settings.get('items', []):
+                faq_html += f'''
+                <div class="lp-faq-item">
+                    <strong>{item.get("question", "")}</strong>
+                    <p>{item.get("answer", "")}</p>
+                </div>
+                '''
+            html_parts.append(f'''
+            <div class="lp-section">
+                <h2 class="lp-section-title">{settings.get("title", "FAQ")}</h2>
+                {faq_html}
+            </div>
+            ''')
+
+        elif section_type == 'referral_banner':
+            cta_link = '/account' if member else '/account/login'
+            cta_text = 'Get Your Referral Link' if member else 'Sign In to Refer Friends'
+            html_parts.append(f'''
+            <div class="lp-section">
+                <div class="lp-referral-banner">
+                    <h2>{settings.get("title", "Refer Friends & Earn")}</h2>
+                    <p>{settings.get("description", "Share with friends and earn rewards")}</p>
+                    <a href="{cta_link}" class="lp-btn" style="background: white; color: var(--lp-primary);">{cta_text}</a>
+                </div>
+            </div>
+            ''')
+
+    # Footer
+    html_parts.extend([
+        '<footer class="lp-footer">',
+        '<p>Powered by <a href="https://cardflowlabs.com" target="_blank" rel="noopener">TradeUp</a></p>',
+        '</footer>',
+        '</body>',
+        '</html>',
+    ])
+
+    return '\n'.join(html_parts)
 
 
 def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_reward, referee_reward, valid_code, page_config):

@@ -174,3 +174,45 @@
   - Section components adapt to mobile width (rendered at phone dimensions)
   - Preview frame mimics phone dimensions (iPhone SE: 375x667)
   - Easy toggle in editor toolbar and modal
+
+## LP-008 - Integrate with app proxy for publishing
+- Status: COMPLETE
+- Date: January 22, 2026
+- Updated app/api/proxy.py to serve published loyalty pages at /apps/rewards
+- **App Proxy Integration**:
+  - Modified rewards_page() function to check for published LoyaltyPage first
+  - If tenant has a published custom page (is_published=True), renders the custom page
+  - If no published page exists, falls back to the default rewards page
+  - Imported LoyaltyPage model from app.models.loyalty_page
+- **Published Page Rendering**:
+  - Created new render_published_loyalty_page() function (500+ lines)
+  - Uses page_config from LoyaltyPage.get_published_config() (not draft)
+  - Renders all section types: hero, how_it_works, tier_comparison, rewards_catalog, earning_rules, faq, referral_banner
+  - Applies custom colors, typography, button styles, spacing, and border radius from config
+  - Includes live tier and reward data from database
+  - Supports member personalization (logged-in customer shows points balance)
+- **SEO Meta Tags**:
+  - Title tag from config.meta.title
+  - Meta description from config.meta.description
+  - Open Graph tags (og:title, og:description, og:type, og:url)
+  - Twitter card tags (twitter:card, twitter:title, twitter:description)
+- **Style Support**:
+  - Google Fonts import for custom typography (Inter, Roboto, Poppins, etc.)
+  - CSS custom properties for colors, fonts, button styles, spacing
+  - Button shape options: square, rounded, pill
+  - Button size options: small, medium, large
+  - Section spacing options: compact, normal, relaxed
+  - Border radius options: none, small, medium, large
+- **Responsive Design**:
+  - Mobile-first CSS with responsive breakpoints
+  - Member card and CTA card adapt to mobile width
+  - Steps section stacks vertically on mobile
+- **Fallback Behavior**:
+  - Unpublished pages show the default TradeUp rewards page
+  - No disruption to existing stores without custom pages
+- All acceptance criteria met:
+  - Published page accessible at /apps/rewards (via Shopify app proxy)
+  - Page uses published config (not draft) via get_published_config()
+  - Unpublished page shows default/fallback rewards page
+  - Page loads with store's theme styles (uses CSS custom properties)
+  - SEO meta tags configurable (title, description, OG tags, Twitter cards)
