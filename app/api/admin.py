@@ -429,6 +429,8 @@ def fix_schema():
         ("promotions", "product_tags_filter", "TEXT"),
         # Promotions - tier restriction column (singular form, matches model)
         ("promotions", "tier_restriction", "TEXT"),
+        # Promotions - usage limits
+        ("promotions", "max_uses_per_member", "INTEGER"),
         # Bulk credit operations - tenant isolation (CRITICAL SECURITY)
         ("bulk_credit_operations", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Tier configurations - promotion system columns

@@ -3,11 +3,63 @@ Shopify Admin API client.
 Handles store credit operations and customer management.
 """
 import logging
+import time
 import httpx
 from typing import Optional, Dict, Any, List
 from flask import current_app
 
 logger = logging.getLogger(__name__)
+
+# Rate limit configuration
+MAX_RETRIES = 3
+INITIAL_BACKOFF_SECONDS = 1.0
+
+# Valid Shopify metafield types (as of 2025-01 API)
+# https://shopify.dev/docs/apps/custom-data/metafields/types
+VALID_METAFIELD_TYPES = {
+    # Basic types
+    'boolean',
+    'color',
+    'date',
+    'date_time',
+    'dimension',
+    'json',
+    'money',
+    'multi_line_text_field',
+    'number_decimal',
+    'number_integer',
+    'rating',
+    'rich_text_field',
+    'single_line_text_field',
+    'url',
+    'volume',
+    'weight',
+    # Reference types
+    'collection_reference',
+    'file_reference',
+    'metaobject_reference',
+    'mixed_reference',
+    'page_reference',
+    'product_reference',
+    'variant_reference',
+    # List types (common ones)
+    'list.color',
+    'list.date',
+    'list.date_time',
+    'list.dimension',
+    'list.number_decimal',
+    'list.number_integer',
+    'list.single_line_text_field',
+    'list.url',
+    'list.volume',
+    'list.weight',
+    'list.collection_reference',
+    'list.file_reference',
+    'list.metaobject_reference',
+    'list.page_reference',
+    'list.product_reference',
+    'list.variant_reference',
+}
 
 
 class ShopifyClient:
@@ -49,9 +101,44 @@ class ShopifyClient:
 
         self.api_version = api_version
         self.graphql_url = f'https://{self.shop_domain}/admin/api/{api_version}/graphql.json'
+        self._shop_currency = None  # Cached shop currency
+
+    def get_shop_currency(self) -> str:
+        """
+        Get the shop's primary currency code.
+
+        Returns cached value if available, otherwise fetches from Shopify.
+        Falls back to 'USD' if unable to fetch.
+
+        Returns:
+            Currency code (e.g., 'USD', 'CAD', 'EUR')
+        """
+        if self._shop_currency:
+            return self._shop_currency
+
+        query = """
+        query getShopCurrency {
+            shop {
+                currencyCode
+            }
+        }
+        """
+
+        try:
+            result = self._execute_query(query)
+            self._shop_currency = result.get('shop', {}).get('currencyCode', 'USD')
+        except Exception as e:
+            logger.warning(f'Failed to fetch shop currency, defaulting to USD: {e}')
+            self._shop_currency = 'USD'
+
+        return self._shop_currency
 
     def _execute_query(self, query: str, variables: Optional[Dict] = None) -> Dict[str, Any]:
-        """Execute a GraphQL query."""
+        """
+        Execute a GraphQL query with retry logic for rate limiting.
+
+        Implements exponential backoff for THROTTLED errors and HTTP 429 responses.
+        """
         headers = {
             'X-Shopify-Access-Token': self.access_token,
             'Content-Type': 'application/json',
@@ -62,20 +149,61 @@ class ShopifyClient:
         if variables:
             payload['variables'] = variables
 
-        with httpx.Client() as client:
-            response = client.post(
-                self.graphql_url,
-                headers=headers,
-                json=payload,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            result = response.json()
+        last_exception = None
+        backoff = INITIAL_BACKOFF_SECONDS
 
-            if 'errors' in result:
-                raise Exception(f"GraphQL errors: {result['errors']}")
+        for attempt in range(MAX_RETRIES):
+            try:
+                with httpx.Client() as client:
+                    response = client.post(
+                        self.graphql_url,
+                        headers=headers,
+                        json=payload,
+                        timeout=30.0
+                    )
 
-            return result.get('data', {})
+                    # Handle HTTP 429 Too Many Requests
+                    if response.status_code == 429:
+                        retry_after = float(response.headers.get('Retry-After', backoff))
+                        logger.warning(f'Rate limited (HTTP 429), retrying in {retry_after}s (attempt {attempt + 1}/{MAX_RETRIES})')
+                        time.sleep(retry_after)
+                        backoff *= 2  # Exponential backoff
+                        continue
+
+                    response.raise_for_status()
+                    result = response.json()
+
+                    # Check for GraphQL THROTTLED errors
+                    if 'errors' in result:
+                        is_throttled = any(
+                            error.get('extensions', {}).get('code') == 'THROTTLED'
+                            for error in result['errors']
+                        )
+                        if is_throttled and attempt < MAX_RETRIES - 1:
+                            logger.warning(f'Rate limited (THROTTLED), retrying in {backoff}s (attempt {attempt + 1}/{MAX_RETRIES})')
+                            time.sleep(backoff)
+                            backoff *= 2
+                            continue
+                        # Non-throttle error or final attempt
+                        raise Exception(f"GraphQL errors: {result['errors']}")
+
+                    return result.get('data', {})
+
+            except httpx.HTTPStatusError as e:
+                last_exception = e
+                if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
+                    time.sleep(backoff)
+                    backoff *= 2
+                    continue
+                raise
+            except Exception as e:
+                last_exception = e
+                raise
+
+        # Should not reach here, but just in case
+        if last_exception:
+            raise last_exception
+        raise Exception("Max retries exceeded")
 
     def get_store_credit_account_id(self, customer_id: str) -> Optional[str]:
         """
@@ -182,7 +310,7 @@ class ShopifyClient:
             'creditInput': {
                 'creditAmount': {
                     'amount': str(amount),
-                    'currencyCode': 'USD'
+                    'currencyCode': self.get_shop_currency()
                 }
                 # Note: Shopify API doesn't support transaction notes or notifications
                 # TradeUp handles notifications via NotificationService
@@ -280,7 +408,7 @@ class ShopifyClient:
             'debitInput': {
                 'debitAmount': {
                     'amount': str(amount),
-                    'currencyCode': 'USD'
+                    'currencyCode': self.get_shop_currency()
                 },
                 'note': note
             }
@@ -348,7 +476,7 @@ class ShopifyClient:
             return {
                 'customer_id': customer_id,
                 'balance': 0,
-                'currency': 'USD'
+                'currency': self.get_shop_currency()
             }
 
         account = accounts[0].get('node', {})
@@ -358,7 +486,7 @@ class ShopifyClient:
             'customer_id': customer_id,
             'account_id': account.get('id'),
             'balance': float(balance_data.get('amount', 0)),
-            'currency': balance_data.get('currencyCode', 'USD')
+            'currency': balance_data.get('currencyCode', self.get_shop_currency())
         }
 
     def add_customer_tag(self, customer_id: str, tag: str) -> Dict[str, Any]:
@@ -1955,14 +2083,24 @@ class ShopifyClient:
         }
         """
 
-        # Build metafield inputs
+        # Build metafield inputs with type validation
         metafield_inputs = []
         for mf in metafields:
+            mf_type = mf.get('type', 'single_line_text_field')
+
+            # Validate metafield type against Shopify's allowed types
+            if mf_type not in VALID_METAFIELD_TYPES:
+                logger.warning(
+                    f'Invalid metafield type "{mf_type}" for key "{mf.get("key")}", '
+                    f'falling back to single_line_text_field'
+                )
+                mf_type = 'single_line_text_field'
+
             metafield_inputs.append({
                 'namespace': mf.get('namespace', 'tradeup'),
                 'key': mf['key'],
                 'value': str(mf['value']),
-                'type': mf.get('type', 'single_line_text_field')
+                'type': mf_type
             })
 
         variables = {
