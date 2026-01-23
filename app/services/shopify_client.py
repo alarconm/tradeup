@@ -900,54 +900,51 @@ class ShopifyClient:
 
     def get_customer_tags(self) -> List[str]:
         """
-        Get all unique customer tags from Shopify.
+        Get all unique customer tags from Shopify using the dedicated endpoint.
+
+        Uses Shopify's customerTags query for efficient retrieval - works for
+        stores with any number of customers.
 
         Returns:
-            List of unique tag strings
+            List of unique tag strings (sorted alphabetically)
         """
         query = """
         query getCustomerTags($first: Int!, $after: String) {
-            customers(first: $first, after: $after) {
+            customerTags(first: $first, after: $after) {
                 pageInfo {
                     hasNextPage
                     endCursor
                 }
                 edges {
-                    node {
-                        tags
-                    }
+                    node
                 }
             }
         }
         """
 
-        all_tags = set()
+        all_tags = []
         has_next_page = True
         cursor = None
 
-        # Limit to 500 customers for performance
-        max_pages = 5
-
-        while has_next_page and max_pages > 0:
-            variables = {'first': 100}
+        while has_next_page:
+            variables = {'first': 250}  # Max allowed by Shopify
             if cursor:
                 variables['after'] = cursor
 
             result = self._execute_query(query, variables)
-            customers_data = result.get('customers', {})
+            tags_data = result.get('customerTags', {})
 
-            edges = customers_data.get('edges', [])
+            edges = tags_data.get('edges', [])
             for edge in edges:
-                node = edge.get('node', {})
-                tags = node.get('tags', [])
-                all_tags.update(tags)
+                tag = edge.get('node')
+                if tag:
+                    all_tags.append(tag)
 
-            page_info = customers_data.get('pageInfo', {})
+            page_info = tags_data.get('pageInfo', {})
             has_next_page = page_info.get('hasNextPage', False)
             cursor = page_info.get('endCursor')
-            max_pages -= 1
 
-        return sorted(list(all_tags))
+        return sorted(all_tags)
 
     # =========================================
     # Product Filter Options (for Promotions)
@@ -1024,107 +1021,99 @@ class ShopifyClient:
 
     def get_vendors(self) -> List[str]:
         """
-        Get all unique product vendors from Shopify.
+        Get all unique product vendors from Shopify using the dedicated endpoint.
+
+        Uses Shopify's productVendors query for efficient retrieval - works for
+        stores with any number of products.
 
         Returns:
-            List of unique vendor strings
+            List of unique vendor strings (sorted alphabetically)
         """
         query = """
         query getProductVendors($first: Int!, $after: String) {
-            products(first: $first, after: $after) {
+            productVendors(first: $first, after: $after) {
                 pageInfo {
                     hasNextPage
                     endCursor
                 }
                 edges {
-                    node {
-                        vendor
-                    }
+                    node
                 }
             }
         }
         """
 
-        all_vendors = set()
+        all_vendors = []
         has_next_page = True
         cursor = None
 
-        # Limit pages for performance
-        max_pages = 10
-
-        while has_next_page and max_pages > 0:
-            variables = {'first': 100}
+        while has_next_page:
+            variables = {'first': 250}  # Max allowed by Shopify
             if cursor:
                 variables['after'] = cursor
 
             result = self._execute_query(query, variables)
-            products_data = result.get('products', {})
+            vendors_data = result.get('productVendors', {})
 
-            edges = products_data.get('edges', [])
+            edges = vendors_data.get('edges', [])
             for edge in edges:
-                node = edge.get('node', {})
-                vendor = node.get('vendor')
+                vendor = edge.get('node')
                 if vendor and vendor.strip():
-                    all_vendors.add(vendor.strip())
+                    all_vendors.append(vendor.strip())
 
-            page_info = products_data.get('pageInfo', {})
+            page_info = vendors_data.get('pageInfo', {})
             has_next_page = page_info.get('hasNextPage', False)
             cursor = page_info.get('endCursor')
-            max_pages -= 1
 
-        return sorted(list(all_vendors))
+        return sorted(all_vendors)
 
     def get_product_types(self) -> List[str]:
         """
-        Get all unique product types from Shopify.
+        Get all unique product types from Shopify using the dedicated endpoint.
+
+        Uses Shopify's productTypes query for efficient retrieval - works for
+        stores with any number of products.
 
         Returns:
-            List of unique product type strings
+            List of unique product type strings (sorted alphabetically)
         """
         query = """
         query getProductTypes($first: Int!, $after: String) {
-            products(first: $first, after: $after) {
+            productTypes(first: $first, after: $after) {
                 pageInfo {
                     hasNextPage
                     endCursor
                 }
                 edges {
-                    node {
-                        productType
-                    }
+                    node
                 }
             }
         }
         """
 
-        all_types = set()
+        all_types = []
         has_next_page = True
         cursor = None
 
-        # Limit pages for performance
-        max_pages = 10
-
-        while has_next_page and max_pages > 0:
-            variables = {'first': 100}
+        while has_next_page:
+            variables = {'first': 250}  # Max allowed by Shopify
             if cursor:
                 variables['after'] = cursor
 
             result = self._execute_query(query, variables)
-            products_data = result.get('products', {})
+            types_data = result.get('productTypes', {})
 
-            edges = products_data.get('edges', [])
+            edges = types_data.get('edges', [])
             for edge in edges:
-                node = edge.get('node', {})
-                product_type = node.get('productType')
+                product_type = edge.get('node')
                 if product_type and product_type.strip():
-                    all_types.add(product_type.strip())
+                    all_types.append(product_type.strip())
 
-            page_info = products_data.get('pageInfo', {})
+            page_info = types_data.get('pageInfo', {})
             has_next_page = page_info.get('hasNextPage', False)
             cursor = page_info.get('endCursor')
-            max_pages -= 1
 
-        return sorted(list(all_types))
+        return sorted(all_types)
 
     def get_promotion_filter_options(self) -> Dict[str, Any]:
         """
