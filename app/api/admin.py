@@ -422,6 +422,11 @@ def fix_schema():
         ("trade_in_batches", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Promotions - tenant isolation (CRITICAL SECURITY)
         ("promotions", "tenant_id", "INTEGER REFERENCES tenants(id)"),
+        # Promotions - product filter columns
+        ("promotions", "collection_ids", "TEXT"),
+        ("promotions", "vendor_filter", "TEXT"),
+        ("promotions", "product_type_filter", "TEXT"),
+        ("promotions", "product_tags_filter", "TEXT"),
         # Bulk credit operations - tenant isolation (CRITICAL SECURITY)
         ("bulk_credit_operations", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Tier configurations - promotion system columns

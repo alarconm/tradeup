@@ -978,30 +978,33 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
 
               <Divider />
               <Text as="h3" variant="headingSm">Date Range</Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                The event will be active from start date through end date
+              </Text>
 
               <FormLayout.Group>
                 <TextField
-                  label="Starts At"
-                  type="datetime-local"
-                  value={scheduledForm.starts_at}
-                  onChange={(value) => setScheduledForm({ ...scheduledForm, starts_at: value })}
+                  label="Start Date"
+                  type="date"
+                  value={scheduledForm.starts_at.split('T')[0]}
+                  onChange={(value) => setScheduledForm({ ...scheduledForm, starts_at: value + 'T00:00' })}
                   autoComplete="off"
                   requiredIndicator
                 />
                 <TextField
-                  label="Ends At"
-                  type="datetime-local"
-                  value={scheduledForm.ends_at}
-                  onChange={(value) => setScheduledForm({ ...scheduledForm, ends_at: value })}
+                  label="End Date"
+                  type="date"
+                  value={scheduledForm.ends_at.split('T')[0]}
+                  onChange={(value) => setScheduledForm({ ...scheduledForm, ends_at: value + 'T23:59' })}
                   autoComplete="off"
                   requiredIndicator
                 />
               </FormLayout.Group>
 
               <Divider />
-              <Text as="h3" variant="headingSm">Time Restrictions (Optional)</Text>
+              <Text as="h3" variant="headingSm">Daily Time Window (Optional)</Text>
               <Text as="p" variant="bodySm" tone="subdued">
-                Limit this bonus to specific times of day or days of the week
+                Limit this bonus to specific hours each day (e.g., 6-9pm trade nights)
               </Text>
 
               <FormLayout.Group>

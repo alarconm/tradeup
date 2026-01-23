@@ -44,15 +44,19 @@ def list_collections():
     """
     client = get_shopify_client_for_tenant()
     if not client:
+        logger.error('Collections: Shopify client not created')
         return jsonify({'error': 'Shopify not configured'}), 500
 
     try:
+        logger.info(f'Fetching collections for tenant {g.tenant_id}')
         collections = client.get_collections()
+        logger.info(f'Found {len(collections)} collections')
         return jsonify({
             'collections': collections,
             'count': len(collections)
         })
     except Exception as e:
+        logger.exception(f'Collections error: {e}')
         return jsonify({'error': str(e)}), 500
 
 

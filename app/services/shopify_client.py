@@ -749,12 +749,17 @@ class ShopifyClient:
         has_next_page = True
         cursor = None
 
+        logger.info(f'Starting collections fetch for tenant {self.tenant_id}')
+
         while has_next_page:
             variables = {'first': 100}
             if cursor:
                 variables['after'] = cursor
 
             result = self._execute_query(query, variables)
+            if not result:
+                logger.error('No result from collections query')
+                break
             collections_data = result.get('collections', {})
 
             edges = collections_data.get('edges', [])
@@ -800,8 +805,8 @@ class ShopifyClient:
         has_next_page = True
         cursor = None
 
-        # Limit to 500 products for performance
-        max_pages = 5
+        # Increased limit to 2500 products to capture more tags
+        max_pages = 25
 
         while has_next_page and max_pages > 0:
             variables = {'first': 100}
