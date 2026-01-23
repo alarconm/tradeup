@@ -31,7 +31,7 @@ class ShopifyBillingService:
     - Track billing status
     """
 
-    GRAPHQL_API_VERSION = '2024-10'
+    GRAPHQL_API_VERSION = '2025-01'
 
     def __init__(self, shop_domain: str, access_token: str):
         """

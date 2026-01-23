@@ -2,9 +2,12 @@
 Shopify Admin API client.
 Handles store credit operations and customer management.
 """
+import logging
 import httpx
 from typing import Optional, Dict, Any, List
 from flask import current_app
+
+logger = logging.getLogger(__name__)
 
 
 class ShopifyClient:
@@ -35,10 +38,12 @@ class ShopifyClient:
             if not tenant.shopify_domain or not tenant.shopify_access_token:
                 raise ValueError(f"Tenant {tenant_id_or_domain} missing Shopify credentials")
 
+            self.tenant_id = tenant_id_or_domain
             self.shop_domain = tenant.shopify_domain.replace('https://', '').replace('http://', '').rstrip('/')
             self.access_token = tenant.shopify_access_token
         else:
             # Direct initialization
+            self.tenant_id = None  # Not available in direct initialization
             self.shop_domain = tenant_id_or_domain.replace('https://', '').replace('http://', '').rstrip('/')
             self.access_token = access_token
 
@@ -49,7 +54,8 @@ class ShopifyClient:
         """Execute a GraphQL query."""
         headers = {
             'X-Shopify-Access-Token': self.access_token,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'TradeUp-by-CardflowLabs/2.0'
         }
 
         payload = {'query': query}
