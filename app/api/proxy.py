@@ -347,7 +347,7 @@ def get_balance():
     if member.tier:
         tier_info = {
             'name': member.tier.name,
-            'earning_multiplier': float(member.tier.points_earning_multiplier or 1),
+            'earning_multiplier': float(getattr(member.tier, 'points_earning_multiplier', 1) or 1),
             'discount_percent': float(member.tier.purchase_cashback_pct or 0)
         }
 
@@ -458,7 +458,7 @@ def get_tiers():
             'id': tier.id,
             'name': tier.name,
             'is_current': tier.id == current_tier_id,
-            'earning_multiplier': float(tier.points_earning_multiplier or 1),
+            'earning_multiplier': float(getattr(tier, 'points_earning_multiplier', 1) or 1),
             'discount_percent': float(tier.purchase_cashback_pct or 0),
             'trade_in_bonus_pct': float(tier.trade_in_bonus_pct or 0),
             'monthly_credit': float(tier.monthly_credit_amount or 0),
