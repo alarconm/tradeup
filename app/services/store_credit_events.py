@@ -122,7 +122,9 @@ class StoreCreditEventsService:
         start_datetime: str,
         end_datetime: str,
         sources: List[str],
-        include_authorized: bool = True
+        include_authorized: bool = True,
+        collection_ids: Optional[List[str]] = None,
+        product_tags: Optional[List[str]] = None
     ) -> List[OrderData]:
         """
         Fetch orders in a date range.
@@ -132,6 +134,8 @@ class StoreCreditEventsService:
             end_datetime: ISO format end datetime
             sources: List of source names to include (e.g., ['pos', 'web'])
             include_authorized: Include authorized (not just paid) orders
+            collection_ids: Optional list of collection GIDs to filter by
+            product_tags: Optional list of product tags to filter by
 
         Returns:
             List of OrderData objects
@@ -141,6 +145,31 @@ class StoreCreditEventsService:
         end_cursor = None
 
         status_filter = '(displayFinancialStatus:PAID OR displayFinancialStatus:AUTHORIZED)' if include_authorized else 'displayFinancialStatus:PAID'
+
+        # Determine if we need line items for filtering
+        need_line_items = bool(collection_ids or product_tags)
+
+        # Build line items clause if needed
+        line_items_clause = ""
+        if need_line_items:
+            line_items_clause = """
+                            lineItems(first: 50) {
+                                edges {
+                                    node {
+                                        product {
+                                            id
+                                            tags
+                                            collections(first: 20) {
+                                                edges {
+                                                    node {
+                                                        id
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }"""
 
         while has_next_page:
             cursor_clause = f'after: "{end_cursor}"' if end_cursor else ''
@@ -170,7 +199,7 @@ class StoreCreditEventsService:
                             transactions(first: 25) {{
                                 gateway
                                 amountSet {{ shopMoney {{ amount }} }}
-                            }}
+                            }}{line_items_clause}
                         }}
                     }}
                     pageInfo {{ hasNextPage endCursor }}
@@ -195,6 +224,35 @@ class StoreCreditEventsService:
                 # Check if source matches
                 if selected_lower and not any(s in source_name or source_name in expanded for s in expanded):
                     continue
+
+                # Check collection/tag filters if specified
+                if need_line_items:
+                    matches_filter = False
+                    line_items = node.get('lineItems', {}).get('edges', [])
+
+                    for item_edge in line_items:
+                        product = item_edge.get('node', {}).get('product')
+                        if not product:
+                            continue
+
+                        # Check product tags
+                        if product_tags:
+                            item_tags = [t.lower() for t in product.get('tags', [])]
+                            if any(tag.lower() in item_tags for tag in product_tags):
+                                matches_filter = True
+                                break
+
+                        # Check collections
+                        if collection_ids:
+                            item_collections = product.get('collections', {}).get('edges', [])
+                            item_collection_ids = [c.get('node', {}).get('id') for c in item_collections]
+                            if any(coll_id in item_collection_ids for coll_id in collection_ids):
+                                matches_filter = True
+                                break
+
+                    # Skip order if it doesn't match the filter
+                    if not matches_filter:
+                        continue
 
                 customer = node.get('customer')
                 orders.append(OrderData(
@@ -278,7 +336,9 @@ class StoreCreditEventsService:
         end_datetime: str,
         sources: List[str],
         credit_percent: float = 10.0,
-        include_authorized: bool = True
+        include_authorized: bool = True,
+        collection_ids: Optional[List[str]] = None,
+        product_tags: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Preview a store credit event without applying credits.
@@ -286,7 +346,10 @@ class StoreCreditEventsService:
         Returns:
             Preview data including order counts, customer counts, and totals
         """
-        orders = self.fetch_orders(start_datetime, end_datetime, sources, include_authorized)
+        orders = self.fetch_orders(
+            start_datetime, end_datetime, sources, include_authorized,
+            collection_ids=collection_ids, product_tags=product_tags
+        )
         credits = self.calculate_credits(orders, credit_percent)
 
         # Orders by source
@@ -431,7 +494,9 @@ class StoreCreditEventsService:
         job_id: Optional[str] = None,
         expires_at: Optional[str] = None,
         batch_size: int = 5,
-        delay_ms: int = 1000
+        delay_ms: int = 1000,
+        collection_ids: Optional[List[str]] = None,
+        product_tags: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Run a store credit event (apply credits to all eligible customers).
@@ -446,13 +511,18 @@ class StoreCreditEventsService:
             expires_at: Credit expiration datetime
             batch_size: Customers to process per batch
             delay_ms: Delay between batches in milliseconds
+            collection_ids: Optional list of collection GIDs to filter by
+            product_tags: Optional list of product tags to filter by
 
         Returns:
             Event results including success/failure counts
         """
         import time
 
-        orders = self.fetch_orders(start_datetime, end_datetime, sources, include_authorized)
+        orders = self.fetch_orders(
+            start_datetime, end_datetime, sources, include_authorized,
+            collection_ids=collection_ids, product_tags=product_tags
+        )
         credits = self.calculate_credits(orders, credit_percent)
 
         results: List[CreditResult] = []

@@ -204,6 +204,8 @@ async function previewBulkEvent(
     sources: string[];
     credit_percent: number;
     include_authorized?: boolean;
+    collection_ids?: string[];
+    product_tags?: string[];
   }
 ): Promise<BulkEventPreview> {
   const response = await authFetch(
@@ -227,6 +229,8 @@ async function runBulkEvent(
     credit_percent: number;
     include_authorized?: boolean;
     expires_at?: string;
+    collection_ids?: string[];
+    product_tags?: string[];
   }
 ): Promise<BulkEventResult> {
   const response = await authFetch(
@@ -283,7 +287,13 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     credit_percent: 10,
     include_authorized: true,
     credit_expiration_days: '',
+    collection_ids: [] as string[],
+    product_tags: [] as string[],
   });
+
+  // Search states for bulk form pickers
+  const [bulkTagSearch, setBulkTagSearch] = useState('');
+  const [bulkCollectionSearch, setBulkCollectionSearch] = useState('');
 
   // Search states for pickers
   const [tagSearch, setTagSearch] = useState('');
@@ -361,6 +371,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       sources: bulkForm.sources,
       credit_percent: bulkForm.credit_percent,
       include_authorized: bulkForm.include_authorized,
+      collection_ids: bulkForm.collection_ids.length > 0 ? bulkForm.collection_ids : undefined,
+      product_tags: bulkForm.product_tags.length > 0 ? bulkForm.product_tags : undefined,
     }),
     onSuccess: (data) => {
       setBulkPreview(data);
@@ -378,6 +390,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       expires_at: bulkForm.credit_expiration_days
         ? new Date(Date.now() + parseInt(bulkForm.credit_expiration_days) * 24 * 60 * 60 * 1000).toISOString()
         : undefined,
+      collection_ids: bulkForm.collection_ids.length > 0 ? bulkForm.collection_ids : undefined,
+      product_tags: bulkForm.product_tags.length > 0 ? bulkForm.product_tags : undefined,
     }),
     onSuccess: (data) => {
       setBulkResult(data);
@@ -562,8 +576,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
   };
 
   const tabs = [
-    { id: 'scheduled', content: 'Scheduled Events', panelID: 'scheduled-panel' },
-    { id: 'bulk', content: 'Bulk Credit Events', panelID: 'bulk-panel' },
+    { id: 'scheduled', content: 'Live Promotions', panelID: 'scheduled-panel' },
+    { id: 'bulk', content: 'Post-Event Rewards', panelID: 'bulk-panel' },
   ];
 
   if (!shop) {
@@ -589,7 +603,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
         title="Store Credit Events"
         subtitle="Create bonus events to reward customers with store credit"
         primaryAction={{
-          content: 'New Scheduled Event',
+          content: 'New Live Promotion',
           icon: PlusIcon,
           onAction: () => openCreateModal(),
         }}
@@ -794,7 +808,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                     />
                   ) : (
                     <EmptyState
-                      heading="No scheduled events yet"
+                      heading="No live promotions yet"
                       action={{
                         content: 'Create your first event',
                         onAction: () => openCreateModal(),
@@ -812,7 +826,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 <BlockStack gap="400">
                   <Card>
                     <BlockStack gap="300">
-                      <Text as="h3" variant="headingMd">Run a Retroactive Bulk Event</Text>
+                      <Text as="h3" variant="headingMd">Send Post-Event Rewards</Text>
                       <Text as="p" variant="bodySm" tone="subdued">
                         Issue store credit to customers based on their past orders. Great for rewarding customers after a busy sales period.
                       </Text>
@@ -926,7 +940,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
         <Modal
           open={scheduledModalOpen}
           onClose={() => setScheduledModalOpen(false)}
-          title={editingEvent ? 'Edit Store Credit Event' : 'New Store Credit Event'}
+          title={editingEvent ? 'Edit Live Promotion' : 'New Live Promotion'}
           primaryAction={{
             content: editingEvent ? 'Save Changes' : 'Create Event',
             onAction: handleScheduledSubmit,
@@ -1274,7 +1288,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
             ) : (
               <FormLayout>
                 <Banner tone="info">
-                  <p>Configure your bulk credit event. After setting up, click "Preview (Dry Run)" to see exactly what will happen.</p>
+                  <p>Reward customers for past purchases. Set your date range and filters, then click "Preview" to see who qualifies before sending credits.</p>
                 </Banner>
 
                 <FormLayout.Group>
@@ -1331,6 +1345,84 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                     <Text as="p" variant="bodySm" tone="subdued">
                       Select start and end dates to see available order sources.
                     </Text>
+                  )}
+                </BlockStack>
+
+                <Divider />
+
+                <Text as="h3" variant="headingSm">Product Filters (Optional)</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Narrow down to orders containing specific products. Leave empty to include all orders.
+                </Text>
+
+                <BlockStack gap="200">
+                  <Text as="span" variant="bodyMd">Collections</Text>
+                  <Autocomplete
+                    options={collectionOptions}
+                    selected={bulkForm.collection_ids}
+                    onSelect={(selected) => setBulkForm({ ...bulkForm, collection_ids: selected })}
+                    textField={
+                      <Autocomplete.TextField
+                        onChange={setBulkCollectionSearch}
+                        value={bulkCollectionSearch}
+                        placeholder="Search collections..."
+                        autoComplete="off"
+                      />
+                    }
+                    allowMultiple
+                    listTitle="Available Collections"
+                  />
+                  {bulkForm.collection_ids.length > 0 && (
+                    <InlineStack gap="100" wrap>
+                      {bulkForm.collection_ids.map((id) => {
+                        const col = collectionsData?.collections?.find((c: any) => c.id === id);
+                        return (
+                          <Tag
+                            key={id}
+                            onRemove={() => setBulkForm({
+                              ...bulkForm,
+                              collection_ids: bulkForm.collection_ids.filter((c) => c !== id),
+                            })}
+                          >
+                            {col?.title || id}
+                          </Tag>
+                        );
+                      })}
+                    </InlineStack>
+                  )}
+                </BlockStack>
+
+                <BlockStack gap="200">
+                  <Text as="span" variant="bodyMd">Product Tags</Text>
+                  <Autocomplete
+                    options={tagOptions}
+                    selected={bulkForm.product_tags}
+                    onSelect={(selected) => setBulkForm({ ...bulkForm, product_tags: selected })}
+                    textField={
+                      <Autocomplete.TextField
+                        onChange={setBulkTagSearch}
+                        value={bulkTagSearch}
+                        placeholder="Search tags..."
+                        autoComplete="off"
+                      />
+                    }
+                    allowMultiple
+                    listTitle="Available Tags"
+                  />
+                  {bulkForm.product_tags.length > 0 && (
+                    <InlineStack gap="100" wrap>
+                      {bulkForm.product_tags.map((tag) => (
+                        <Tag
+                          key={tag}
+                          onRemove={() => setBulkForm({
+                            ...bulkForm,
+                            product_tags: bulkForm.product_tags.filter((t) => t !== tag),
+                          })}
+                        >
+                          {tag}
+                        </Tag>
+                      ))}
+                    </InlineStack>
                   )}
                 </BlockStack>
 

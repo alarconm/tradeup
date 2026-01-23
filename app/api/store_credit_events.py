@@ -30,6 +30,8 @@ def preview_event():
         sources: List of sources like ['pos', 'web'] (required)
         credit_percent: Percentage to credit (default 10)
         include_authorized: Include authorized orders (default true)
+        collection_ids: List of collection GIDs to filter by (optional)
+        product_tags: List of product tags to filter by (optional)
 
     Returns:
         Preview with order counts, customer totals, top customers
@@ -53,7 +55,9 @@ def preview_event():
             end_datetime=data['end_datetime'],
             sources=data['sources'],
             credit_percent=data.get('credit_percent', 10),
-            include_authorized=data.get('include_authorized', True)
+            include_authorized=data.get('include_authorized', True),
+            collection_ids=data.get('collection_ids'),
+            product_tags=data.get('product_tags')
         )
         return jsonify(result)
 
@@ -75,6 +79,8 @@ def run_event():
         include_authorized: Include authorized orders (default true)
         job_id: Unique job ID for idempotency (recommended)
         expires_at: Credit expiration datetime (optional)
+        collection_ids: List of collection GIDs to filter by (optional)
+        product_tags: List of product tags to filter by (optional)
 
     Returns:
         Event results with success/failure counts
@@ -107,7 +113,9 @@ def run_event():
             job_id=job_id,
             expires_at=data.get('expires_at'),
             batch_size=data.get('batch_size', 5),
-            delay_ms=data.get('delay_ms', 1000)
+            delay_ms=data.get('delay_ms', 1000),
+            collection_ids=data.get('collection_ids'),
+            product_tags=data.get('product_tags')
         )
         return jsonify(result)
 
