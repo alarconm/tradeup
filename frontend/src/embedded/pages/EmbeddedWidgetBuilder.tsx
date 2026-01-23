@@ -36,7 +36,7 @@ import {
 } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
-import { PositionSelector, WidgetPosition } from '../components/PositionSelector';
+import { PositionSelector, type WidgetPosition } from '../components/PositionSelector';
 import { ColorPicker } from '../components/ColorPicker';
 import { WidgetPreview, type PreviewDevice } from '../components/WidgetPreview';
 

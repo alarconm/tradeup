@@ -23,7 +23,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   checkReviewPromptWithTiming,
   recordReviewPromptShown,
-  ReviewPromptCheck,
+  type ReviewPromptCheck,
 } from '../admin/api'
 
 export type PromptContext =

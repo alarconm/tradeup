@@ -29,7 +29,7 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, GiftIcon, NotificationIcon, SendIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, NotificationIcon, SendIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -1343,42 +1343,55 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <BlockStack gap="200">
-                <Checkbox
-                  label="Enable monthly subscriptions"
-                  checked={getValue('subscriptions', 'monthly_enabled', true)}
-                  onChange={(value) => handleChange('subscriptions', 'monthly_enabled', value)}
-                />
-                <Checkbox
-                  label="Enable yearly subscriptions"
-                  checked={getValue('subscriptions', 'yearly_enabled', true)}
-                  onChange={(value) => handleChange('subscriptions', 'yearly_enabled', value)}
-                />
-              </BlockStack>
+              <Text as="h3" variant="headingSm">Billing Cycles</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable monthly subscriptions"
+                    checked={getValue('subscriptions', 'monthly_enabled', true)}
+                    onChange={(value) => handleChange('subscriptions', 'monthly_enabled', value)}
+                    helpText="Allow members to pay month-to-month"
+                  />
+                  <Checkbox
+                    label="Enable yearly subscriptions"
+                    checked={getValue('subscriptions', 'yearly_enabled', true)}
+                    onChange={(value) => handleChange('subscriptions', 'yearly_enabled', value)}
+                    helpText="Offer annual billing with potential discount"
+                  />
+                </BlockStack>
+              </Box>
 
-              <TextField
-                label="Free Trial Days"
-                type="number"
-                value={String(getValue('subscriptions', 'trial_days', 0))}
-                onChange={(value) =>
-                  handleChange('subscriptions', 'trial_days', parseInt(value) || 0)
-                }
-                suffix="days"
-                helpText="Number of free trial days (0 = no trial)"
-                autoComplete="off"
-              />
+              <Divider />
 
-              <TextField
-                label="Grace Period"
-                type="number"
-                value={String(getValue('subscriptions', 'grace_period_days', 3))}
-                onChange={(value) =>
-                  handleChange('subscriptions', 'grace_period_days', parseInt(value) || 0)
-                }
-                suffix="days"
-                helpText="Days to retry failed payments before downgrading tier"
-                autoComplete="off"
-              />
+              <Text as="h3" variant="headingSm">Trial & Grace Period</Text>
+              <InlineStack gap="400" wrap={false}>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="Free Trial Days"
+                    type="number"
+                    value={String(getValue('subscriptions', 'trial_days', 0))}
+                    onChange={(value) =>
+                      handleChange('subscriptions', 'trial_days', parseInt(value) || 0)
+                    }
+                    suffix="days"
+                    helpText="0 = no trial"
+                    autoComplete="off"
+                  />
+                </Box>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="Grace Period"
+                    type="number"
+                    value={String(getValue('subscriptions', 'grace_period_days', 3))}
+                    onChange={(value) =>
+                      handleChange('subscriptions', 'grace_period_days', parseInt(value) || 0)
+                    }
+                    suffix="days"
+                    helpText="Retry failed payments"
+                    autoComplete="off"
+                  />
+                </Box>
+              </InlineStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -1391,22 +1404,20 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <InlineStack gap="200" blockAlign="center">
-                <Icon source={GiftIcon} tone="base" />
-                <Text as="h3" variant="headingSm">
-                  Member Anniversary Rewards
-                </Text>
-              </InlineStack>
-
-              <Checkbox
-                label="Enable anniversary rewards"
-                checked={getValue('anniversary', 'enabled', false)}
-                onChange={(value) => handleChange('anniversary', 'enabled', value)}
-                helpText="Automatically send rewards to members on their membership anniversary"
-              />
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable anniversary rewards"
+                    checked={getValue('anniversary', 'enabled', false)}
+                    onChange={(value) => handleChange('anniversary', 'enabled', value)}
+                    helpText="Automatically send rewards to members on their membership anniversary"
+                  />
+                </BlockStack>
+              </Box>
 
               <Divider />
 
+              <Text as="h3" variant="headingSm">Reward Configuration</Text>
               <Select
                 label="Reward Type"
                 options={[
@@ -1430,9 +1441,9 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 prefix={getValue('anniversary', 'reward_type', 'points') === 'points' ? '' : '$'}
                 suffix={getValue('anniversary', 'reward_type', 'points') === 'points' ? 'points' : ''}
                 helpText={
-                  getValue('anniversary', 'reward_type', 'points') === 'points'
+                  (getValue('anniversary', 'reward_type', 'points') as string) === 'points'
                     ? 'Number of bonus points to award'
-                    : getValue('anniversary', 'reward_type', 'points') === 'credit'
+                    : (getValue('anniversary', 'reward_type', 'points') as string) === 'credit'
                     ? 'Dollar amount of store credit to award'
                     : 'Discount percentage for the code'
                 }
@@ -1456,13 +1467,16 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
 
               <Divider />
 
-              <Checkbox
-                label="Enable tiered anniversary rewards"
-                checked={getValue('anniversary', 'tiered_rewards_enabled', false)}
-                onChange={(value) => handleChange('anniversary', 'tiered_rewards_enabled', value)}
-                helpText="Give different reward amounts based on anniversary year (e.g., Year 1 = $5, Year 2 = $10, Year 5 = $25)"
-                disabled={!getValue('anniversary', 'enabled', false)}
-              />
+              <Text as="h3" variant="headingSm">Tiered Rewards</Text>
+              <Box paddingInlineStart="200">
+                <Checkbox
+                  label="Enable tiered anniversary rewards"
+                  checked={getValue('anniversary', 'tiered_rewards_enabled', false)}
+                  onChange={(value) => handleChange('anniversary', 'tiered_rewards_enabled', value)}
+                  helpText="Give different reward amounts based on anniversary year (e.g., Year 1 = $5, Year 2 = $10, Year 5 = $25)"
+                  disabled={!getValue('anniversary', 'enabled', false)}
+                />
+              </Box>
 
               {getValue('anniversary', 'tiered_rewards_enabled', false) && getValue('anniversary', 'enabled', false) && (
                 <BlockStack gap="300">
@@ -1686,62 +1700,74 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 </Banner>
               )}
 
-              <Checkbox
-                label="Enable email notifications"
-                checked={getValue('notifications', 'enabled', true)}
-                onChange={(value) => handleChange('notifications', 'enabled', value)}
-              />
+              <Text as="h3" variant="headingSm">Email Notifications</Text>
+              <Box paddingInlineStart="200">
+                <Checkbox
+                  label="Enable email notifications"
+                  checked={getValue('notifications', 'enabled', true)}
+                  onChange={(value) => handleChange('notifications', 'enabled', value)}
+                  helpText="Send automatic emails for program events"
+                />
+              </Box>
 
               <Divider />
 
-              <Text as="h3" variant="headingSm">
-                Notification Types
-              </Text>
-
-              <Checkbox
-                label="Welcome email on enrollment"
-                checked={getValue('notifications', 'welcome_email', true)}
-                onChange={(value) => handleChange('notifications', 'welcome_email', value)}
-              />
-
-              <Checkbox
-                label="Trade-in status updates"
-                checked={getValue('notifications', 'trade_in_updates', true)}
-                onChange={(value) => handleChange('notifications', 'trade_in_updates', value)}
-              />
-
-              <Checkbox
-                label="Tier upgrade/downgrade"
-                checked={getValue('notifications', 'tier_change', true)}
-                onChange={(value) => handleChange('notifications', 'tier_change', value)}
-              />
-
-              <Checkbox
-                label="Store credit issued"
-                checked={getValue('notifications', 'credit_issued', true)}
-                onChange={(value) => handleChange('notifications', 'credit_issued', value)}
-              />
+              <Text as="h3" variant="headingSm">Notification Types</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Welcome email on enrollment"
+                    checked={getValue('notifications', 'welcome_email', true)}
+                    onChange={(value) => handleChange('notifications', 'welcome_email', value)}
+                    helpText="Sent when a new member joins"
+                  />
+                  <Checkbox
+                    label="Trade-in status updates"
+                    checked={getValue('notifications', 'trade_in_updates', true)}
+                    onChange={(value) => handleChange('notifications', 'trade_in_updates', value)}
+                    helpText="Notify members when trade-ins are approved or completed"
+                  />
+                  <Checkbox
+                    label="Tier upgrade/downgrade"
+                    checked={getValue('notifications', 'tier_change', true)}
+                    onChange={(value) => handleChange('notifications', 'tier_change', value)}
+                    helpText="Inform members when their tier status changes"
+                  />
+                  <Checkbox
+                    label="Store credit issued"
+                    checked={getValue('notifications', 'credit_issued', true)}
+                    onChange={(value) => handleChange('notifications', 'credit_issued', value)}
+                    helpText="Notify members when credit is added to their account"
+                  />
+                </BlockStack>
+              </Box>
 
               <Divider />
 
-              <TextField
-                label="From Name"
-                value={getValue('notifications', 'from_name', '') || ''}
-                onChange={(value) => handleChange('notifications', 'from_name', value)}
-                placeholder="Your Store Name"
-                helpText="Sender name for emails (defaults to shop name)"
-                autoComplete="off"
-              />
-
-              <TextField
-                label="From Email"
-                type="email"
-                value={getValue('notifications', 'from_email', '') || ''}
-                onChange={(value) => handleChange('notifications', 'from_email', value)}
-                placeholder="noreply@yourstore.com"
-                helpText="Sender email (must be verified with SendGrid)"
-                autoComplete="email"
-              />
+              <Text as="h3" variant="headingSm">Sender Configuration</Text>
+              <InlineStack gap="400" wrap={false}>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="From Name"
+                    value={getValue('notifications', 'from_name', '') || ''}
+                    onChange={(value) => handleChange('notifications', 'from_name', value)}
+                    placeholder="Your Store Name"
+                    helpText="Defaults to shop name"
+                    autoComplete="off"
+                  />
+                </Box>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="From Email"
+                    type="email"
+                    value={getValue('notifications', 'from_email', '') || ''}
+                    onChange={(value) => handleChange('notifications', 'from_email', value)}
+                    placeholder="noreply@yourstore.com"
+                    helpText="Must be verified with SendGrid"
+                    autoComplete="email"
+                  />
+                </Box>
+              </InlineStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -1766,27 +1792,16 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               )}
 
               <InlineStack align="space-between" blockAlign="center">
-                <BlockStack gap="100">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon source={NotificationIcon} tone="base" />
-                    <Text as="h3" variant="headingMd">
-                      Engagement Nudges
-                    </Text>
-                  </InlineStack>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Configure automated reminders to keep members engaged with your loyalty program.
-                  </Text>
-                </BlockStack>
+                <Text as="h3" variant="headingSm">Engagement Nudges</Text>
                 <Button
                   onClick={() => refetchNudgeConfigs()}
                   loading={nudgeConfigsLoading}
                   icon={RefreshIcon}
+                  size="slim"
                 >
                   Refresh
                 </Button>
               </InlineStack>
-
-              <Divider />
 
               {nudgeConfigsLoading ? (
                 <InlineStack align="center">
@@ -2712,21 +2727,21 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       <Text as="p" variant="bodySm" tone="subdued">Rate Now Clicks</Text>
                       <InlineStack gap="100" blockAlign="center">
                         <Text as="p" variant="headingLg">{reviewMetricsData.metrics.clicked_count}</Text>
-                        <Badge tone="success">{reviewMetricsData.metrics.click_rate}%</Badge>
+                        <Badge tone="success">{`${reviewMetricsData.metrics.click_rate}%`}</Badge>
                       </InlineStack>
                     </BlockStack>
                     <BlockStack gap="100">
                       <Text as="p" variant="bodySm" tone="subdued">Dismissed</Text>
                       <InlineStack gap="100" blockAlign="center">
                         <Text as="p" variant="headingLg">{reviewMetricsData.metrics.dismissed_count}</Text>
-                        <Badge>{reviewMetricsData.metrics.dismiss_rate}%</Badge>
+                        <Badge>{`${reviewMetricsData.metrics.dismiss_rate}%`}</Badge>
                       </InlineStack>
                     </BlockStack>
                     <BlockStack gap="100">
                       <Text as="p" variant="bodySm" tone="subdued">Remind Later</Text>
                       <InlineStack gap="100" blockAlign="center">
                         <Text as="p" variant="headingLg">{reviewMetricsData.metrics.reminded_later_count}</Text>
-                        <Badge tone="info">{reviewMetricsData.metrics.remind_later_rate}%</Badge>
+                        <Badge tone="info">{`${reviewMetricsData.metrics.remind_later_rate}%`}</Badge>
                       </InlineStack>
                     </BlockStack>
                   </InlineStack>

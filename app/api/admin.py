@@ -408,6 +408,7 @@ def fix_schema():
         ("membership_tiers", "purchase_cashback_pct", "NUMERIC(5,2) DEFAULT 0"),
         ("membership_tiers", "monthly_credit_amount", "NUMERIC(10,2) DEFAULT 0"),
         ("membership_tiers", "credit_expiration_days", "INTEGER"),
+        ("membership_tiers", "points_earning_multiplier", "NUMERIC(4,2) DEFAULT 1.0"),
         # Trade-in batches - missing columns from model
         ("trade_in_batches", "category", "VARCHAR(50) DEFAULT 'other'"),
         ("trade_in_batches", "completed_at", "TIMESTAMP"),
