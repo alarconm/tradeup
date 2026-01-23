@@ -18,6 +18,44 @@ def get_service_for_tenant():
     return StoreCreditEventsService(tenant.shopify_domain, tenant.shopify_access_token)
 
 
+def validate_filter_lists(data: dict) -> tuple:
+    """
+    Validate collection_ids and product_tags filter parameters.
+
+    Args:
+        data: Request JSON data
+
+    Returns:
+        Tuple of (collection_ids, product_tags) or raises ValueError
+
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    collection_ids = data.get('collection_ids')
+    if collection_ids is not None:
+        if not isinstance(collection_ids, list):
+            raise ValueError('collection_ids must be a list')
+        if not all(isinstance(cid, str) for cid in collection_ids):
+            raise ValueError('collection_ids must contain only strings')
+        # Validate Shopify GID format for collections
+        for cid in collection_ids:
+            if cid and not cid.startswith('gid://shopify/Collection/'):
+                raise ValueError(f'Invalid collection ID format: {cid}')
+
+    product_tags = data.get('product_tags')
+    if product_tags is not None:
+        if not isinstance(product_tags, list):
+            raise ValueError('product_tags must be a list')
+        if not all(isinstance(tag, str) for tag in product_tags):
+            raise ValueError('product_tags must contain only strings')
+        # Limit tag length to prevent abuse
+        for tag in product_tags:
+            if tag and len(tag) > 255:
+                raise ValueError('product_tags values must be 255 characters or less')
+
+    return collection_ids, product_tags
+
+
 @store_credit_events_bp.route('/preview', methods=['POST'])
 @require_shopify_auth
 def preview_event():
@@ -49,6 +87,12 @@ def preview_event():
         if field not in data:
             return jsonify({'error': f'{field} is required'}), 400
 
+    # Validate filter parameters
+    try:
+        collection_ids, product_tags = validate_filter_lists(data)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
     try:
         result = service.preview_event(
             start_datetime=data['start_datetime'],
@@ -56,11 +100,14 @@ def preview_event():
             sources=data['sources'],
             credit_percent=data.get('credit_percent', 10),
             include_authorized=data.get('include_authorized', True),
-            collection_ids=data.get('collection_ids'),
-            product_tags=data.get('product_tags')
+            collection_ids=collection_ids,
+            product_tags=product_tags
         )
         return jsonify(result)
 
+    except ValueError as e:
+        # Datetime validation errors
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -98,6 +145,12 @@ def run_event():
         if field not in data:
             return jsonify({'error': f'{field} is required'}), 400
 
+    # Validate filter parameters
+    try:
+        collection_ids, product_tags = validate_filter_lists(data)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
     # Generate job_id if not provided
     job_id = data.get('job_id')
     if not job_id:
@@ -114,11 +167,14 @@ def run_event():
             expires_at=data.get('expires_at'),
             batch_size=data.get('batch_size', 5),
             delay_ms=data.get('delay_ms', 1000),
-            collection_ids=data.get('collection_ids'),
-            product_tags=data.get('product_tags')
+            collection_ids=collection_ids,
+            product_tags=product_tags
         )
         return jsonify(result)
 
+    except ValueError as e:
+        # Datetime validation errors
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

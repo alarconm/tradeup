@@ -328,6 +328,25 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     return filtered.filter(c => c?.title).map(c => ({ value: c.id, label: c.title }));
   }, [collectionsData, collectionSearch]);
 
+  // Memoized options for bulk form (separate search states)
+  const bulkTagOptions = useMemo(() => {
+    if (!tagsData?.tags) return [];
+    const searchLower = (bulkTagSearch || '').toLowerCase();
+    const filtered = searchLower
+      ? tagsData.tags.filter(t => (t || '').toLowerCase().includes(searchLower))
+      : tagsData.tags;
+    return filtered.filter(t => t).map(t => ({ value: t, label: t }));
+  }, [tagsData, bulkTagSearch]);
+
+  const bulkCollectionOptions = useMemo(() => {
+    if (!collectionsData?.collections) return [];
+    const searchLower = (bulkCollectionSearch || '').toLowerCase();
+    const filtered = searchLower
+      ? collectionsData.collections.filter(c => (c?.title || '').toLowerCase().includes(searchLower))
+      : collectionsData.collections;
+    return filtered.filter(c => c?.title).map(c => ({ value: c.id, label: c.title }));
+  }, [collectionsData, bulkCollectionSearch]);
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: (data: Partial<ScheduledEvent>) => createScheduledEvent(shop, data),
@@ -431,10 +450,14 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       credit_percent: 10,
       include_authorized: true,
       credit_expiration_days: '',
+      collection_ids: [],
+      product_tags: [],
     });
     setBulkPreview(null);
     setBulkResult(null);
     setAvailableSources([]);
+    setBulkTagSearch('');
+    setBulkCollectionSearch('');
   }, []);
 
   // Open create modal with optional template
@@ -504,6 +527,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       credit_percent: percent || 10,
       include_authorized: true,
       credit_expiration_days: '',
+      collection_ids: [],
+      product_tags: [],
     });
     setBulkPreview(null);
     setBulkResult(null);
@@ -1358,11 +1383,12 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 <BlockStack gap="200">
                   <Text as="span" variant="bodyMd">Collections</Text>
                   <Autocomplete
-                    options={collectionOptions}
+                    options={bulkCollectionOptions}
                     selected={bulkForm.collection_ids}
                     onSelect={(selected) => setBulkForm({ ...bulkForm, collection_ids: selected })}
                     textField={
                       <Autocomplete.TextField
+                        label=""
                         onChange={setBulkCollectionSearch}
                         value={bulkCollectionSearch}
                         placeholder="Search collections..."
@@ -1395,11 +1421,12 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 <BlockStack gap="200">
                   <Text as="span" variant="bodyMd">Product Tags</Text>
                   <Autocomplete
-                    options={tagOptions}
+                    options={bulkTagOptions}
                     selected={bulkForm.product_tags}
                     onSelect={(selected) => setBulkForm({ ...bulkForm, product_tags: selected })}
                     textField={
                       <Autocomplete.TextField
+                        label=""
                         onChange={setBulkTagSearch}
                         value={bulkTagSearch}
                         placeholder="Search tags..."

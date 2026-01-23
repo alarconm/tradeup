@@ -4,6 +4,7 @@ Port from CardShop for running promotional store credit events like Trade Night.
 Enhanced for TradeUp Admin Dashboard with filter-based event builder.
 """
 import os
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -11,6 +12,46 @@ from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field, asdict
 import httpx
 from flask import current_app
+
+
+# Strict datetime pattern for GraphQL injection prevention
+# Accepts: 2024-01-15, 2024-01-15T14:30:00, 2024-01-15T14:30:00Z, 2024-01-15T14:30:00+00:00
+DATETIME_PATTERN = re.compile(
+    r'^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$'
+)
+
+
+def validate_datetime_string(value: str, field_name: str) -> str:
+    """
+    Validate and sanitize a datetime string to prevent GraphQL injection.
+
+    Args:
+        value: The datetime string to validate
+        field_name: Name of the field for error messages
+
+    Returns:
+        The validated datetime string
+
+    Raises:
+        ValueError: If the datetime format is invalid
+    """
+    if not value:
+        raise ValueError(f'{field_name} is required')
+
+    if not isinstance(value, str):
+        raise ValueError(f'{field_name} must be a string')
+
+    # Strip whitespace
+    value = value.strip()
+
+    # Check against strict pattern
+    if not DATETIME_PATTERN.match(value):
+        raise ValueError(
+            f'{field_name} has invalid format. '
+            f'Expected ISO 8601 format like "2024-01-15" or "2024-01-15T14:30:00"'
+        )
+
+    return value
 
 
 @dataclass
@@ -139,7 +180,14 @@ class StoreCreditEventsService:
 
         Returns:
             List of OrderData objects
+
+        Raises:
+            ValueError: If datetime parameters have invalid format
         """
+        # Validate datetime parameters to prevent GraphQL injection
+        start_datetime = validate_datetime_string(start_datetime, 'start_datetime')
+        end_datetime = validate_datetime_string(end_datetime, 'end_datetime')
+
         orders = []
         has_next_page = True
         end_cursor = None
@@ -235,9 +283,9 @@ class StoreCreditEventsService:
                         if not product:
                             continue
 
-                        # Check product tags
+                        # Check product tags (case-insensitive, null-safe)
                         if product_tags:
-                            item_tags = [t.lower() for t in product.get('tags', [])]
+                            item_tags = [t.lower() for t in (product.get('tags') or []) if t]
                             if any(tag.lower() in item_tags for tag in product_tags):
                                 matches_filter = True
                                 break
@@ -1081,10 +1129,10 @@ class StoreCreditEventService:
                         if not product:
                             continue
 
-                        # Check product tags
+                        # Check product tags (case-insensitive, null-safe)
                         if product_tags:
-                            item_tags = product.get('tags', [])
-                            if any(tag in item_tags for tag in product_tags):
+                            item_tags = [t.lower() for t in (product.get('tags') or []) if t]
+                            if any(tag.lower() in item_tags for tag in product_tags):
                                 matches_filter = True
                                 break
 
