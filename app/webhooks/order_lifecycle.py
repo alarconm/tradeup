@@ -739,6 +739,116 @@ def handle_order_created():
                 result['tier_upgrade'] = membership_result
 
         if not member:
+            # ==========================================
+            # NON-MEMBER: CHECK FOR ALL-CUSTOMERS PROMOTIONS
+            # ==========================================
+            # Even without membership, check if there are promotions targeting all customers
+            try:
+                line_items = order_data.get('line_items', [])
+                rewards_subtotal = calculate_non_membership_subtotal(tenant.id, line_items)
+
+                if rewards_subtotal > 0 and shopify_customer_id:
+                    source_name = order_data.get('source_name', 'web')
+                    channel = 'pos' if source_name == 'pos' else 'online'
+
+                    # Get all-customers promotions
+                    all_customer_promos = store_credit_service.get_active_promotions_for_audience(
+                        tenant_id=tenant.id,
+                        audience='all_customers',
+                        channel=channel,
+                        promo_type='purchase_cashback'
+                    )
+
+                    if all_customer_promos:
+                        # Extract product tags from line items for filtering
+                        product_tags = set()
+                        product_ids = []
+                        for item in line_items:
+                            if item.get('product_id'):
+                                product_ids.append(str(item['product_id']))
+                            if item.get('tags'):
+                                if isinstance(item['tags'], str):
+                                    product_tags.update(t.strip() for t in item['tags'].split(','))
+                                elif isinstance(item['tags'], list):
+                                    product_tags.update(item['tags'])
+
+                        # Fetch collection IDs if any promo has collection filters
+                        collection_ids = set()
+                        needs_collections = any(promo.collection_ids for promo in all_customer_promos)
+                        if needs_collections and product_ids:
+                            try:
+                                from ..services.shopify_client import ShopifyClient
+                                shopify_client = ShopifyClient(tenant.id)
+                                product_collections = shopify_client.get_product_collections(product_ids)
+                                for pid in product_ids:
+                                    if pid in product_collections:
+                                        collection_ids.update(product_collections[pid])
+                            except Exception as e:
+                                current_app.logger.warning(f"Failed to fetch collections for guest promo: {e}")
+
+                        # Find the best matching promotion
+                        best_bonus = Decimal('0')
+                        best_promo = None
+
+                        for promo in all_customer_promos:
+                            if promo.min_value and rewards_subtotal < Decimal(str(promo.min_value)):
+                                continue
+
+                            # Check collection filter if set
+                            if promo.collection_ids and collection_ids:
+                                if not any(promo.applies_to_collection(cid) for cid in collection_ids):
+                                    continue
+
+                            # Check product tag filter if set
+                            if promo.product_tags_filter and product_tags:
+                                if not promo.applies_to_product_tags(list(product_tags)):
+                                    continue
+
+                            bonus = promo.calculate_bonus(rewards_subtotal)
+                            if bonus > best_bonus:
+                                best_bonus = bonus
+                                best_promo = promo
+
+                        if best_promo and best_bonus > 0:
+                            # Issue credit to non-member via Shopify
+                            guest_credit_result = store_credit_service.issue_guest_store_credit(
+                                tenant_id=tenant.id,
+                                shopify_customer_id=shopify_customer_id,
+                                customer_email=customer_data.get('email'),
+                                customer_name=f"{customer_data.get('first_name', '')} {customer_data.get('last_name', '')}".strip() or None,
+                                amount=best_bonus,
+                                description=f"{best_promo.bonus_percent}% cashback from {best_promo.name} on order #{order_number}",
+                                promotion_id=best_promo.id,
+                                promotion_name=best_promo.name,
+                                order_id=order_id,
+                                order_number=order_number,
+                                order_total=rewards_subtotal,
+                            )
+
+                            if guest_credit_result.get('success'):
+                                # Increment promo usage
+                                best_promo.current_uses = (best_promo.current_uses or 0) + 1
+                                db.session.commit()
+
+                                result['guest_cashback'] = {
+                                    'amount': float(best_bonus),
+                                    'promotion_name': best_promo.name,
+                                    'customer_email': customer_data.get('email'),
+                                    'new_balance': guest_credit_result.get('new_balance'),
+                                }
+                                current_app.logger.info(
+                                    f'Awarded ${best_bonus} guest credit to {customer_data.get("email")} '
+                                    f'(non-member) via all-customers promo "{best_promo.name}" for order #{order_number}'
+                                )
+                                return jsonify(result)
+                            else:
+                                current_app.logger.warning(
+                                    f"Failed to issue guest credit for order #{order_number}: {guest_credit_result.get('error')}"
+                                )
+
+            except Exception as e:
+                current_app.logger.error(f'Error processing all-customers promotion for order #{order_number}: {e}')
+
             result['message'] = 'Customer not enrolled in rewards'
             return jsonify(result)
 

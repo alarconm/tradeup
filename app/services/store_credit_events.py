@@ -386,10 +386,14 @@ class StoreCreditEventsService:
         credit_percent: float = 10.0,
         include_authorized: bool = True,
         collection_ids: Optional[List[str]] = None,
-        product_tags: Optional[List[str]] = None
+        product_tags: Optional[List[str]] = None,
+        audience: str = 'all_customers'
     ) -> Dict[str, Any]:
         """
         Preview a store credit event without applying credits.
+
+        Args:
+            audience: 'all_customers' (default) or 'members_only'
 
         Returns:
             Preview data including order counts, customer counts, and totals
@@ -399,6 +403,10 @@ class StoreCreditEventsService:
             collection_ids=collection_ids, product_tags=product_tags
         )
         credits = self.calculate_credits(orders, credit_percent)
+
+        # Filter by audience if members_only
+        if audience == 'members_only':
+            credits = self._filter_members_only(credits)
 
         # Orders by source
         by_source: Dict[str, int] = {}
@@ -532,6 +540,54 @@ class StoreCreditEventsService:
         except Exception:
             return False
 
+    def _filter_members_only(self, credits: Dict[str, CustomerCredit]) -> Dict[str, CustomerCredit]:
+        """
+        Filter credits to include only TradeUp members.
+
+        Args:
+            credits: Dict of customer_id -> CustomerCredit
+
+        Returns:
+            Filtered dict containing only members
+        """
+        from ..models.member import Member
+        from ..models import Tenant
+
+        if not credits:
+            return credits
+
+        # Get tenant_id from shop domain
+        tenant = Tenant.query.filter_by(shopify_domain=self.shop_domain).first()
+        if not tenant:
+            current_app.logger.warning(f"No tenant found for {self.shop_domain}, returning all customers")
+            return credits
+
+        # Get all Shopify customer IDs (GIDs) from credits
+        customer_gids = list(credits.keys())
+
+        # Query members by shopify_customer_gid
+        members = Member.query.filter(
+            Member.tenant_id == tenant.id,
+            Member.shopify_customer_gid.in_(customer_gids)
+        ).all()
+
+        # Build set of member GIDs for quick lookup
+        member_gids = {m.shopify_customer_gid for m in members if m.shopify_customer_gid}
+
+        # Filter credits to only include members
+        filtered = {
+            gid: credit for gid, credit in credits.items()
+            if gid in member_gids
+        }
+
+        skipped_count = len(credits) - len(filtered)
+        if skipped_count > 0:
+            current_app.logger.info(
+                f"Filtered {skipped_count} non-members from bulk event (members_only mode)"
+            )
+
+        return filtered
+
     def run_event(
         self,
         start_datetime: str,
@@ -544,7 +600,8 @@ class StoreCreditEventsService:
         batch_size: int = 5,
         delay_ms: int = 1000,
         collection_ids: Optional[List[str]] = None,
-        product_tags: Optional[List[str]] = None
+        product_tags: Optional[List[str]] = None,
+        audience: str = 'all_customers'
     ) -> Dict[str, Any]:
         """
         Run a store credit event (apply credits to all eligible customers).
@@ -561,6 +618,7 @@ class StoreCreditEventsService:
             delay_ms: Delay between batches in milliseconds
             collection_ids: Optional list of collection GIDs to filter by
             product_tags: Optional list of product tags to filter by
+            audience: 'all_customers' (default) or 'members_only'
 
         Returns:
             Event results including success/failure counts
@@ -572,6 +630,10 @@ class StoreCreditEventsService:
             collection_ids=collection_ids, product_tags=product_tags
         )
         credits = self.calculate_credits(orders, credit_percent)
+
+        # Filter by audience if members_only
+        if audience == 'members_only':
+            credits = self._filter_members_only(credits)
 
         results: List[CreditResult] = []
         customers = list(credits.values())

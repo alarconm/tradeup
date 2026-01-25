@@ -431,6 +431,8 @@ def fix_schema():
         ("promotions", "tier_restriction", "TEXT"),
         # Promotions - usage limits
         ("promotions", "max_uses_per_member", "INTEGER"),
+        # Promotions - audience targeting (members_only or all_customers)
+        ("promotions", "audience", "VARCHAR(50) DEFAULT 'members_only'"),
         # Bulk credit operations - tenant isolation (CRITICAL SECURITY)
         ("bulk_credit_operations", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Tier configurations - promotion system columns

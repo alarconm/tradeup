@@ -86,6 +86,8 @@ interface ScheduledEvent {
   product_tags_filter: string[] | null;
   collection_ids: string[] | null;
   tier_restriction: string[] | null;
+  audience: 'members_only' | 'all_customers';
+  audience_label: string;
   active: boolean;
   is_active_now: boolean;
 }
@@ -206,6 +208,7 @@ async function previewBulkEvent(
     include_authorized?: boolean;
     collection_ids?: string[];
     product_tags?: string[];
+    audience?: string;
   }
 ): Promise<BulkEventPreview> {
   const response = await authFetch(
@@ -231,6 +234,7 @@ async function runBulkEvent(
     expires_at?: string;
     collection_ids?: string[];
     product_tags?: string[];
+    audience?: string;
   }
 ): Promise<BulkEventResult> {
   const response = await authFetch(
@@ -276,6 +280,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     product_tags_filter: [] as string[],
     collection_ids: [] as string[],
     tier_restriction: [] as string[],
+    audience: 'members_only' as 'members_only' | 'all_customers',
     active: true,
     credit_expiration_days: '',
   });
@@ -289,6 +294,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     credit_expiration_days: '',
     collection_ids: [] as string[],
     product_tags: [] as string[],
+    audience: 'all_customers' as 'members_only' | 'all_customers',
   });
 
   // Search states for bulk form pickers
@@ -392,6 +398,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       include_authorized: bulkForm.include_authorized,
       collection_ids: bulkForm.collection_ids.length > 0 ? bulkForm.collection_ids : undefined,
       product_tags: bulkForm.product_tags.length > 0 ? bulkForm.product_tags : undefined,
+      audience: bulkForm.audience,
     }),
     onSuccess: (data) => {
       setBulkPreview(data);
@@ -411,6 +418,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
         : undefined,
       collection_ids: bulkForm.collection_ids.length > 0 ? bulkForm.collection_ids : undefined,
       product_tags: bulkForm.product_tags.length > 0 ? bulkForm.product_tags : undefined,
+      audience: bulkForm.audience,
     }),
     onSuccess: (data) => {
       setBulkResult(data);
@@ -435,6 +443,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       product_tags_filter: [],
       collection_ids: [],
       tier_restriction: [],
+      audience: 'members_only',
       active: true,
       credit_expiration_days: '',
     });
@@ -452,6 +461,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       credit_expiration_days: '',
       collection_ids: [],
       product_tags: [],
+      audience: 'all_customers',
     });
     setBulkPreview(null);
     setBulkResult(null);
@@ -508,6 +518,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       product_tags_filter: event.product_tags_filter || [],
       collection_ids: event.collection_ids || [],
       tier_restriction: event.tier_restriction || [],
+      audience: event.audience || 'members_only',
       active: event.active,
       credit_expiration_days: '',
     });
@@ -529,6 +540,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       credit_expiration_days: '',
       collection_ids: [],
       product_tags: [],
+      audience: 'all_customers',
     });
     setBulkPreview(null);
     setBulkResult(null);
@@ -560,6 +572,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       product_tags_filter: scheduledForm.product_tags_filter.length > 0 ? scheduledForm.product_tags_filter : null,
       collection_ids: scheduledForm.collection_ids.length > 0 ? scheduledForm.collection_ids : null,
       tier_restriction: scheduledForm.tier_restriction.length > 0 ? scheduledForm.tier_restriction : null,
+      audience: scheduledForm.audience,
       channel: 'all',
       stackable: true,
       active: scheduledForm.active,
@@ -792,8 +805,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                     </BlockStack>
                   ) : events.length > 0 ? (
                     <DataTable
-                      columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
-                      headings={['Event Name', 'Bonus', 'Schedule', 'Date Range', 'Status', 'Actions']}
+                      columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text', 'text']}
+                      headings={['Event Name', 'Audience', 'Bonus', 'Schedule', 'Date Range', 'Status', 'Actions']}
                       rows={events.map((event) => [
                         <BlockStack gap="100" key={event.id}>
                           <Text as="span" fontWeight="semibold">{event.name}</Text>
@@ -805,6 +818,12 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                             </InlineStack>
                           )}
                         </BlockStack>,
+                        <Badge
+                          key={`audience-${event.id}`}
+                          tone={event.audience === 'all_customers' ? 'info' : 'default'}
+                        >
+                          {event.audience === 'all_customers' ? 'All Customers' : 'Members Only'}
+                        </Badge>,
                         <Badge tone="success" key={event.id}>{`+${event.bonus_percent}%`}</Badge>,
                         getScheduleDescription(event),
                         <Text as="span" variant="bodySm" key={event.id}>
@@ -1014,6 +1033,34 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 autoComplete="off"
                 helpText="Percentage of order/trade-in value to credit"
               />
+
+              <Divider />
+              <Text as="h3" variant="headingSm">Who Should Receive This Bonus?</Text>
+
+              <ChoiceList
+                title="Target Audience"
+                titleHidden
+                choices={[
+                  {
+                    label: 'Members Only',
+                    value: 'members_only',
+                    helpText: 'Only enrolled TradeUp members receive the bonus'
+                  },
+                  {
+                    label: 'All Customers Who Purchase',
+                    value: 'all_customers',
+                    helpText: 'Any customer who meets criteria gets store credit'
+                  }
+                ]}
+                selected={[scheduledForm.audience]}
+                onChange={(selected) => setScheduledForm({ ...scheduledForm, audience: selected[0] as 'members_only' | 'all_customers' })}
+              />
+
+              {scheduledForm.audience === 'all_customers' && (
+                <Banner tone="info">
+                  <p>Both members and non-members will receive store credit directly to their Shopify account. Great for acquisition campaigns!</p>
+                </Banner>
+              )}
 
               <Divider />
               <Text as="h3" variant="headingSm">Date Range</Text>
@@ -1346,6 +1393,42 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                   autoComplete="off"
                   helpText="Percentage of order total to issue as store credit"
                 />
+
+                <Divider />
+                <Text as="h3" variant="headingSm">Who Should Receive This Credit?</Text>
+
+                <ChoiceList
+                  title="Target Audience"
+                  titleHidden
+                  choices={[
+                    {
+                      label: 'All Customers Who Purchased (Recommended)',
+                      value: 'all_customers',
+                      helpText: 'Any customer with orders in the date range gets credit'
+                    },
+                    {
+                      label: 'Members Only',
+                      value: 'members_only',
+                      helpText: 'Only enrolled TradeUp members receive the credit'
+                    }
+                  ]}
+                  selected={[bulkForm.audience]}
+                  onChange={(selected) => setBulkForm({ ...bulkForm, audience: selected[0] as 'members_only' | 'all_customers' })}
+                />
+
+                {bulkForm.audience === 'all_customers' && (
+                  <Banner tone="info">
+                    <p>Store credit will be issued directly to customers' Shopify accounts, including those who aren't members. Great for acquisition campaigns!</p>
+                  </Banner>
+                )}
+
+                {bulkForm.audience === 'members_only' && (
+                  <Banner tone="warning">
+                    <p>Only enrolled TradeUp members will receive credit. Non-members who made purchases in this period will be skipped.</p>
+                  </Banner>
+                )}
+
+                <Divider />
 
                 <BlockStack gap="200">
                   <Text as="span" variant="bodyMd">Order Sources <Text as="span" tone="critical">*</Text></Text>

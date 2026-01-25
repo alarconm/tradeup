@@ -233,6 +233,11 @@ def create_promotion():
     # Member restrictions
     tier_restriction = to_json_or_none(data.get('tier_restriction'))
 
+    # Validate audience
+    audience = data.get('audience', 'members_only')
+    if audience not in ('members_only', 'all_customers'):
+        return jsonify({'error': 'audience must be "members_only" or "all_customers"'}), 400
+
     tenant_id = g.tenant_id
     promotion = Promotion(
         tenant_id=tenant_id,
@@ -257,6 +262,8 @@ def create_promotion():
         category_ids=category_ids,  # Legacy
         # Member restrictions
         tier_restriction=tier_restriction,
+        # Audience targeting
+        audience=audience,
         min_items=data.get('min_items', 0),
         min_value=data.get('min_value', 0),
         stackable=data.get('stackable', True),
@@ -353,6 +360,13 @@ def update_promotion(promo_id: int):
     # Member restrictions
     if 'tier_restriction' in data:
         promotion.tier_restriction = to_json_or_none(data['tier_restriction'])
+
+    # Audience targeting
+    if 'audience' in data:
+        audience = data['audience']
+        if audience not in ('members_only', 'all_customers'):
+            return jsonify({'error': 'audience must be "members_only" or "all_customers"'}), 400
+        promotion.audience = audience
 
     if 'min_items' in data:
         promotion.min_items = data['min_items']

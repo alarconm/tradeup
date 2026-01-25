@@ -130,6 +130,11 @@ class Promotion(db.Model):
     min_items = db.Column(db.Integer, default=0)      # Min items in trade-in
     min_value = db.Column(db.Numeric(10, 2), default=0)  # Min order/trade value
 
+    # Audience targeting - who receives this promotion
+    # 'members_only' = only enrolled TradeUp members (default, backwards compatible)
+    # 'all_customers' = any customer who purchases (includes non-members)
+    audience = db.Column(db.String(50), nullable=False, default='members_only')
+
     # Stacking rules
     stackable = db.Column(db.Boolean, default=True)  # Can combine with other promos
     priority = db.Column(db.Integer, default=0)      # Higher = applied first
@@ -388,6 +393,9 @@ class Promotion(db.Model):
             'tier_restriction': safe_json_loads(self.tier_restriction),
             'min_items': self.min_items,
             'min_value': float(self.min_value or 0),
+            # Audience targeting
+            'audience': self.audience or 'members_only',
+            'audience_label': 'All Customers' if self.audience == 'all_customers' else 'Members Only',
             'stackable': self.stackable,
             'priority': self.priority,
             'max_uses': self.max_uses,
@@ -1015,3 +1023,67 @@ class PendingDistribution(db.Model):
             result['members'] = preview.get('members', [])
 
         return result
+
+
+# ==================== Guest Credit Events ====================
+
+class GuestCreditEvent(db.Model):
+    """
+    Audit trail for store credit issued to non-members.
+
+    When a promotion targets 'all_customers', non-members receive
+    store credit directly via Shopify but aren't enrolled as members.
+    This table tracks those credits for reporting and audit purposes.
+    """
+    __tablename__ = 'guest_credit_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)
+
+    # Customer identification (from Shopify, not a member)
+    shopify_customer_id = db.Column(db.String(100), nullable=False, index=True)
+    customer_email = db.Column(db.String(255))
+    customer_name = db.Column(db.String(255))
+
+    # Credit details
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    description = db.Column(db.String(500))
+
+    # Source tracking
+    promotion_id = db.Column(db.Integer, db.ForeignKey('promotions.id'))
+    promotion_name = db.Column(db.String(100))
+    order_id = db.Column(db.String(100), index=True)
+    order_number = db.Column(db.String(50))
+    order_total = db.Column(db.Numeric(10, 2))
+
+    # Shopify sync
+    synced_to_shopify = db.Column(db.Boolean, default=False)
+    shopify_credit_id = db.Column(db.String(100))
+    sync_error = db.Column(db.String(500))
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    # Relationships
+    promotion = db.relationship('Promotion', backref='guest_credit_events')
+
+    def __repr__(self):
+        return f'<GuestCreditEvent {self.id}: ${self.amount} to {self.customer_email}>'
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            'id': self.id,
+            'shopify_customer_id': self.shopify_customer_id,
+            'customer_email': self.customer_email,
+            'customer_name': self.customer_name,
+            'amount': float(self.amount),
+            'description': self.description,
+            'promotion_id': self.promotion_id,
+            'promotion_name': self.promotion_name,
+            'order_id': self.order_id,
+            'order_number': self.order_number,
+            'order_total': float(self.order_total) if self.order_total else None,
+            'synced_to_shopify': self.synced_to_shopify,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

@@ -70,6 +70,7 @@ def preview_event():
         include_authorized: Include authorized orders (default true)
         collection_ids: List of collection GIDs to filter by (optional)
         product_tags: List of product tags to filter by (optional)
+        audience: 'all_customers' (default) or 'members_only' (optional)
 
     Returns:
         Preview with order counts, customer totals, top customers
@@ -93,6 +94,11 @@ def preview_event():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
+    # Validate audience parameter
+    audience = data.get('audience', 'all_customers')
+    if audience not in ('all_customers', 'members_only'):
+        return jsonify({'error': 'audience must be "all_customers" or "members_only"'}), 400
+
     try:
         result = service.preview_event(
             start_datetime=data['start_datetime'],
@@ -101,7 +107,8 @@ def preview_event():
             credit_percent=data.get('credit_percent', 10),
             include_authorized=data.get('include_authorized', True),
             collection_ids=collection_ids,
-            product_tags=product_tags
+            product_tags=product_tags,
+            audience=audience
         )
         return jsonify(result)
 
@@ -128,6 +135,7 @@ def run_event():
         expires_at: Credit expiration datetime (optional)
         collection_ids: List of collection GIDs to filter by (optional)
         product_tags: List of product tags to filter by (optional)
+        audience: 'all_customers' (default) or 'members_only' (optional)
 
     Returns:
         Event results with success/failure counts
@@ -156,6 +164,11 @@ def run_event():
     if not job_id:
         job_id = f"event-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
 
+    # Validate audience parameter
+    audience = data.get('audience', 'all_customers')
+    if audience not in ('all_customers', 'members_only'):
+        return jsonify({'error': 'audience must be "all_customers" or "members_only"'}), 400
+
     try:
         result = service.run_event(
             start_datetime=data['start_datetime'],
@@ -168,7 +181,8 @@ def run_event():
             batch_size=data.get('batch_size', 5),
             delay_ms=data.get('delay_ms', 1000),
             collection_ids=collection_ids,
-            product_tags=product_tags
+            product_tags=product_tags,
+            audience=audience
         )
         return jsonify(result)
 

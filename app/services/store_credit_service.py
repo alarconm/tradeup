@@ -619,5 +619,170 @@ class StoreCreditService:
         }
 
 
+    def issue_guest_store_credit(
+        self,
+        tenant_id: int,
+        shopify_customer_id: str,
+        customer_email: Optional[str],
+        customer_name: Optional[str],
+        amount: Decimal,
+        description: str,
+        promotion_id: Optional[int] = None,
+        promotion_name: Optional[str] = None,
+        order_id: Optional[str] = None,
+        order_number: Optional[str] = None,
+        order_total: Optional[Decimal] = None,
+    ) -> Dict[str, Any]:
+        """
+        Issue store credit to a non-member via Shopify API.
+
+        Used when promotions target 'all_customers' and a non-member
+        makes a qualifying purchase. Credit goes directly to their
+        Shopify account and is tracked in guest_credit_events.
+
+        Args:
+            tenant_id: Tenant ID
+            shopify_customer_id: Shopify customer GID or numeric ID
+            customer_email: Customer email for audit trail
+            customer_name: Customer name for audit trail
+            amount: Amount to credit
+            description: Credit description (shown to customer)
+            promotion_id: Optional promotion ID for tracking
+            promotion_name: Optional promotion name for tracking
+            order_id: Optional order ID that triggered this credit
+            order_number: Optional order number for display
+            order_total: Optional order total for audit
+
+        Returns:
+            Dict with success status, new_balance, transaction_id
+        """
+        from ..models.promotions import GuestCreditEvent
+
+        # Issue credit to Shopify first
+        try:
+            shopify_client = ShopifyClient(tenant_id)
+            shopify_result = shopify_client.add_store_credit(
+                customer_id=shopify_customer_id,
+                amount=float(amount),
+                note=description
+            )
+
+            if not shopify_result.get('success'):
+                current_app.logger.error(
+                    f"Failed to issue guest credit to {shopify_customer_id}: {shopify_result}"
+                )
+                return {
+                    'success': False,
+                    'error': 'Shopify store credit operation failed'
+                }
+
+            new_balance = shopify_result.get('new_balance', 0)
+
+        except Exception as e:
+            current_app.logger.error(
+                f"Error issuing guest store credit to {shopify_customer_id}: {e}"
+            )
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+        # Create audit trail record
+        try:
+            guest_event = GuestCreditEvent(
+                tenant_id=tenant_id,
+                shopify_customer_id=shopify_customer_id,
+                customer_email=customer_email,
+                customer_name=customer_name,
+                amount=amount,
+                description=description,
+                promotion_id=promotion_id,
+                promotion_name=promotion_name,
+                order_id=order_id,
+                order_number=order_number,
+                order_total=order_total,
+                synced_to_shopify=True,
+                shopify_credit_id=shopify_result.get('transaction_id'),
+            )
+            db.session.add(guest_event)
+            db.session.commit()
+
+            current_app.logger.info(
+                f"Issued ${amount} guest credit to {customer_email or shopify_customer_id} "
+                f"(promotion: {promotion_name}, order: {order_number})"
+            )
+
+        except Exception as e:
+            # Credit was issued, but audit trail failed - log and continue
+            current_app.logger.error(
+                f"Failed to create guest credit audit trail: {e}"
+            )
+            db.session.rollback()
+
+        return {
+            'success': True,
+            'new_balance': new_balance,
+            'transaction_id': shopify_result.get('transaction_id'),
+            'amount': float(amount),
+            'customer_email': customer_email,
+        }
+
+    def get_active_promotions_for_audience(
+        self,
+        tenant_id: int,
+        audience: str,
+        channel: Optional[str] = None,
+        promo_type: Optional[str] = None,
+    ) -> List[Promotion]:
+        """
+        Get active promotions filtered by audience type.
+
+        Args:
+            tenant_id: Tenant ID to filter by
+            audience: 'members_only' or 'all_customers'
+            channel: Optional channel filter ('pos', 'online', 'all')
+            promo_type: Optional promotion type filter
+
+        Returns:
+            List of active promotions matching the criteria
+        """
+        from sqlalchemy import or_
+        now = datetime.utcnow()
+
+        # Build audience filter - handle NULL values for backwards compatibility
+        # NULL or 'members_only' should both be treated as members_only
+        if audience == 'members_only':
+            audience_filter = or_(
+                Promotion.audience == 'members_only',
+                Promotion.audience.is_(None)
+            )
+        else:
+            audience_filter = Promotion.audience == audience
+
+        query = Promotion.query.filter(
+            Promotion.tenant_id == tenant_id,
+            Promotion.active == True,
+            Promotion.starts_at <= now,
+            Promotion.ends_at >= now,
+            audience_filter,
+        )
+
+        if promo_type:
+            query = query.filter(Promotion.promo_type == promo_type)
+
+        promos = query.order_by(Promotion.priority.desc()).all()
+
+        # Filter by runtime conditions (daily time windows, active days, etc.)
+        active = []
+        for promo in promos:
+            if not promo.is_active_now():
+                continue
+            if channel and not promo.applies_to_channel(channel):
+                continue
+            active.append(promo)
+
+        return active
+
+
 # Singleton instance
 store_credit_service = StoreCreditService()
