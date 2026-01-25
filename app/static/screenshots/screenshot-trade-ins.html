@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp Trade-Ins Screenshot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f6f6f7;
+            width: 1600px;
+            height: 900px;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100%; }
+        .sidebar {
+            width: 240px;
+            background: #1a1a1a;
+            padding: 20px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: #888;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        .nav-item.active {
+            background: rgba(232, 93, 39, 0.1);
+            color: #e85d27;
+        }
+        .main {
+            flex: 1;
+            padding: 30px;
+            overflow: auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        .header-meta {
+            color: #666;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #e85d27, #f39c12);
+            color: white;
+        }
+        .btn-secondary {
+            background: white;
+            border: 1px solid #ddd;
+            color: #333;
+        }
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+        .filter-btn {
+            padding: 12px 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .trade-ins-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .trade-ins-table th {
+            text-align: left;
+            padding: 16px 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+        }
+        .trade-ins-table td {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .trade-ins-table tr:hover {
+            background: #fafafa;
+        }
+        .item-info { display: flex; align-items: center; gap: 12px; }
+        .item-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+        .item-name {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .item-sku {
+            font-size: 13px;
+            color: #888;
+        }
+        .member-link {
+            color: #e85d27;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-sold { background: #dcfce7; color: #16a34a; }
+        .status-listed { background: #dbeafe; color: #2563eb; }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-processing { background: #f3e8ff; color: #7c3aed; }
+        .bonus-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        .bonus-badge.pending {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .value-cell {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: 10px;
+            border-top: 1px solid #eee;
+        }
+        .page-btn {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+        }
+        .page-btn.active {
+            background: #e85d27;
+            color: white;
+            border-color: #e85d27;
+        }
+        .page-info {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><img src="../tradeup-icon-512.png" alt="TradeUp"></div>
+                TradeUp
+            </div>
+            <div class="nav-item">
+                <span>🏠</span> Dashboard
+            </div>
+            <div class="nav-item">
+                <span>👥</span> Members
+            </div>
+            <div class="nav-item active">
+                <span>🔄</span> Trade-Ins
+            </div>
+            <div class="nav-item">
+                <span>🎁</span> Rewards
+            </div>
+            <div class="nav-item">
+                <span>⚙️</span> Settings
+            </div>
+        </div>
+        <div class="main">
+            <div class="header">
+                <div>
+                    <h1>Trade-Ins</h1>
+                    <span class="header-meta">342 total trade-ins this month</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary">Export</button>
+                    <button class="btn btn-primary">+ New Trade-In</button>
+                </div>
+            </div>
+
+            <div class="filters">
+                <input type="text" class="search-box" placeholder="Search by item, SKU, or member...">
+                <button class="filter-btn">All Status ▾</button>
+                <button class="filter-btn">Date Range ▾</button>
+            </div>
+
+            <div class="section">
+                <table class="trade-ins-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Member</th>
+                            <th>Trade Value</th>
+                            <th>Sale Price</th>
+                            <th>Status</th>
+                            <th>Cashback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="item-info">
+                                    <div class="item-image">🃏</div>
+                                    <div>
+                                        <div class="item-name">2023 Prizm Silver Luka Doncic</div>
+                                        <div class="item-sku">SKU: TI-20241201-001</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><a href="#" class="member-link">Sarah Johnson</a></td>
+                            <td class="value-cell">$85.00</td>
+                            <td class="value-cell">$125.00</td>
+                            <td><span class="status-badge status-sold">Sold</span></td>
+                            <td><span class="bonus-badge">✓ $8.00 earned</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="item-info">
+                                    <div class="item-image">🃏</div>
+                                    <div>
+                                        <div class="item-name">2022 Topps Chrome Julio Rodriguez RC</div>
+                                        <div class="item-sku">SKU: TI-20241201-002</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><a href="#" class="member-link">Mike Chen</a></td>
+                            <td class="value-cell">$120.00</td>
+                            <td class="value-cell">$175.00</td>
+                            <td><span class="status-badge status-sold">Sold</span></td>
+                            <td><span class="bonus-badge">✓ $16.50 earned</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="item-info">
+                                    <div class="item-image">🃏</div>
+                                    <div>
+                                        <div class="item-name">Pokemon Charizard ex SAR</div>
+                                        <div class="item-sku">SKU: TI-20241130-015</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><a href="#" class="member-link">Emily Davis</a></td>
+                            <td class="value-cell">$200.00</td>
+                            <td class="value-cell">$280.00</td>
+                            <td><span class="status-badge status-listed">Listed</span></td>
+                            <td><span class="bonus-badge pending">5 days left</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="item-info">
+                                    <div class="item-image">🃏</div>
+                                    <div>
+                                        <div class="item-name">2023 Select Concourse Victor Wembanyama</div>
+                                        <div class="item-sku">SKU: TI-20241130-018</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><a href="#" class="member-link">James Wilson</a></td>
+                            <td class="value-cell">$45.00</td>
+                            <td class="value-cell">—</td>
+                            <td><span class="status-badge status-processing">Processing</span></td>
+                            <td><span class="bonus-badge pending">—</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="item-info">
+                                    <div class="item-image">🃏</div>
+                                    <div>
+                                        <div class="item-name">One Piece Nami Manga Art OP-01</div>
+                                        <div class="item-sku">SKU: TI-20241129-042</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><a href="#" class="member-link">Lisa Martinez</a></td>
+                            <td class="value-cell">$65.00</td>
+                            <td class="value-cell">$95.00</td>
+                            <td><span class="status-badge status-listed">Listed</span></td>
+                            <td><span class="bonus-badge pending">2 days left</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="pagination">
+                    <button class="page-btn">← Previous</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <span class="page-info">...</span>
+                    <button class="page-btn">12</button>
+                    <button class="page-btn">Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

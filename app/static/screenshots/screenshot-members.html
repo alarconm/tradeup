@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp Members Screenshot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f6f6f7;
+            width: 1600px;
+            height: 900px;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100%; }
+        .sidebar {
+            width: 240px;
+            background: #1a1a1a;
+            padding: 20px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: #888;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        .nav-item.active {
+            background: rgba(232, 93, 39, 0.1);
+            color: #e85d27;
+        }
+        .main {
+            flex: 1;
+            padding: 30px;
+            overflow: auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        .header-meta {
+            color: #666;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #e85d27, #f39c12);
+            color: white;
+        }
+        .btn-secondary {
+            background: white;
+            border: 1px solid #ddd;
+            color: #333;
+        }
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+        .filter-btn {
+            padding: 12px 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .members-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .members-table th {
+            text-align: left;
+            padding: 16px 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+        }
+        .members-table td {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .members-table tr:hover {
+            background: #fafafa;
+        }
+        .member-info { display: flex; align-items: center; gap: 12px; }
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e85d27, #f39c12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .member-name {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .member-email {
+            font-size: 13px;
+            color: #888;
+        }
+        .tier-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .tier-gold { background: #fef3c7; color: #b45309; }
+        .tier-silver { background: #f3f4f6; color: #4b5563; }
+        .tier-platinum { background: #ede9fe; color: #6d28d9; }
+        .tier-bronze { background: #fed7aa; color: #c2410c; }
+        .status-active { color: #22c55e; font-weight: 500; }
+        .stat-cell {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: 10px;
+            border-top: 1px solid #eee;
+        }
+        .page-btn {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+        }
+        .page-btn.active {
+            background: #e85d27;
+            color: white;
+            border-color: #e85d27;
+        }
+        .page-info {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><img src="../tradeup-icon-512.png" alt="TradeUp"></div>
+                TradeUp
+            </div>
+            <div class="nav-item">
+                <span>🏠</span> Dashboard
+            </div>
+            <div class="nav-item active">
+                <span>👥</span> Members
+            </div>
+            <div class="nav-item">
+                <span>🔄</span> Trade-Ins
+            </div>
+            <div class="nav-item">
+                <span>🎁</span> Bonuses
+            </div>
+            <div class="nav-item">
+                <span>⚙️</span> Settings
+            </div>
+        </div>
+        <div class="main">
+            <div class="header">
+                <div>
+                    <h1>Members</h1>
+                    <span class="header-meta">1,247 total members</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary">Export</button>
+                    <button class="btn btn-primary">+ Enroll Customer</button>
+                </div>
+            </div>
+
+            <div class="filters">
+                <input type="text" class="search-box" placeholder="Search by name, email, or member ID...">
+                <button class="filter-btn">All Tiers ▾</button>
+                <button class="filter-btn">Status ▾</button>
+            </div>
+
+            <div class="section">
+                <table class="members-table">
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Member ID</th>
+                            <th>Tier</th>
+                            <th>Trade-Ins</th>
+                            <th>Total Credits</th>
+                            <th>Bonuses Earned</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="member-info">
+                                    <div class="member-avatar">SJ</div>
+                                    <div>
+                                        <div class="member-name">Sarah Johnson</div>
+                                        <div class="member-email">sarah.j@example.com</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>QF1001</td>
+                            <td><span class="tier-badge tier-platinum">Platinum</span></td>
+                            <td class="stat-cell">67</td>
+                            <td class="stat-cell">$5,210.00</td>
+                            <td class="stat-cell">$892.50</td>
+                            <td><span class="status-active">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="member-info">
+                                    <div class="member-avatar">MC</div>
+                                    <div>
+                                        <div class="member-name">Mike Chen</div>
+                                        <div class="member-email">mike.chen@example.com</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>QF1002</td>
+                            <td><span class="tier-badge tier-gold">Gold</span></td>
+                            <td class="stat-cell">42</td>
+                            <td class="stat-cell">$3,450.00</td>
+                            <td class="stat-cell">$445.00</td>
+                            <td><span class="status-active">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="member-info">
+                                    <div class="member-avatar">ED</div>
+                                    <div>
+                                        <div class="member-name">Emily Davis</div>
+                                        <div class="member-email">emily.d@example.com</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>QF1003</td>
+                            <td><span class="tier-badge tier-gold">Gold</span></td>
+                            <td class="stat-cell">28</td>
+                            <td class="stat-cell">$2,180.00</td>
+                            <td class="stat-cell">$312.00</td>
+                            <td><span class="status-active">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="member-info">
+                                    <div class="member-avatar">JW</div>
+                                    <div>
+                                        <div class="member-name">James Wilson</div>
+                                        <div class="member-email">james.w@example.com</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>QF1004</td>
+                            <td><span class="tier-badge tier-silver">Silver</span></td>
+                            <td class="stat-cell">15</td>
+                            <td class="stat-cell">$980.00</td>
+                            <td class="stat-cell">$78.50</td>
+                            <td><span class="status-active">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="member-info">
+                                    <div class="member-avatar">LM</div>
+                                    <div>
+                                        <div class="member-name">Lisa Martinez</div>
+                                        <div class="member-email">lisa.m@example.com</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>QF1005</td>
+                            <td><span class="tier-badge tier-bronze">Bronze</span></td>
+                            <td class="stat-cell">8</td>
+                            <td class="stat-cell">$420.00</td>
+                            <td class="stat-cell">$24.00</td>
+                            <td><span class="status-active">Active</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="pagination">
+                    <button class="page-btn">← Previous</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <span class="page-info">...</span>
+                    <button class="page-btn">25</button>
+                    <button class="page-btn">Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
