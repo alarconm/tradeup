@@ -777,6 +777,18 @@ export interface BrandingSettings {
   style: 'glass' | 'solid' | 'minimal';
 }
 
+export interface LoyaltySettings {
+  mode: 'store_credit' | 'points';
+  points_per_dollar: number;
+  points_to_credit_value: number;
+  points_name: string;
+  points_name_singular: string;
+  points_currency_symbol: string;
+  min_redemption_points: number;
+  redemption_increments: number;
+  points_expiration_days: number | null;
+}
+
 export interface TenantSettings {
   branding: BrandingSettings;
   features: {
@@ -786,6 +798,7 @@ export interface TenantSettings {
   };
   auto_enrollment: AutoEnrollmentSettings;
   notifications: NotificationSettings;
+  loyalty: LoyaltySettings;
   contact: {
     support_email: string | null;
     support_phone: string | null;
@@ -825,6 +838,15 @@ export async function updateNotifications(
   return adminFetch('/api/settings', {
     method: 'PATCH',
     body: JSON.stringify({ notifications: settings }),
+  });
+}
+
+export async function updateLoyalty(
+  settings: Partial<LoyaltySettings>
+): Promise<{ success: boolean; settings: TenantSettings }> {
+  return adminFetch('/api/settings/loyalty', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
   });
 }
 

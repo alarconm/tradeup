@@ -45,8 +45,20 @@ reactExtension(
 );
 
 /**
+ * Format currency for display
+ */
+function formatCurrency(amount, currencyCode = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+/**
  * Main Post-Purchase Rewards Component
  * Full celebration display with all loyalty information
+ * Mode-aware: Shows cashback in store credit mode, points in points mode
  */
 function PostPurchaseRewards() {
   const translate = useTranslate();
@@ -56,7 +68,7 @@ function PostPurchaseRewards() {
   const metafields = useAppMetafields();
   const [referralCopied, setReferralCopied] = useState(false);
 
-  // Extract customer metafield values
+  // Extract customer metafield values (including loyalty mode)
   const customerData = useMemo(() => {
     const findMetafield = (key) => {
       const field = metafields.find(
@@ -66,38 +78,87 @@ function PostPurchaseRewards() {
     };
 
     const pointsBalanceRaw = findMetafield('points_balance');
+    const storeCreditRaw = findMetafield('store_credit_balance');
     const tierRaw = findMetafield('tier');
     const multiplierRaw = findMetafield('tier_earning_multiplier');
+    const cashbackPctRaw = findMetafield('tier_cashback_pct');
     const lifetimeRaw = findMetafield('lifetime_points');
     const referralCodeRaw = findMetafield('referral_code');
+    const loyaltyModeRaw = findMetafield('loyalty_mode');
 
     return {
       pointsBalance: pointsBalanceRaw ? parseInt(pointsBalanceRaw, 10) : 0,
+      storeCreditBalance: storeCreditRaw ? parseFloat(storeCreditRaw) : 0,
       tier: tierRaw || 'Member',
       earningMultiplier: multiplierRaw ? parseFloat(multiplierRaw) : 1.0,
+      tierCashbackPct: cashbackPctRaw ? parseFloat(cashbackPctRaw) : 0,
       lifetimePoints: lifetimeRaw ? parseInt(lifetimeRaw, 10) : 0,
       referralCode: referralCodeRaw || generateReferralCode(customer?.email),
-      isLoaded: metafields.length > 0 || pointsBalanceRaw !== undefined,
-      isMember: !!tierRaw || !!pointsBalanceRaw,
+      loyaltyMode: loyaltyModeRaw || 'store_credit',
+      isLoaded: metafields.length > 0 || pointsBalanceRaw !== undefined || storeCreditRaw !== undefined,
+      isMember: !!tierRaw || !!pointsBalanceRaw || !!storeCreditRaw,
     };
   }, [metafields, customer]);
 
-  // Calculate points earned on this order
-  const pointsEarned = useMemo(() => {
-    if (!order?.totalPrice?.amount) return 0;
+  // Determine if we're in points mode
+  const isPointsMode = customerData.loyaltyMode === 'points';
+  const currencyCode = order?.totalPrice?.currencyCode || 'USD';
 
-    const basePoints = settings.points_per_dollar || 1;
+  // Calculate earnings on this order (points OR cashback)
+  const earnings = useMemo(() => {
+    if (!order?.totalPrice?.amount) return { value: 0, display: '' };
+
     const amount = parseFloat(order.totalPrice.amount);
-    const multiplier = customerData.earningMultiplier || 1.0;
 
-    return Math.floor(amount * basePoints * multiplier);
-  }, [order, settings.points_per_dollar, customerData.earningMultiplier]);
+    if (isPointsMode) {
+      // Points mode: X points per dollar with tier multiplier
+      const basePoints = settings.points_per_dollar || 1;
+      const multiplier = customerData.earningMultiplier || 1.0;
+      const points = Math.floor(amount * basePoints * multiplier);
+      const baseEarned = Math.floor(amount * basePoints);
+      const bonusEarned = points - baseEarned;
 
-  // Calculate new balance and reward progress
+      return {
+        value: points,
+        display: `+${points.toLocaleString()} points`,
+        baseValue: baseEarned,
+        bonusValue: bonusEarned,
+        hasBonus: multiplier > 1,
+        bonusText: `${multiplier}x`,
+        type: 'points'
+      };
+    } else {
+      // Store credit mode: X% cashback
+      const cashbackPct = customerData.tierCashbackPct || 0;
+      const cashback = amount * (cashbackPct / 100);
+
+      return {
+        value: cashback,
+        display: cashback > 0 ? `+${formatCurrency(cashback, currencyCode)}` : 'Earning cashback',
+        baseValue: cashback,
+        bonusValue: 0,
+        hasBonus: cashbackPct > 0,
+        bonusText: `${cashbackPct}% cashback`,
+        type: 'cashback'
+      };
+    }
+  }, [order, settings.points_per_dollar, customerData, isPointsMode, currencyCode]);
+
+  // Calculate new balance and reward progress (points mode only)
   const rewardData = useMemo(() => {
+    if (!isPointsMode) {
+      return {
+        previousBalance: customerData.storeCreditBalance,
+        newBalance: customerData.storeCreditBalance + earnings.value,
+        hasReward: false,
+        crossedThreshold: false,
+        almostThere: false
+      };
+    }
+
     const threshold = settings.next_reward_threshold || 500;
     const previousBalance = customerData.pointsBalance;
-    const newBalance = previousBalance + pointsEarned;
+    const newBalance = previousBalance + earnings.value;
     const progress = Math.min((newBalance / threshold) * 100, 100);
     const pointsNeeded = Math.max(threshold - newBalance, 0);
 
@@ -119,7 +180,7 @@ function PostPurchaseRewards() {
       almostThere,
       hasReward: progress >= 100,
     };
-  }, [customerData.pointsBalance, pointsEarned, settings]);
+  }, [customerData, earnings, settings, isPointsMode]);
 
   // Handle referral link copy
   const handleCopyReferral = useCallback(() => {
@@ -142,34 +203,37 @@ function PostPurchaseRewards() {
 
   return (
     <BlockStack spacing="loose" padding="base">
-      {/* Main Celebration Banner */}
+      {/* Main Celebration Banner - Mode Aware */}
       {settings.show_celebration !== false && (
         <CelebrationBanner
-          pointsEarned={pointsEarned}
-          multiplier={customerData.earningMultiplier}
+          earnings={earnings}
           tier={customerData.tier}
           crossedThreshold={rewardData.crossedThreshold}
           rewardValue={rewardData.rewardValue}
+          isPointsMode={isPointsMode}
+          currencyCode={currencyCode}
         />
       )}
 
-      {/* Reward Unlocked Celebration */}
-      {rewardData.crossedThreshold && (
+      {/* Reward Unlocked Celebration (points mode only) */}
+      {isPointsMode && rewardData.crossedThreshold && (
         <RewardUnlockedBanner rewardValue={rewardData.rewardValue} />
       )}
 
-      {/* New Points Balance */}
+      {/* New Balance Card - Mode Aware */}
       {settings.show_new_balance !== false && (
-        <PointsBalanceCard
+        <BalanceCard
           previousBalance={rewardData.previousBalance}
           newBalance={rewardData.newBalance}
-          pointsEarned={pointsEarned}
+          earnings={earnings}
           tier={customerData.tier}
+          isPointsMode={isPointsMode}
+          currencyCode={currencyCode}
         />
       )}
 
-      {/* Reward Progress */}
-      {settings.show_reward_progress !== false && !rewardData.hasReward && (
+      {/* Reward Progress (points mode only) */}
+      {isPointsMode && settings.show_reward_progress !== false && !rewardData.hasReward && (
         <RewardProgressCard
           progress={rewardData.progress}
           pointsNeeded={rewardData.pointsNeeded}
@@ -180,6 +244,23 @@ function PostPurchaseRewards() {
         />
       )}
 
+      {/* Store Credit Auto-Apply Notice (store credit mode) */}
+      {!isPointsMode && earnings.value > 0 && (
+        <View
+          border="base"
+          cornerRadius="base"
+          padding="base"
+          background="subdued"
+        >
+          <InlineStack spacing="tight" blockAlignment="center">
+            <Icon source="checkCircle" appearance="success" size="small" />
+            <Text size="small" appearance="success">
+              Your cashback will be added to your store credit and auto-apply on your next purchase
+            </Text>
+          </InlineStack>
+        </View>
+      )}
+
       {/* Referral Prompt */}
       {settings.show_referral_prompt !== false && (
         <ReferralCard
@@ -187,6 +268,7 @@ function PostPurchaseRewards() {
           bonusPoints={referralBonus}
           copied={referralCopied}
           onCopy={handleCopyReferral}
+          isPointsMode={isPointsMode}
         />
       )}
     </BlockStack>
@@ -195,47 +277,58 @@ function PostPurchaseRewards() {
 
 /**
  * Celebration Banner Component
- * Shows exciting points earned message with tier highlighting
+ * Shows exciting earnings message - mode aware (points or cashback)
  */
-function CelebrationBanner({ pointsEarned, multiplier, tier, crossedThreshold, rewardValue }) {
-  const hasBonus = multiplier > 1;
-  const basePoints = hasBonus ? Math.floor(pointsEarned / multiplier) : pointsEarned;
-  const bonusPoints = pointsEarned - basePoints;
-
+function CelebrationBanner({ earnings, tier, crossedThreshold, rewardValue, isPointsMode, currencyCode }) {
   return (
     <Banner
       status="success"
       title=""
     >
       <BlockStack spacing="tight">
-        {/* Main celebration message */}
+        {/* Main celebration message - Mode Aware */}
         <InlineStack spacing="tight" blockAlignment="center">
           <Text size="extraLarge">
-            {crossedThreshold ? 'You unlocked a reward!' : 'You earned points!'}
+            {crossedThreshold
+              ? 'You unlocked a reward!'
+              : isPointsMode
+                ? 'You earned points!'
+                : 'You earned cashback!'
+            }
           </Text>
         </InlineStack>
 
-        {/* Points earned with animation-ready styling */}
+        {/* Earnings display - Mode Aware */}
         <BlockStack spacing="extraTight" inlineAlignment="center">
           <Text emphasis="bold" size="extraLarge" appearance="success">
-            +{pointsEarned.toLocaleString()} points
+            {earnings.display}
           </Text>
 
           {/* Tier bonus callout */}
-          {hasBonus && (
+          {earnings.hasBonus && (
             <InlineStack spacing="tight" blockAlignment="center">
               <Icon source="checkCircle" appearance="success" size="small" />
               <Text size="small" appearance="success">
-                {tier} bonus: +{bonusPoints.toLocaleString()} extra ({multiplier}x earning rate)
+                {isPointsMode
+                  ? `${tier} bonus: +${earnings.bonusValue.toLocaleString()} extra (${earnings.bonusText} earning rate)`
+                  : `${tier} member: ${earnings.bonusText}`
+                }
               </Text>
             </InlineStack>
           )}
         </BlockStack>
 
-        {/* Reward unlocked teaser */}
-        {crossedThreshold && (
+        {/* Reward unlocked teaser (points mode) */}
+        {isPointsMode && crossedThreshold && (
           <Text size="medium" appearance="success">
             You've unlocked {rewardValue} - use it on your next purchase!
+          </Text>
+        )}
+
+        {/* Store credit note (store credit mode) */}
+        {!isPointsMode && earnings.value > 0 && (
+          <Text size="small" appearance="subdued">
+            Cashback will be added to your store credit balance
           </Text>
         )}
       </BlockStack>
@@ -277,10 +370,10 @@ function RewardUnlockedBanner({ rewardValue }) {
 }
 
 /**
- * Points Balance Card
- * Shows before/after balance with visual increase
+ * Balance Card - Mode Aware
+ * Shows before/after balance with visual increase (points OR store credit)
  */
-function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) {
+function BalanceCard({ previousBalance, newBalance, earnings, tier, isPointsMode, currencyCode }) {
   return (
     <View
       border="base"
@@ -293,7 +386,7 @@ function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) 
           <InlineStack spacing="tight" blockAlignment="center">
             <Icon source="star" appearance="accent" />
             <Text emphasis="bold" size="medium">
-              Your TradeUp Balance
+              {isPointsMode ? 'Your Points Balance' : 'Your Store Credit'}
             </Text>
           </InlineStack>
           <TierBadge tier={tier} />
@@ -307,7 +400,10 @@ function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) 
               Previous Balance
             </Text>
             <Text size="medium">
-              {previousBalance.toLocaleString()} points
+              {isPointsMode
+                ? `${previousBalance.toLocaleString()} points`
+                : formatCurrency(previousBalance, currencyCode)
+              }
             </Text>
           </BlockStack>
 
@@ -321,11 +417,16 @@ function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) 
             </Text>
             <InlineStack spacing="tight" blockAlignment="baseline">
               <Text emphasis="bold" size="large" appearance="accent">
-                {newBalance.toLocaleString()}
+                {isPointsMode
+                  ? newBalance.toLocaleString()
+                  : formatCurrency(newBalance, currencyCode)
+                }
               </Text>
-              <Text size="medium" appearance="accent">
-                points
-              </Text>
+              {isPointsMode && (
+                <Text size="medium" appearance="accent">
+                  points
+                </Text>
+              )}
             </InlineStack>
           </BlockStack>
         </InlineStack>
@@ -333,11 +434,28 @@ function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) 
         <InlineStack spacing="tight" blockAlignment="center" inlineAlignment="center">
           <Icon source="arrowUp" appearance="success" size="extraSmall" />
           <Text size="small" appearance="success">
-            +{pointsEarned.toLocaleString()} from this purchase
+            {earnings.display} from this purchase
           </Text>
         </InlineStack>
       </BlockStack>
     </View>
+  );
+}
+
+/**
+ * Points Balance Card (Legacy - kept for backwards compatibility)
+ * Shows before/after balance with visual increase
+ */
+function PointsBalanceCard({ previousBalance, newBalance, pointsEarned, tier }) {
+  return (
+    <BalanceCard
+      previousBalance={previousBalance}
+      newBalance={newBalance}
+      earnings={{ value: pointsEarned, display: `+${pointsEarned.toLocaleString()} points` }}
+      tier={tier}
+      isPointsMode={true}
+      currencyCode="USD"
+    />
   );
 }
 
@@ -401,7 +519,15 @@ function RewardProgressCard({ progress, pointsNeeded, newBalance, threshold, rew
  * Referral Card
  * Prompts customer to share referral link for bonus points
  */
-function ReferralCard({ referralCode, bonusPoints, copied, onCopy }) {
+function ReferralCard({ referralCode, bonusPoints, copied, onCopy, isPointsMode = true }) {
+  // Mode-aware bonus display
+  const bonusDisplay = isPointsMode
+    ? `${bonusPoints.toLocaleString()} Bonus Points`
+    : '$5 Store Credit';
+  const bonusDescription = isPointsMode
+    ? `you both earn ${bonusPoints.toLocaleString()} bonus points`
+    : 'you both earn $5 store credit';
+
   return (
     <View
       border="base"
@@ -413,13 +539,13 @@ function ReferralCard({ referralCode, bonusPoints, copied, onCopy }) {
         <InlineStack spacing="tight" blockAlignment="center">
           <Icon source="profile" appearance="accent" />
           <Text emphasis="bold" size="medium" appearance="accent">
-            Refer a Friend, Earn {bonusPoints.toLocaleString()} Bonus Points!
+            Refer a Friend, Earn {bonusDisplay}!
           </Text>
         </InlineStack>
 
         <Text size="small">
           Share your unique code with friends. When they make their first purchase,
-          you both earn {bonusPoints.toLocaleString()} bonus points!
+          {bonusDescription}!
         </Text>
 
         <Divider />
@@ -513,7 +639,7 @@ function TierBadge({ tier }) {
 
 /**
  * Compact Post-Purchase Component
- * Minimal display for customer information placement
+ * Minimal display for customer information placement - Mode Aware
  */
 function PostPurchaseCompact() {
   const settings = useSettings();
@@ -529,29 +655,60 @@ function PostPurchaseCompact() {
     };
 
     const pointsBalanceRaw = findMetafield('points_balance');
+    const storeCreditRaw = findMetafield('store_credit_balance');
     const multiplierRaw = findMetafield('tier_earning_multiplier');
+    const cashbackPctRaw = findMetafield('tier_cashback_pct');
+    const loyaltyModeRaw = findMetafield('loyalty_mode');
 
     return {
       pointsBalance: pointsBalanceRaw ? parseInt(pointsBalanceRaw, 10) : 0,
+      storeCreditBalance: storeCreditRaw ? parseFloat(storeCreditRaw) : 0,
       earningMultiplier: multiplierRaw ? parseFloat(multiplierRaw) : 1.0,
-      isMember: !!pointsBalanceRaw,
+      tierCashbackPct: cashbackPctRaw ? parseFloat(cashbackPctRaw) : 0,
+      loyaltyMode: loyaltyModeRaw || 'store_credit',
+      isMember: !!pointsBalanceRaw || !!storeCreditRaw,
     };
   }, [metafields]);
 
-  const pointsEarned = useMemo(() => {
-    if (!order?.totalPrice?.amount) return 0;
-    const basePoints = settings.points_per_dollar || 1;
-    const amount = parseFloat(order.totalPrice.amount);
-    const multiplier = customerData.earningMultiplier || 1.0;
-    return Math.floor(amount * basePoints * multiplier);
-  }, [order, settings.points_per_dollar, customerData.earningMultiplier]);
+  const isPointsMode = customerData.loyaltyMode === 'points';
+  const currencyCode = order?.totalPrice?.currencyCode || 'USD';
 
-  // Only show for members
-  if (!customerData.isMember) {
+  // Calculate earnings based on mode
+  const earnings = useMemo(() => {
+    if (!order?.totalPrice?.amount) return { value: 0, display: '' };
+    const amount = parseFloat(order.totalPrice.amount);
+
+    if (isPointsMode) {
+      const basePoints = settings.points_per_dollar || 1;
+      const multiplier = customerData.earningMultiplier || 1.0;
+      const points = Math.floor(amount * basePoints * multiplier);
+      return {
+        value: points,
+        display: `+${points.toLocaleString()} points earned`
+      };
+    } else {
+      const cashbackPct = customerData.tierCashbackPct || 0;
+      const cashback = amount * (cashbackPct / 100);
+      return {
+        value: cashback,
+        display: cashback > 0 ? `+${formatCurrency(cashback, currencyCode)} cashback` : 'Earning cashback'
+      };
+    }
+  }, [order, settings.points_per_dollar, customerData, isPointsMode, currencyCode]);
+
+  // Only show for members with earnings
+  if (!customerData.isMember || earnings.value <= 0) {
     return null;
   }
 
-  const newBalance = customerData.pointsBalance + pointsEarned;
+  // New balance display
+  const newBalance = isPointsMode
+    ? customerData.pointsBalance + earnings.value
+    : customerData.storeCreditBalance + earnings.value;
+
+  const balanceDisplay = isPointsMode
+    ? `Balance: ${newBalance.toLocaleString()} pts`
+    : `Credit: ${formatCurrency(newBalance, currencyCode)}`;
 
   return (
     <View padding="tight">
@@ -559,11 +716,11 @@ function PostPurchaseCompact() {
         <InlineStack spacing="tight" blockAlignment="center">
           <Icon source="star" appearance="success" size="small" />
           <Text size="small" appearance="success" emphasis="bold">
-            +{pointsEarned.toLocaleString()} points earned
+            {earnings.display}
           </Text>
         </InlineStack>
         <Text size="small" appearance="subdued">
-          Balance: {newBalance.toLocaleString()} pts
+          {balanceDisplay}
         </Text>
       </InlineStack>
     </View>

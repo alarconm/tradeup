@@ -862,55 +862,111 @@ function NotMemberView() {
 // ============================================================================
 
 function OverviewTab({ data, onViewHistory, onViewRewards }) {
-  const { member, stats, points, recent_trade_ins, tier_progress } = data;
+  const { member, stats, points, recent_trade_ins, tier_progress, loyalty_mode, store_credit, loyalty_config } = data;
+
+  // Determine if we're in points mode or store credit mode
+  const isPointsMode = loyalty_mode === 'points';
+  const pointsName = loyalty_config?.points_name || 'points';
 
   // Get tier progress from API data
   const pointsToNextTier = tier_progress?.points_to_next_tier || 0;
   const tierProgressValue = tier_progress?.progress || 0;
   const nextTierName = tier_progress?.next_tier_name || null;
 
+  // Format currency for store credit display
+  const formatCurrency = (amount, currencyCode = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
   return (
     <BlockStack spacing="loose">
-      {/* Points Balance Hero */}
+      {/* Balance Hero - Mode Aware */}
       <View
         padding="loose"
         background="subdued"
         borderRadius="base"
       >
         <BlockStack spacing="base" inlineAlignment="center">
-          <Text appearance="subdued" size="small">YOUR POINTS BALANCE</Text>
-          <AnimatedPointsDisplay points={points?.balance || 0} />
+          {isPointsMode ? (
+            <>
+              <Text appearance="subdued" size="small">YOUR {pointsName.toUpperCase()} BALANCE</Text>
+              <AnimatedPointsDisplay points={points?.balance || 0} />
 
-          {points?.earned_this_month > 0 && (
-            <Text appearance="subdued" size="small">
-              +{points.earned_this_month} earned this month
-            </Text>
-          )}
+              {points?.earned_this_month > 0 && (
+                <Text appearance="subdued" size="small">
+                  +{points.earned_this_month} earned this month
+                </Text>
+              )}
 
-          {points?.available_rewards > 0 && (
-            <Badge tone="success">
-              {points.available_rewards} reward{points.available_rewards > 1 ? 's' : ''} available
-            </Badge>
+              {points?.available_rewards > 0 && (
+                <Badge tone="success">
+                  {points.available_rewards} reward{points.available_rewards > 1 ? 's' : ''} available
+                </Badge>
+              )}
+            </>
+          ) : (
+            <>
+              <Text appearance="subdued" size="small">YOUR STORE CREDIT</Text>
+              <Text emphasis="bold" size="extraLarge">
+                {formatCurrency(store_credit?.balance || stats?.store_credit_balance || 0, store_credit?.currency_code || 'USD')}
+              </Text>
+
+              {store_credit?.cashback_pct > 0 && (
+                <Badge tone="success">
+                  Earning {store_credit.cashback_pct}% cashback on purchases
+                </Badge>
+              )}
+
+              {(store_credit?.balance || 0) > 0 && (
+                <Text appearance="subdued" size="small">
+                  Auto-applies at checkout
+                </Text>
+              )}
+            </>
           )}
         </BlockStack>
       </View>
 
-      {/* Quick Stats Grid */}
+      {/* Quick Stats Grid - Mode Aware */}
       <Grid columns={['fill', 'fill', 'fill']} spacing="tight">
-        <StatCard
-          label="Store Credit"
-          value={`$${(stats?.store_credit_balance || 0).toFixed(2)}`}
-          tone="success"
-        />
-        <StatCard
-          label="Trade-ins"
-          value={stats?.total_trade_ins || 0}
-        />
-        <StatCard
-          label="Bonus Earned"
-          value={`$${(stats?.total_bonus_earned || 0).toFixed(2)}`}
-          tone="success"
-        />
+        {isPointsMode ? (
+          <>
+            <StatCard
+              label="Store Credit"
+              value={formatCurrency(store_credit?.balance || stats?.store_credit_balance || 0)}
+              tone="success"
+            />
+            <StatCard
+              label="Trade-ins"
+              value={stats?.total_trade_ins || 0}
+            />
+            <StatCard
+              label="Points Earned"
+              value={(points?.balance || 0).toLocaleString()}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              label="Available Credit"
+              value={formatCurrency(store_credit?.balance || stats?.store_credit_balance || 0)}
+              tone="success"
+            />
+            <StatCard
+              label="Trade-ins"
+              value={stats?.total_trade_ins || 0}
+            />
+            <StatCard
+              label="Total Earned"
+              value={formatCurrency(stats?.total_bonus_earned || 0)}
+              tone="success"
+            />
+          </>
+        )}
       </Grid>
 
       {/* Tier Progress */}
@@ -972,6 +1028,19 @@ function OverviewTab({ data, onViewHistory, onViewRewards }) {
 // ============================================================================
 
 function HistoryTab({ data, historyData, loading }) {
+  const { loyalty_mode, store_credit, loyalty_config } = data;
+  const isPointsMode = loyalty_mode === 'points';
+  const pointsName = loyalty_config?.points_name || 'points';
+
+  // Format currency helper
+  const formatCurrency = (amount, currencyCode = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
   if (loading) {
     return (
       <BlockStack spacing="loose">
@@ -987,7 +1056,10 @@ function HistoryTab({ data, historyData, loading }) {
       <BlockStack spacing="loose" inlineAlignment="center">
         <Text appearance="subdued">No activity yet</Text>
         <Text size="small" appearance="subdued">
-          Start earning points by making purchases or trade-ins.
+          {isPointsMode
+            ? `Start earning ${pointsName} by making purchases or trade-ins.`
+            : 'Start earning cashback by making purchases or trade-ins.'
+          }
         </Text>
       </BlockStack>
     );
@@ -995,23 +1067,33 @@ function HistoryTab({ data, historyData, loading }) {
 
   return (
     <BlockStack spacing="loose">
-      <Text emphasis="bold">Points History</Text>
+      <Text emphasis="bold">{isPointsMode ? `${pointsName.charAt(0).toUpperCase() + pointsName.slice(1)} History` : 'Rewards Activity'}</Text>
 
-      {/* Points Summary */}
+      {/* Balance Summary - Mode Aware */}
       {historyData && (
         <View padding="base" background="subdued" borderRadius="base">
           <InlineStack spacing="loose">
             <BlockStack spacing="extraTight">
-              <Text appearance="subdued" size="small">Balance</Text>
+              <Text appearance="subdued" size="small">
+                {isPointsMode ? 'Balance' : 'Store Credit'}
+              </Text>
               <Text emphasis="bold" size="large">
-                {historyData.points_balance?.toLocaleString() || 0}
+                {isPointsMode
+                  ? (historyData.points_balance?.toLocaleString() || 0)
+                  : formatCurrency(store_credit?.balance || 0, store_credit?.currency_code || 'USD')
+                }
               </Text>
             </BlockStack>
             {historyData.tier && (
               <BlockStack spacing="extraTight">
-                <Text appearance="subdued" size="small">Tier Bonus</Text>
+                <Text appearance="subdued" size="small">
+                  {isPointsMode ? 'Tier Bonus' : 'Cashback Rate'}
+                </Text>
                 <Text emphasis="bold" size="large" tone="success">
-                  {historyData.tier.earning_multiplier}x
+                  {isPointsMode
+                    ? `${historyData.tier.earning_multiplier || 1}x`
+                    : `${store_credit?.cashback_pct || 0}%`
+                  }
                 </Text>
               </BlockStack>
             )}

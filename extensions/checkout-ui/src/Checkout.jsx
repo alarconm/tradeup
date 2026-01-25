@@ -1,11 +1,12 @@
 /**
  * TradeUp Checkout UI Extension
  *
- * Displays loyalty points balance, earnings preview, and reward progress
- * at checkout to encourage purchases and highlight membership value.
+ * Displays loyalty rewards at checkout - adapts to show either:
+ * - Store Credit mode: "$X store credit", "Earn $Y cashback"
+ * - Points mode: "X points", "Earn Y points"
  *
  * @author Cardflow Labs
- * @version 1.0.0
+ * @version 2.0.0 - Mode-aware update
  */
 import {
   reactExtension,
@@ -25,9 +26,6 @@ import {
 } from '@shopify/ui-extensions-react/checkout';
 import { useMemo } from 'react';
 
-import { PointsBalance } from './components/PointsBalance.jsx';
-import { PointsEarning } from './components/PointsEarning.jsx';
-import { RewardProgress } from './components/RewardProgress.jsx';
 import { TierBadge } from './components/TierBadge.jsx';
 
 // Main checkout block render
@@ -43,8 +41,19 @@ reactExtension(
 );
 
 /**
+ * Format currency for display
+ */
+function formatCurrency(amount, currencyCode = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+/**
  * Main TradeUp checkout component
- * Full display with all loyalty information
+ * Mode-aware: displays store credit OR points based on merchant setting
  */
 function TradeUpCheckout() {
   const translate = useTranslate();
@@ -62,58 +71,72 @@ function TradeUpCheckout() {
     };
 
     const pointsBalanceRaw = findMetafield('points_balance');
+    const storeCreditRaw = findMetafield('store_credit_balance');
     const tierRaw = findMetafield('tier');
+    const tierCashbackRaw = findMetafield('tier_cashback_pct');
     const multiplierRaw = findMetafield('tier_earning_multiplier');
-    const lifetimeRaw = findMetafield('lifetime_points');
+    const loyaltyModeRaw = findMetafield('loyalty_mode');
 
     return {
+      // Points data
       pointsBalance: pointsBalanceRaw ? parseInt(pointsBalanceRaw, 10) : 0,
+      // Store credit data
+      storeCreditBalance: storeCreditRaw ? parseFloat(storeCreditRaw) : 0,
+      // Tier data
       tier: tierRaw || null,
+      tierCashbackPct: tierCashbackRaw ? parseFloat(tierCashbackRaw) : 0,
       earningMultiplier: multiplierRaw ? parseFloat(multiplierRaw) : 1.0,
-      lifetimePoints: lifetimeRaw ? parseInt(lifetimeRaw, 10) : 0,
-      isLoaded: metafields.length > 0 || pointsBalanceRaw !== undefined,
-      isMember: !!tierRaw || !!pointsBalanceRaw,
+      // Mode - default to store_credit if not set
+      loyaltyMode: loyaltyModeRaw || 'store_credit',
+      // Status
+      isLoaded: metafields.length > 0 || pointsBalanceRaw !== undefined || storeCreditRaw !== undefined,
+      isMember: !!tierRaw || !!pointsBalanceRaw || !!storeCreditRaw,
     };
   }, [metafields]);
 
-  // Calculate points to earn on this order
-  const pointsToEarn = useMemo(() => {
-    if (!totalAmount?.amount) return 0;
+  // Calculate earnings based on mode
+  const earnings = useMemo(() => {
+    if (!totalAmount?.amount) return { value: 0, display: '' };
 
-    const basePoints = settings.points_per_dollar || 1;
     const amount = parseFloat(totalAmount.amount);
-    const multiplier = customerData.earningMultiplier || 1.0;
+    const currencyCode = totalAmount.currencyCode || 'USD';
 
-    return Math.floor(amount * basePoints * multiplier);
-  }, [totalAmount, settings.points_per_dollar, customerData.earningMultiplier]);
-
-  // Calculate reward progress
-  const rewardProgress = useMemo(() => {
-    const threshold = settings.next_reward_threshold || 500;
-    const currentPoints = customerData.pointsBalance + pointsToEarn;
-    const progress = Math.min((currentPoints / threshold) * 100, 100);
-    const pointsNeeded = Math.max(threshold - currentPoints, 0);
-
-    return {
-      currentPoints,
-      threshold,
-      progress,
-      pointsNeeded,
-      rewardValue: settings.next_reward_value || '$5 off',
-      hasReward: currentPoints >= threshold,
-    };
-  }, [customerData.pointsBalance, pointsToEarn, settings]);
+    if (customerData.loyaltyMode === 'points') {
+      // Points mode: X points per dollar
+      const basePoints = settings.points_per_dollar || 10;
+      const multiplier = customerData.earningMultiplier || 1.0;
+      const points = Math.floor(amount * basePoints * multiplier);
+      return {
+        value: points,
+        display: `+${points.toLocaleString()} points`,
+        hasBonus: multiplier > 1,
+        bonusText: multiplier > 1 ? `(${multiplier}x bonus!)` : '',
+      };
+    } else {
+      // Store credit mode: X% cashback
+      const cashbackPct = customerData.tierCashbackPct || 0;
+      const cashback = amount * (cashbackPct / 100);
+      return {
+        value: cashback,
+        display: cashback > 0 ? `+${formatCurrency(cashback, currencyCode)} cashback` : 'Earn cashback with a tier',
+        hasBonus: cashbackPct > 0,
+        bonusText: cashbackPct > 0 ? `(${cashbackPct}% back)` : '',
+      };
+    }
+  }, [totalAmount, settings.points_per_dollar, customerData]);
 
   // Not a member - show signup encouragement
   if (!customerData.isMember && customerData.isLoaded) {
+    const joinMessage = customerData.loyaltyMode === 'points'
+      ? `Join and earn ${earnings.value.toLocaleString()} points on this order!`
+      : 'Join our rewards program and earn cashback on every purchase!';
+
     return (
-      <Banner status="info" title={translate('join_program')}>
+      <Banner status="info" title="TradeUp Rewards">
         <BlockStack spacing="tight">
-          <Text>
-            {translate('join_description', { points: pointsToEarn })}
-          </Text>
+          <Text>{joinMessage}</Text>
           <Text appearance="subdued" size="small">
-            {translate('auto_enroll')}
+            You'll be automatically enrolled with your purchase.
           </Text>
         </BlockStack>
       </Banner>
@@ -129,7 +152,10 @@ function TradeUpCheckout() {
     );
   }
 
-  // Member view - full loyalty display
+  // Member view - mode-aware loyalty display
+  const isPointsMode = customerData.loyaltyMode === 'points';
+  const currencyCode = totalAmount?.currencyCode || 'USD';
+
   return (
     <BlockStack
       spacing="base"
@@ -142,7 +168,7 @@ function TradeUpCheckout() {
       <InlineStack spacing="tight" blockAlignment="center">
         <Icon source="star" appearance="accent" />
         <Text emphasis="bold" size="medium">
-          {translate('loyalty_rewards')}
+          TradeUp Rewards
         </Text>
         {settings.show_tier_badge !== false && customerData.tier && (
           <TierBadge tier={customerData.tier} />
@@ -151,32 +177,66 @@ function TradeUpCheckout() {
 
       <Divider />
 
-      {/* Points balance */}
-      <PointsBalance
-        balance={customerData.pointsBalance}
-        multiplier={customerData.earningMultiplier}
-      />
+      {/* Current Balance */}
+      <BlockStack spacing="extraTight">
+        <Text size="small" appearance="subdued">
+          {isPointsMode ? 'Your Points' : 'Your Store Credit'}
+        </Text>
+        <InlineStack spacing="tight" blockAlignment="baseline">
+          <Text emphasis="bold" size="large">
+            {isPointsMode
+              ? customerData.pointsBalance.toLocaleString()
+              : formatCurrency(customerData.storeCreditBalance, currencyCode)
+            }
+          </Text>
+          {isPointsMode && (
+            <Text size="medium" appearance="subdued">points</Text>
+          )}
+        </InlineStack>
+      </BlockStack>
 
-      {/* Points to earn */}
-      <PointsEarning
-        pointsToEarn={pointsToEarn}
-        multiplier={customerData.earningMultiplier}
-        orderTotal={totalAmount?.amount}
-        currencyCode={totalAmount?.currencyCode}
-      />
+      {/* Earnings on this order */}
+      {earnings.value > 0 && (
+        <BlockStack
+          spacing="extraTight"
+          padding="tight"
+          background="interactive"
+          cornerRadius="base"
+        >
+          <InlineStack spacing="tight" blockAlignment="center">
+            <Icon source="gift" appearance="accent" size="small" />
+            <Text size="small" emphasis="bold" appearance="accent">
+              {isPointsMode ? 'Earning on this order' : 'Cashback on this order'}
+            </Text>
+          </InlineStack>
 
-      {/* Reward progress */}
-      {settings.show_reward_progress !== false && (
+          <InlineStack spacing="tight" blockAlignment="baseline">
+            <Text emphasis="bold" size="large" appearance="accent">
+              {earnings.display}
+            </Text>
+          </InlineStack>
+
+          {earnings.hasBonus && earnings.bonusText && (
+            <InlineStack spacing="extraTight" blockAlignment="center">
+              <Icon source="checkCircle" appearance="success" size="extraSmall" />
+              <Text size="small" appearance="success">
+                {earnings.bonusText}
+              </Text>
+            </InlineStack>
+          )}
+        </BlockStack>
+      )}
+
+      {/* Store credit auto-apply notice */}
+      {!isPointsMode && customerData.storeCreditBalance > 0 && (
         <>
           <Divider />
-          <RewardProgress
-            currentPoints={rewardProgress.currentPoints}
-            threshold={rewardProgress.threshold}
-            progress={rewardProgress.progress}
-            pointsNeeded={rewardProgress.pointsNeeded}
-            rewardValue={rewardProgress.rewardValue}
-            hasReward={rewardProgress.hasReward}
-          />
+          <InlineStack spacing="tight" blockAlignment="center">
+            <Icon source="checkCircle" appearance="success" size="small" />
+            <Text size="small" appearance="success">
+              Your store credit will auto-apply at payment
+            </Text>
+          </InlineStack>
         </>
       )}
     </BlockStack>
@@ -188,7 +248,6 @@ function TradeUpCheckout() {
  * Shows essential info only
  */
 function TradeUpCheckoutCompact() {
-  const translate = useTranslate();
   const settings = useSettings();
   const totalAmount = useTotalAmount();
   const metafields = useAppMetafields();
@@ -202,25 +261,51 @@ function TradeUpCheckoutCompact() {
     };
 
     const pointsBalanceRaw = findMetafield('points_balance');
+    const storeCreditRaw = findMetafield('store_credit_balance');
+    const tierCashbackRaw = findMetafield('tier_cashback_pct');
     const multiplierRaw = findMetafield('tier_earning_multiplier');
+    const loyaltyModeRaw = findMetafield('loyalty_mode');
 
     return {
       pointsBalance: pointsBalanceRaw ? parseInt(pointsBalanceRaw, 10) : 0,
+      storeCreditBalance: storeCreditRaw ? parseFloat(storeCreditRaw) : 0,
+      tierCashbackPct: tierCashbackRaw ? parseFloat(tierCashbackRaw) : 0,
       earningMultiplier: multiplierRaw ? parseFloat(multiplierRaw) : 1.0,
-      isMember: !!pointsBalanceRaw,
+      loyaltyMode: loyaltyModeRaw || 'store_credit',
+      isMember: !!pointsBalanceRaw || !!storeCreditRaw,
     };
   }, [metafields]);
 
-  const pointsToEarn = useMemo(() => {
-    if (!totalAmount?.amount) return 0;
-    const basePoints = settings.points_per_dollar || 1;
-    const amount = parseFloat(totalAmount.amount);
-    const multiplier = customerData.earningMultiplier || 1.0;
-    return Math.floor(amount * basePoints * multiplier);
-  }, [totalAmount, settings.points_per_dollar, customerData.earningMultiplier]);
+  // Calculate earnings
+  const earnings = useMemo(() => {
+    if (!totalAmount?.amount) return null;
 
-  // Only show for members
-  if (!customerData.isMember) {
+    const amount = parseFloat(totalAmount.amount);
+    const currencyCode = totalAmount.currencyCode || 'USD';
+
+    if (customerData.loyaltyMode === 'points') {
+      const basePoints = settings.points_per_dollar || 10;
+      const multiplier = customerData.earningMultiplier || 1.0;
+      const points = Math.floor(amount * basePoints * multiplier);
+      return {
+        display: `Earn ${points.toLocaleString()} points`,
+        hasBonus: multiplier > 1,
+        bonusText: `${multiplier}x`,
+      };
+    } else {
+      const cashbackPct = customerData.tierCashbackPct || 0;
+      if (cashbackPct <= 0) return null;
+      const cashback = amount * (cashbackPct / 100);
+      return {
+        display: `Earn ${formatCurrency(cashback, currencyCode)} cashback`,
+        hasBonus: true,
+        bonusText: `${cashbackPct}%`,
+      };
+    }
+  }, [totalAmount, settings.points_per_dollar, customerData]);
+
+  // Only show for members with earnings
+  if (!customerData.isMember || !earnings) {
     return null;
   }
 
@@ -228,11 +313,11 @@ function TradeUpCheckoutCompact() {
     <InlineStack spacing="tight" blockAlignment="center" padding="tight">
       <Icon source="star" appearance="accent" size="small" />
       <Text size="small" appearance="accent">
-        {translate('earn_points_compact', { points: pointsToEarn })}
+        {earnings.display}
       </Text>
-      {customerData.earningMultiplier > 1 && (
+      {earnings.hasBonus && (
         <Text size="small" appearance="success">
-          ({customerData.earningMultiplier}x {translate('bonus')})
+          ({earnings.bonusText})
         </Text>
       )}
     </InlineStack>

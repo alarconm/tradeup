@@ -521,6 +521,37 @@ class MembershipService:
                 if batch.tier_bonus_amount:
                     total_bonus += float(batch.tier_bonus_amount)
 
+            # Get loyalty mode settings from tenant
+            from ..models.tenant import Tenant
+            from ..utils.settings_defaults import get_settings_with_defaults
+            tenant = Tenant.query.get(self.tenant_id)
+            settings = get_settings_with_defaults(tenant.settings if tenant else {})
+            loyalty_settings = settings.get('loyalty', {})
+            loyalty_mode = loyalty_settings.get('mode', 'store_credit')
+
+            # Get points balance for points mode
+            points_balance = 0
+            if loyalty_mode == 'points':
+                from ..models.points import PointsTransaction
+                from sqlalchemy import func
+                points_result = db.session.query(
+                    func.coalesce(func.sum(PointsTransaction.points), 0)
+                ).filter(
+                    PointsTransaction.member_id == member.id,
+                    PointsTransaction.tenant_id == self.tenant_id
+                ).scalar()
+                points_balance = int(points_result) if points_result else 0
+
+            # Get tier-specific earning info
+            tier_cashback_pct = 0
+            tier_earning_multiplier = 1.0
+            if member.tier:
+                # purchase_cashback_pct is the % back on purchases (e.g., 2 = 2%)
+                tier_cashback_pct = float(member.tier.purchase_cashback_pct or 0)
+                # For points mode, use bonus_rate as multiplier (e.g., 0.10 = 10% = 1.1x)
+                # Convert bonus_rate to multiplier: 1.0 + bonus_rate
+                tier_earning_multiplier = 1.0 + float(member.tier.bonus_rate or 0)
+
             # Sync to Shopify
             result = self.shopify_client.sync_member_metafields(
                 customer_id=member.shopify_customer_id,
@@ -530,7 +561,13 @@ class MembershipService:
                 trade_in_count=trade_in_count,
                 total_bonus_earned=total_bonus,
                 joined_date=member.membership_start_date.isoformat() if member.membership_start_date else None,
-                status=member.status or 'active'
+                status=member.status or 'active',
+                # New loyalty mode fields
+                loyalty_mode=loyalty_mode,
+                points_balance=points_balance,
+                store_credit_balance=credit_balance,  # Same as credit_balance
+                tier_cashback_pct=tier_cashback_pct,
+                tier_earning_multiplier=tier_earning_multiplier
             )
 
             return result

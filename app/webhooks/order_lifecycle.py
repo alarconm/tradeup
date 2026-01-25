@@ -763,13 +763,19 @@ def handle_order_created():
             current_app.logger.error(f'Referral processing failed for order #{order_number}: {e}')
 
         # ==========================================
-        # PURCHASE CASHBACK (Store Credit)
+        # PURCHASE REWARDS (Based on Loyalty Mode)
         # ==========================================
-        # Calculate subtotal excluding membership products (don't earn cashback on membership fee)
+        # Calculate subtotal excluding membership products (don't earn rewards on membership fee)
         line_items = order_data.get('line_items', [])
-        cashback_subtotal = calculate_non_membership_subtotal(tenant.id, line_items)
+        rewards_subtotal = calculate_non_membership_subtotal(tenant.id, line_items)
 
-        if cashback_subtotal > 0 and member.tier_id:
+        # Get loyalty mode from settings
+        from ..utils.settings_defaults import get_settings_with_defaults
+        tenant_settings = get_settings_with_defaults(tenant.settings or {})
+        loyalty_settings = tenant_settings.get('loyalty', {})
+        loyalty_mode = loyalty_settings.get('mode', 'store_credit')
+
+        if rewards_subtotal > 0 and member.tier_id:
             try:
                 # Determine POS vs online
                 source_name = order_data.get('source_name', 'web')
@@ -799,85 +805,110 @@ def handle_order_created():
                             if pid in product_collections:
                                 collection_ids.update(product_collections[pid])
                     except Exception as e:
-                        current_app.logger.warning(f"Failed to fetch collections for cashback: {e}")
+                        current_app.logger.warning(f"Failed to fetch collections for rewards: {e}")
                         # Continue without collection filtering rather than failing
 
-                # Process cashback using member's current tier (including newly assigned tier!)
-                cashback_entry = store_credit_service.process_purchase_cashback(
-                    member_id=member.id,
-                    order_total=cashback_subtotal,
-                    order_id=order_id,
-                    order_name=f"#{order_number}",
-                    channel=channel,
-                    collection_ids=list(collection_ids) if collection_ids else None,
-                    product_tags=list(product_tags) if product_tags else None
-                )
-
-                if cashback_entry:
-                    result['cashback'] = {
-                        'amount': float(cashback_entry.amount),
-                        'tier': member.tier.name if member.tier else None,
-                        'subtotal': float(cashback_subtotal)
-                    }
-                    current_app.logger.info(
-                        f'Awarded ${cashback_entry.amount} cashback to {member.member_number} for order #{order_number}'
+                # ==========================================
+                # MODE: STORE CREDIT (Default)
+                # ==========================================
+                if loyalty_mode == 'store_credit':
+                    # Award cashback as store credit (auto-applies at checkout)
+                    cashback_entry = store_credit_service.process_purchase_cashback(
+                        member_id=member.id,
+                        order_total=rewards_subtotal,
+                        order_id=order_id,
+                        order_name=f"#{order_number}",
+                        channel=channel,
+                        collection_ids=list(collection_ids) if collection_ids else None,
+                        product_tags=list(product_tags) if product_tags else None
                     )
 
+                    if cashback_entry:
+                        result['cashback'] = {
+                            'amount': float(cashback_entry.amount),
+                            'tier': member.tier.name if member.tier else None,
+                            'subtotal': float(rewards_subtotal),
+                            'mode': 'store_credit'
+                        }
+                        current_app.logger.info(
+                            f'Awarded ${cashback_entry.amount} store credit to {member.member_number} for order #{order_number}'
+                        )
+
+                # ==========================================
+                # MODE: POINTS
+                # ==========================================
+                elif loyalty_mode == 'points':
+                    # Award points (customer can later redeem for store credit)
+                    points_per_dollar = loyalty_settings.get('points_per_dollar', 10)
+                    base_points = int(float(rewards_subtotal) * points_per_dollar)
+
+                    # Apply tier multiplier if applicable
+                    tier_multiplier = 1.0
+                    if member.tier:
+                        # Use tier's earning multiplier (bonus_rate as multiplier)
+                        bonus_rate = float(member.tier.bonus_rate or 0)
+                        tier_multiplier = 1.0 + bonus_rate
+                        # Check for double_points benefit
+                        benefits = member.tier.benefits or {}
+                        if benefits.get('double_points'):
+                            tier_multiplier = 2.0
+
+                    points_earned = int(base_points * tier_multiplier)
+                    bonus_points = points_earned - base_points
+
+                    if points_earned > 0:
+                        # Record points transaction
+                        from ..models import PointsTransaction
+                        transaction = PointsTransaction(
+                            tenant_id=tenant.id,
+                            member_id=member.id,
+                            points=points_earned,
+                            remaining_points=points_earned,
+                            transaction_type='earn',
+                            source='purchase',
+                            reference_id=order_id,
+                            reference_type='shopify_order',
+                            description=f'Points from order #{order_number}',
+                            created_at=datetime.utcnow()
+                        )
+                        db.session.add(transaction)
+
+                        # Update member balances
+                        member.points_balance = (member.points_balance or 0) + points_earned
+                        member.lifetime_points_earned = (member.lifetime_points_earned or 0) + points_earned
+                        member.last_activity_at = datetime.utcnow()
+
+                        # Get points display name
+                        points_name = loyalty_settings.get('points_name', 'points')
+
+                        result['points'] = {
+                            'earned': points_earned,
+                            'base_points': base_points,
+                            'bonus_points': bonus_points,
+                            'tier_multiplier': tier_multiplier,
+                            'new_balance': member.points_balance,
+                            'tier': member.tier.name if member.tier else None,
+                            'subtotal': float(rewards_subtotal),
+                            'mode': 'points',
+                            'points_name': points_name
+                        }
+                        current_app.logger.info(
+                            f'Awarded {points_earned} {points_name} to {member.member_number} for order #{order_number} '
+                            f'({base_points} base + {bonus_points} bonus)'
+                        )
+
             except Exception as e:
-                # Don't fail the whole webhook if cashback fails
-                current_app.logger.error(f'Cashback processing failed for order #{order_number}: {e}')
+                # Don't fail the whole webhook if rewards processing fails
+                current_app.logger.error(f'Rewards processing failed for order #{order_number}: {e}')
 
-        # Calculate points based on subtotal
-        # Default: 1 point per dollar spent
-        points_per_dollar = tenant.settings.get('points_per_dollar', 1) if hasattr(tenant, 'settings') else 1
-        points_earned = int(subtotal * points_per_dollar)
-
-        # Apply tier multiplier if applicable
-        if member.tier and hasattr(member.tier, 'points_multiplier'):
-            points_earned = int(points_earned * member.tier.points_multiplier)
-
-        if points_earned > 0:
-            # Record points transaction
-            from ..models import PointsTransaction
-            transaction = PointsTransaction(
-                tenant_id=tenant.id,
-                member_id=member.id,
-                points=points_earned,
-                transaction_type='earn',
-                source='order',
-                reference_id=order_id,
-                reference_type='shopify_order',
-                description=f'Points from order #{order_number}',
-                created_at=datetime.utcnow()
-            )
-            db.session.add(transaction)
-
-            # Update member balances
-            member.points_balance = (member.points_balance or 0) + points_earned
-            member.lifetime_points = (member.lifetime_points or 0) + points_earned
-            member.last_activity_at = datetime.utcnow()
-
-            db.session.commit()
-
-            current_app.logger.info(
-                f'Awarded {points_earned} points to {member.member_number} for order #{order_number}'
-            )
-
-            result['member_id'] = member.id
-            result['member_number'] = member.member_number
-            result['points'] = {
-                'earned': points_earned,
-                'new_balance': member.points_balance
-            }
-            return jsonify(result)
-
-        # Commit any membership changes even if no points
+        # Commit any changes
         db.session.commit()
 
         result['member_id'] = member.id
         result['member_number'] = member.member_number
-        if not result.get('membership'):
-            result['message'] = 'No points earned (order subtotal too low)'
+        result['loyalty_mode'] = loyalty_mode
+        if not result.get('cashback') and not result.get('points') and not result.get('membership'):
+            result['message'] = 'No rewards earned (order subtotal too low or no tier)'
         return jsonify(result)
 
     except Exception as e:
@@ -986,8 +1017,8 @@ def handle_order_fulfilled():
     """
     Handle ORDERS_FULFILLED webhook.
 
-    Optional: Some rewards programs only award points after fulfillment.
-    This is a placeholder for that workflow if enabled.
+    Awards points after fulfillment if tenant has 'award_points_on_fulfillment' enabled.
+    This is an alternative to awarding points at order creation.
     """
     shop_domain = request.headers.get('X-Shopify-Shop-Domain', '')
     tenant = get_tenant_from_domain(shop_domain)
@@ -996,7 +1027,8 @@ def handle_order_fulfilled():
         return jsonify({'error': 'Unknown shop'}), 404
 
     # Check if tenant requires fulfillment for points
-    award_on_fulfillment = tenant.settings.get('award_points_on_fulfillment', False) if hasattr(tenant, 'settings') else False
+    tenant_settings = tenant.settings if hasattr(tenant, 'settings') else {}
+    award_on_fulfillment = tenant_settings.get('award_points_on_fulfillment', False)
 
     if not award_on_fulfillment:
         return jsonify({
@@ -1004,22 +1036,98 @@ def handle_order_fulfilled():
             'message': 'Points awarded at order creation, not fulfillment'
         })
 
-    # If tenant requires fulfillment, process points here
-    # (Similar logic to orders/create)
     try:
         order_data = request.json
         order_id = str(order_data.get('id'))
+        order_number = order_data.get('order_number')
+        customer_data = order_data.get('customer', {})
+        shopify_customer_id = str(customer_data.get('id', '')) if customer_data else None
+        subtotal = Decimal(str(order_data.get('subtotal_price', 0)))
 
-        # Implementation would be similar to orders/create
-        # For now, just acknowledge
-        return jsonify({
+        result = {
             'success': True,
-            'message': 'Fulfillment tracked',
-            'order_id': order_id
-        })
+            'order_id': order_id,
+            'order_number': order_number
+        }
+
+        if not shopify_customer_id:
+            result['message'] = 'Guest checkout - no rewards applied'
+            return jsonify(result)
+
+        # Find member
+        member = Member.query.filter_by(
+            tenant_id=tenant.id,
+            shopify_customer_id=shopify_customer_id
+        ).first()
+
+        if not member:
+            result['message'] = 'Customer not enrolled in rewards'
+            return jsonify(result)
+
+        if member.status != 'active':
+            result['message'] = 'Member account not active'
+            return jsonify(result)
+
+        # Check if points were already awarded for this order
+        from ..models import PointsTransaction
+        existing_transaction = PointsTransaction.query.filter_by(
+            tenant_id=tenant.id,
+            member_id=member.id,
+            reference_id=order_id,
+            transaction_type='earn',
+            source='order'
+        ).first()
+
+        if existing_transaction:
+            result['message'] = 'Points already awarded for this order'
+            result['points_earned'] = existing_transaction.points
+            return jsonify(result)
+
+        # Calculate points based on subtotal
+        points_per_dollar = tenant_settings.get('points_per_dollar', 1)
+        points_earned = int(subtotal * points_per_dollar)
+
+        # Apply tier multiplier if applicable
+        if member.tier and hasattr(member.tier, 'points_multiplier'):
+            points_earned = int(points_earned * member.tier.points_multiplier)
+
+        if points_earned > 0:
+            # Record points transaction
+            transaction = PointsTransaction(
+                tenant_id=tenant.id,
+                member_id=member.id,
+                points=points_earned,
+                transaction_type='earn',
+                source='order',
+                reference_id=order_id,
+                reference_type='shopify_order',
+                description=f'Points from fulfilled order #{order_number}',
+                created_at=datetime.utcnow()
+            )
+            db.session.add(transaction)
+
+            # Update member balances
+            member.points_balance = (member.points_balance or 0) + points_earned
+            member.lifetime_points_earned = (member.lifetime_points_earned or 0) + points_earned
+            member.updated_at = datetime.utcnow()
+
+            db.session.commit()
+
+            result['points_earned'] = points_earned
+            result['new_balance'] = member.points_balance
+            result['message'] = f'Awarded {points_earned} points on fulfillment'
+
+            current_app.logger.info(
+                f'Awarded {points_earned} points to {member.member_number} for fulfilled order #{order_number}'
+            )
+        else:
+            result['message'] = 'No points earned (order total too low)'
+
+        return jsonify(result)
 
     except Exception as e:
         current_app.logger.error(f'Error processing order fulfilled webhook: {str(e)}')
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 

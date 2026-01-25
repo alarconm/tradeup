@@ -16,11 +16,14 @@ import {
   Droplets,
   Layout,
   ExternalLink,
+  Coins,
+  CreditCard,
 } from 'lucide-react'
 import {
   getSettings,
   updateAutoEnrollment,
   updateNotifications,
+  updateLoyalty,
   updateSettings,
   getTiers,
   type TenantSettings,
@@ -159,7 +162,7 @@ export default function Settings() {
   const [success, setSuccess] = useState<string | null>(null)
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const [tiers, setTiers] = useState<Tier[]>([])
-  const [activeTab, setActiveTab] = useState<'enrollment' | 'notifications' | 'branding'>('enrollment')
+  const [activeTab, setActiveTab] = useState<'enrollment' | 'notifications' | 'branding' | 'loyalty'>('loyalty')
 
   useEffect(() => {
     loadData()
@@ -171,7 +174,22 @@ export default function Settings() {
         getSettings(),
         getTiers(),
       ])
-      setSettings(settingsResult.settings)
+      // Ensure loyalty settings exist with defaults
+      const loadedSettings = {
+        ...settingsResult.settings,
+        loyalty: settingsResult.settings.loyalty || {
+          mode: 'store_credit' as const,
+          points_per_dollar: 10,
+          points_to_credit_value: 0.01,
+          points_name: 'points',
+          points_name_singular: 'point',
+          points_currency_symbol: 'pts',
+          min_redemption_points: 100,
+          redemption_increments: 100,
+          points_expiration_days: null,
+        },
+      }
+      setSettings(loadedSettings)
       setTiers(tiersResult.tiers || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings')
@@ -223,6 +241,23 @@ export default function Settings() {
       const result = await updateSettings({ branding: settings.branding })
       setSettings(result.settings)
       setSuccess('Branding settings saved')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleLoyaltySave() {
+    if (!settings) return
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const result = await updateLoyalty(settings.loyalty)
+      setSettings(result.settings)
+      setSuccess('Loyalty mode settings saved')
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings')
@@ -449,6 +484,23 @@ export default function Settings() {
         >
           <Palette size={18} />
           Branding
+        </button>
+        <button
+          onClick={() => setActiveTab('loyalty')}
+          style={getTabStyle(activeTab === 'loyalty')}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'loyalty') {
+              e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'loyalty') {
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }
+          }}
+        >
+          <Coins size={18} />
+          Loyalty Mode
         </button>
       </div>
 
@@ -1094,6 +1146,351 @@ export default function Settings() {
           >
             <button
               onClick={handleBrandingSave}
+              disabled={saving}
+              style={saveButtonStyle}
+              onMouseEnter={(e) => {
+                if (!saving) e.currentTarget.style.backgroundColor = colors.primaryHover
+              }}
+              onMouseLeave={(e) => {
+                if (!saving) e.currentTarget.style.backgroundColor = colors.primary
+              }}
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loyalty Mode Settings */}
+      {activeTab === 'loyalty' && (
+        <div style={cardStyle}>
+          <div style={{ marginBottom: spacing[6] }}>
+            <h2 style={{ fontSize: typography.md, fontWeight: typography.semibold, color: colors.text, margin: 0 }}>
+              Loyalty Mode
+            </h2>
+            <p style={{ fontSize: typography.base, color: colors.textSecondary, margin: '4px 0 0 0' }}>
+              Choose how customers earn and redeem rewards
+            </p>
+          </div>
+
+          {/* Mode Selection */}
+          <div style={{ marginBottom: spacing[6] }}>
+            <label style={labelStyle}>Rewards Currency</label>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: breakpoint === 'mobile' ? '1fr' : 'repeat(2, 1fr)',
+                gap: spacing[3],
+              }}
+            >
+              {[
+                {
+                  value: 'store_credit',
+                  label: 'Store Credit',
+                  icon: CreditCard,
+                  desc: 'Customers earn cashback as Shopify store credit. Auto-applies at checkout.',
+                  badge: 'Recommended',
+                },
+                {
+                  value: 'points',
+                  label: 'Points Program',
+                  icon: Coins,
+                  desc: 'Customers earn points, then redeem for store credit when ready.',
+                  badge: null,
+                },
+              ].map(({ value, label, icon: Icon, desc, badge }) => {
+                const isSelected = settings.loyalty.mode === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setSettings({
+                        ...settings,
+                        loyalty: { ...settings.loyalty, mode: value as 'store_credit' | 'points' },
+                      })
+                    }
+                    style={{
+                      padding: spacing[4],
+                      borderRadius: radius.md,
+                      border: isSelected ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                      backgroundColor: isSelected ? colors.primarySubtle : colors.bgSurface,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = colors.primary
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = colors.border
+                      }
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
+                        <Icon size={20} style={{ color: isSelected ? colors.primary : colors.textSecondary }} />
+                        <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.md }}>
+                          {label}
+                        </span>
+                      </div>
+                      {badge && (
+                        <span
+                          style={{
+                            fontSize: typography.xs,
+                            fontWeight: typography.medium,
+                            color: colors.success,
+                            backgroundColor: colors.successLight,
+                            padding: '2px 8px',
+                            borderRadius: radius.sm,
+                          }}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: typography.sm, color: colors.textSecondary, margin: 0 }}>{desc}</p>
+                    {isSelected && (
+                      <div style={{ marginTop: 8 }}>
+                        <Check size={16} style={{ color: colors.primary }} />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Points Mode Configuration */}
+          {settings.loyalty.mode === 'points' && (
+            <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: spacing[6] }}>
+              <h3
+                style={{
+                  fontSize: typography.base,
+                  fontWeight: typography.semibold,
+                  color: colors.text,
+                  marginBottom: spacing[4],
+                }}
+              >
+                Points Configuration
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[5] }}>
+                {/* Earning Rate */}
+                <div>
+                  <label style={labelStyle}>Points per Dollar Spent</label>
+                  <div style={{ position: 'relative', maxWidth: 200 }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={settings.loyalty.points_per_dollar}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          loyalty: {
+                            ...settings.loyalty,
+                            points_per_dollar: parseInt(e.target.value) || 10,
+                          },
+                        })
+                      }
+                      style={inputStyle}
+                    />
+                  </div>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                    Example: 10 points per $1 spent = $100 order earns 1,000 points
+                  </p>
+                </div>
+
+                {/* Redemption Value */}
+                <div>
+                  <label style={labelStyle}>Points to Credit Conversion</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], maxWidth: 300 }}>
+                    <input
+                      type="number"
+                      readOnly
+                      value={settings.loyalty.points_to_credit_value > 0 ? Math.round(1 / settings.loyalty.points_to_credit_value) : 100}
+                      style={{ ...inputStyle, width: 80, textAlign: 'center' }}
+                    />
+                    <span style={{ color: colors.textSecondary }}>points = $1.00</span>
+                  </div>
+                  <div style={{ marginTop: spacing[2] }}>
+                    <select
+                      value={settings.loyalty.points_to_credit_value}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          loyalty: {
+                            ...settings.loyalty,
+                            points_to_credit_value: parseFloat(e.target.value),
+                          },
+                        })
+                      }
+                      style={{ ...selectStyle, maxWidth: 200 }}
+                    >
+                      <option value={0.01}>100 points = $1</option>
+                      <option value={0.02}>50 points = $1</option>
+                      <option value={0.005}>200 points = $1</option>
+                      <option value={0.001}>1000 points = $1</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Display Name */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: breakpoint === 'mobile' ? '1fr' : '1fr 1fr',
+                    gap: spacing[4],
+                  }}
+                >
+                  <div>
+                    <label style={labelStyle}>Points Name (Plural)</label>
+                    <input
+                      type="text"
+                      placeholder="points"
+                      value={settings.loyalty.points_name}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          loyalty: { ...settings.loyalty, points_name: e.target.value || 'points' },
+                        })
+                      }
+                      style={inputStyle}
+                    />
+                    <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                      e.g., "points", "coins", "stars"
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Currency Symbol</label>
+                    <input
+                      type="text"
+                      placeholder="pts"
+                      value={settings.loyalty.points_currency_symbol}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          loyalty: { ...settings.loyalty, points_currency_symbol: e.target.value || 'pts' },
+                        })
+                      }
+                      style={{ ...inputStyle, maxWidth: 100 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Minimum Redemption */}
+                <div>
+                  <label style={labelStyle}>Minimum Redemption</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], maxWidth: 300 }}>
+                    <input
+                      type="number"
+                      min="1"
+                      value={settings.loyalty.min_redemption_points}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          loyalty: {
+                            ...settings.loyalty,
+                            min_redemption_points: parseInt(e.target.value) || 100,
+                          },
+                        })
+                      }
+                      style={{ ...inputStyle, width: 100 }}
+                    />
+                    <span style={{ color: colors.textSecondary }}>{settings.loyalty.points_name}</span>
+                  </div>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                    Minimum points required to redeem (
+                    ${(settings.loyalty.min_redemption_points * settings.loyalty.points_to_credit_value).toFixed(2)} value)
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div
+                style={{
+                  marginTop: spacing[6],
+                  padding: spacing[4],
+                  backgroundColor: colors.bgSubdued,
+                  borderRadius: radius.md,
+                  border: `1px solid ${colors.borderSubdued}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: typography.xs,
+                    fontWeight: typography.medium,
+                    color: colors.textSubdued,
+                    marginBottom: spacing[3],
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Customer Experience Preview
+                </div>
+                <div style={{ fontSize: typography.base, color: colors.text }}>
+                  <div style={{ marginBottom: spacing[2] }}>
+                    <strong>Earning:</strong> $50 purchase → {50 * settings.loyalty.points_per_dollar}{' '}
+                    {settings.loyalty.points_name}
+                  </div>
+                  <div>
+                    <strong>Redeeming:</strong> {Math.round(1 / settings.loyalty.points_to_credit_value)}{' '}
+                    {settings.loyalty.points_name} → $1.00 store credit
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Store Credit Mode Info */}
+          {settings.loyalty.mode === 'store_credit' && (
+            <div
+              style={{
+                padding: spacing[4],
+                backgroundColor: colors.successLight,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.success}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[3] }}>
+                <Check size={20} style={{ color: colors.success, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <div style={{ fontWeight: typography.medium, color: colors.text, marginBottom: 4 }}>
+                    Store Credit Mode Active
+                  </div>
+                  <div style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                    Customers earn cashback based on their tier's cashback percentage. Store credit is automatically
+                    applied at checkout - no extra steps needed. Configure cashback rates in your tier settings.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save Button */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              paddingTop: spacing[6],
+              borderTop: `1px solid ${colors.border}`,
+              marginTop: spacing[6],
+            }}
+          >
+            <button
+              onClick={handleLoyaltySave}
               disabled={saving}
               style={saveButtonStyle}
               onMouseEnter={(e) => {

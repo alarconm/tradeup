@@ -2152,22 +2152,34 @@ class ShopifyClient:
         trade_in_count: int = 0,
         total_bonus_earned: float = 0,
         joined_date: str = None,
-        status: str = 'active'
+        status: str = 'active',
+        # New loyalty-mode fields
+        loyalty_mode: str = 'store_credit',
+        points_balance: int = 0,
+        store_credit_balance: float = 0,
+        tier_cashback_pct: float = 0,
+        tier_earning_multiplier: float = 1.0
     ) -> Dict[str, Any]:
         """
         Sync TradeUp member data to Shopify customer metafields.
 
-        This makes member info visible in Shopify Admin customer profiles.
+        This makes member info visible in Shopify Admin customer profiles
+        AND in checkout/customer-account UI extensions.
 
         Args:
             customer_id: Shopify customer ID
             member_number: TradeUp member number (e.g., "TU-001234")
             tier_name: Current tier name (e.g., "Gold")
-            credit_balance: Current store credit balance
+            credit_balance: Current store credit balance (legacy field)
             trade_in_count: Total number of trade-ins
             total_bonus_earned: Total bonus credits earned
             joined_date: Date joined (ISO format)
             status: Member status (active, paused, cancelled)
+            loyalty_mode: 'store_credit' or 'points' - merchant's loyalty mode
+            points_balance: Current points balance (for points mode)
+            store_credit_balance: Shopify store credit balance (for extensions)
+            tier_cashback_pct: Tier's cashback percentage (e.g., 5 for 5%)
+            tier_earning_multiplier: Points earning multiplier (e.g., 1.5 for 1.5x)
 
         Returns:
             Dict with success status
@@ -2202,6 +2214,32 @@ class ShopifyClient:
                 'key': 'status',
                 'value': status,
                 'type': 'single_line_text_field'
+            },
+            # Loyalty mode fields for checkout/customer-account extensions
+            {
+                'key': 'loyalty_mode',
+                'value': loyalty_mode,
+                'type': 'single_line_text_field'
+            },
+            {
+                'key': 'points_balance',
+                'value': str(int(points_balance)),
+                'type': 'number_integer'
+            },
+            {
+                'key': 'store_credit_balance',
+                'value': str(round(store_credit_balance, 2)),
+                'type': 'number_decimal'
+            },
+            {
+                'key': 'tier_cashback_pct',
+                'value': str(round(tier_cashback_pct, 2)),
+                'type': 'number_decimal'
+            },
+            {
+                'key': 'tier_earning_multiplier',
+                'value': str(round(tier_earning_multiplier, 2)),
+                'type': 'number_decimal'
             }
         ]
 

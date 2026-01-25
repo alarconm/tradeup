@@ -467,6 +467,111 @@ def update_milestone_settings():
 
 
 # ==============================================
+# Loyalty Mode Settings
+# ==============================================
+
+LOYALTY_MODES = {
+    'store_credit': 'Store Credit (Recommended)',
+    'points': 'Points Program',
+}
+
+
+@settings_bp.route('/loyalty', methods=['GET'])
+@require_shopify_auth
+def get_loyalty_settings():
+    """
+    Get loyalty program settings.
+
+    Returns current loyalty mode configuration:
+    - mode: 'store_credit' or 'points'
+    - Points earning/redemption configuration
+    - Display customization
+    """
+    tenant = g.tenant
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'loyalty': settings['loyalty'],
+        'available_modes': LOYALTY_MODES
+    })
+
+
+@settings_bp.route('/loyalty', methods=['PATCH'])
+@require_shopify_auth
+def update_loyalty_settings():
+    """
+    Update loyalty program settings.
+
+    Request body:
+        mode: str - 'store_credit' or 'points'
+        points_per_dollar: int - Points earned per $1 spent
+        points_to_credit_value: float - Dollar value of 1 point
+        points_name: str - Display name for points
+        points_name_singular: str - Singular form
+        points_currency_symbol: str - Short symbol
+        min_redemption_points: int - Minimum points to redeem
+        redemption_increments: int - Redemption increments
+        points_expiration_days: int|null - Days until expiration
+
+    Example:
+        Switch to points mode with 10 points per $1, 100 points = $1:
+        {"mode": "points", "points_per_dollar": 10, "points_to_credit_value": 0.01}
+    """
+    tenant = g.tenant
+    data = request.json
+
+    # Validate mode if provided
+    if 'mode' in data and data['mode'] not in LOYALTY_MODES:
+        return jsonify({
+            'error': f"Invalid mode. Choose from: {list(LOYALTY_MODES.keys())}"
+        }), 400
+
+    # Validate numeric fields
+    if 'points_per_dollar' in data:
+        try:
+            ppd = int(data['points_per_dollar'])
+            if ppd < 1 or ppd > 1000:
+                return jsonify({'error': 'points_per_dollar must be between 1 and 1000'}), 400
+            data['points_per_dollar'] = ppd
+        except (ValueError, TypeError):
+            return jsonify({'error': 'points_per_dollar must be an integer'}), 400
+
+    if 'points_to_credit_value' in data:
+        try:
+            ptcv = float(data['points_to_credit_value'])
+            if ptcv <= 0 or ptcv > 1:
+                return jsonify({'error': 'points_to_credit_value must be between 0.001 and 1'}), 400
+            data['points_to_credit_value'] = ptcv
+        except (ValueError, TypeError):
+            return jsonify({'error': 'points_to_credit_value must be a number'}), 400
+
+    if 'min_redemption_points' in data:
+        try:
+            mrp = int(data['min_redemption_points'])
+            if mrp < 1:
+                return jsonify({'error': 'min_redemption_points must be at least 1'}), 400
+            data['min_redemption_points'] = mrp
+        except (ValueError, TypeError):
+            return jsonify({'error': 'min_redemption_points must be an integer'}), 400
+
+    current_settings = tenant.settings or {}
+    current_loyalty = current_settings.get('loyalty', {})
+
+    for key, value in data.items():
+        current_loyalty[key] = value
+
+    current_settings['loyalty'] = current_loyalty
+    tenant.settings = current_settings
+    db.session.commit()
+    invalidate_tenant_settings(tenant.id)
+
+    return jsonify({
+        'success': True,
+        'loyalty': get_settings_with_defaults(tenant.settings)['loyalty']
+    })
+
+
+# ==============================================
 # Shopify Customer Segments
 # ==============================================
 

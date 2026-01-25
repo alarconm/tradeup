@@ -126,6 +126,27 @@ DEFAULT_SETTINGS = {
             # Example: '1': 5, '2': 10, '5': 25, '10': 50
             # Years not configured will use the default reward_amount
         },
+    },
+    'loyalty': {
+        'mode': 'store_credit',  # 'store_credit' (default) or 'points'
+        # Store Credit Mode: Customers earn cashback as Shopify store credit (auto-applies at checkout)
+        # Points Mode: Customers earn points, redeem for store credit (same checkout experience)
+
+        # Points earning configuration (used in points mode)
+        'points_per_dollar': 10,  # Points earned per $1 spent (e.g., 10 = 10 pts per $1)
+        'points_to_credit_value': 0.01,  # Dollar value of 1 point (e.g., 0.01 = 100 pts = $1)
+
+        # Display customization
+        'points_name': 'points',  # Display name (e.g., 'points', 'coins', 'stars')
+        'points_name_singular': 'point',  # Singular form
+        'points_currency_symbol': 'pts',  # Short symbol (e.g., 'pts', '★', '🪙')
+
+        # Redemption options
+        'min_redemption_points': 100,  # Minimum points to redeem (e.g., 100 = $1 minimum)
+        'redemption_increments': 100,  # Redeem in increments of X points (e.g., 100, 500, 1000)
+
+        # Points expiration (also available in 'points' section for backward compat)
+        'points_expiration_days': None,  # Days until points expire (None = never expire)
     }
 }
 

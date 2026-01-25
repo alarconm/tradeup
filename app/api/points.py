@@ -725,6 +725,156 @@ def get_customer_points():
     })
 
 
+@points_bp.route('/customer/redeem', methods=['POST'])
+def redeem_points_for_credit():
+    """
+    Redeem points for store credit.
+
+    This is the core redemption endpoint for Points Mode. Customers exchange
+    their points for Shopify store credit, which then auto-applies at checkout.
+
+    Request body:
+        customer_id: Shopify customer ID (required)
+        points: Number of points to redeem (required)
+        shop: Shop domain (optional, for validation)
+
+    The dollar value is calculated as: points * points_to_credit_value
+    For example, with points_to_credit_value=0.01 (default):
+    - 100 points = $1.00 store credit
+    - 500 points = $5.00 store credit
+
+    Returns:
+        success: Whether redemption succeeded
+        credit_amount: Dollar amount of store credit issued
+        points_redeemed: Number of points deducted
+        new_balance: Updated points balance
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+    points_to_redeem = data.get('points')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    if not points_to_redeem:
+        return jsonify({'error': 'Missing points amount'}), 400
+
+    try:
+        points_to_redeem = int(points_to_redeem)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'points must be an integer'}), 400
+
+    if points_to_redeem <= 0:
+        return jsonify({'error': 'points must be positive'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'error': 'Not enrolled in rewards program',
+            'is_member': False
+        }), 404
+
+    # Get loyalty settings for this tenant
+    from ..models import Tenant
+    from ..utils.settings_defaults import get_settings_with_defaults
+
+    tenant = Tenant.query.get(member.tenant_id)
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    tenant_settings = get_settings_with_defaults(tenant.settings or {})
+    loyalty_settings = tenant_settings.get('loyalty', {})
+
+    # Check if in points mode
+    if loyalty_settings.get('mode') != 'points':
+        return jsonify({
+            'error': 'Points redemption is not enabled. Store is in store credit mode.',
+            'loyalty_mode': loyalty_settings.get('mode', 'store_credit')
+        }), 400
+
+    # Get redemption configuration
+    points_to_credit_value = loyalty_settings.get('points_to_credit_value', 0.01)
+    min_redemption_points = loyalty_settings.get('min_redemption_points', 100)
+    redemption_increments = loyalty_settings.get('redemption_increments', 100)
+
+    # Validate minimum redemption
+    if points_to_redeem < min_redemption_points:
+        return jsonify({
+            'error': f'Minimum redemption is {min_redemption_points} points',
+            'min_redemption_points': min_redemption_points
+        }), 400
+
+    # Validate increments (e.g., must redeem in multiples of 100)
+    if redemption_increments > 1 and points_to_redeem % redemption_increments != 0:
+        return jsonify({
+            'error': f'Points must be redeemed in increments of {redemption_increments}',
+            'redemption_increments': redemption_increments
+        }), 400
+
+    # Calculate credit amount
+    credit_amount = Decimal(str(points_to_redeem)) * Decimal(str(points_to_credit_value))
+
+    # Check balance
+    current_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    if int(current_balance) < points_to_redeem:
+        return jsonify({
+            'error': 'Insufficient points balance',
+            'current_balance': int(current_balance),
+            'requested': points_to_redeem
+        }), 400
+
+    # Use PointsService to process redemption
+    from ..services.points_service import PointsService
+    from ..services.shopify_client import ShopifyClient
+
+    try:
+        shopify_client = ShopifyClient(member.tenant_id)
+        points_service = PointsService(member.tenant_id, shopify_client)
+
+        result = points_service.redeem_points(
+            member_id=member.id,
+            points_amount=points_to_redeem,
+            reward_type='store_credit',
+            reward_value=credit_amount,
+            description=f'Redeemed {points_to_redeem} points for ${credit_amount:.2f} store credit',
+            created_by='customer:self_service'
+        )
+
+        if result.get('success'):
+            points_name = loyalty_settings.get('points_name', 'points')
+
+            return jsonify({
+                'success': True,
+                'credit_amount': float(credit_amount),
+                'points_redeemed': points_to_redeem,
+                'new_balance': result.get('new_balance', 0),
+                'points_name': points_name,
+                'message': f'Successfully redeemed {points_to_redeem} {points_name} for ${credit_amount:.2f} store credit!'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Redemption failed')
+            }), 500
+
+    except Exception as e:
+        current_app.logger.error(f"Points redemption failed: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Redemption failed: {str(e)}'
+        }), 500
+
+
 @points_bp.route('/customer/rewards', methods=['GET'])
 def get_customer_rewards():
     """
@@ -791,6 +941,119 @@ def get_customer_rewards():
 
 
 # ==============================================================================
+# REDEMPTION PREVIEW
+# ==============================================================================
+
+@points_bp.route('/customer/redemption-preview', methods=['POST'])
+def preview_points_redemption():
+    """
+    Preview points redemption without actually redeeming.
+
+    Shows the customer how much store credit they'd get for different point amounts.
+    Used by the customer account extension to display redemption options.
+
+    Request body:
+        customer_id: Shopify customer ID (required)
+
+    Returns:
+        Redemption options and current balance
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'error': 'Not enrolled in rewards program',
+            'is_member': False
+        }), 404
+
+    # Get loyalty settings
+    from ..models import Tenant
+    from ..utils.settings_defaults import get_settings_with_defaults
+
+    tenant = Tenant.query.get(member.tenant_id)
+    if not tenant:
+        return jsonify({'error': 'Tenant not found'}), 404
+
+    tenant_settings = get_settings_with_defaults(tenant.settings or {})
+    loyalty_settings = tenant_settings.get('loyalty', {})
+
+    # Get balance
+    current_balance = db.session.query(
+        func.coalesce(func.sum(PointsTransaction.points), 0)
+    ).filter(
+        PointsTransaction.member_id == member.id,
+        PointsTransaction.reversed_at.is_(None)
+    ).scalar()
+
+    balance = int(current_balance)
+
+    # Get redemption configuration
+    loyalty_mode = loyalty_settings.get('mode', 'store_credit')
+    points_to_credit_value = loyalty_settings.get('points_to_credit_value', 0.01)
+    min_redemption_points = loyalty_settings.get('min_redemption_points', 100)
+    redemption_increments = loyalty_settings.get('redemption_increments', 100)
+    points_name = loyalty_settings.get('points_name', 'points')
+    points_name_singular = loyalty_settings.get('points_name_singular', 'point')
+
+    # Build redemption options
+    redemption_options = []
+    if loyalty_mode == 'points' and balance >= min_redemption_points:
+        # Generate common redemption tiers
+        common_amounts = [100, 250, 500, 1000, 2500, 5000]
+
+        for amount in common_amounts:
+            # Adjust to valid increments
+            if redemption_increments > 1:
+                amount = (amount // redemption_increments) * redemption_increments
+
+            if amount >= min_redemption_points and amount <= balance:
+                credit_value = float(amount) * points_to_credit_value
+                redemption_options.append({
+                    'points': amount,
+                    'credit_value': round(credit_value, 2),
+                    'label': f'{amount} {points_name} = ${credit_value:.2f}'
+                })
+
+        # Add max redemption option if not already included
+        max_redeemable = (balance // redemption_increments) * redemption_increments if redemption_increments > 1 else balance
+        if max_redeemable >= min_redemption_points:
+            max_credit = float(max_redeemable) * points_to_credit_value
+            if not any(opt['points'] == max_redeemable for opt in redemption_options):
+                redemption_options.append({
+                    'points': max_redeemable,
+                    'credit_value': round(max_credit, 2),
+                    'label': f'{max_redeemable} {points_name} = ${max_credit:.2f} (Max)'
+                })
+
+    return jsonify({
+        'is_member': True,
+        'loyalty_mode': loyalty_mode,
+        'can_redeem': loyalty_mode == 'points' and balance >= min_redemption_points,
+        'balance': balance,
+        'points_name': points_name,
+        'points_name_singular': points_name_singular,
+        'conversion_rate': {
+            'points_per_dollar': int(1 / points_to_credit_value) if points_to_credit_value else 100,
+            'points_to_credit_value': points_to_credit_value,
+            'example': f'{int(1 / points_to_credit_value)} {points_name} = $1.00'
+        },
+        'min_redemption': min_redemption_points,
+        'redemption_increments': redemption_increments,
+        'redemption_options': redemption_options,
+        'max_credit_available': round(float(balance) * points_to_credit_value, 2)
+    })
+
+
+# ==============================================================================
 # EXTENSION PROXY ENDPOINT
 # ==============================================================================
 
@@ -821,8 +1084,18 @@ def get_points_extension_data():
         return jsonify({
             'is_member': False,
             'points_enabled': False,
+            'loyalty_mode': 'store_credit',
             'message': 'Not enrolled in rewards program'
         })
+
+    # Get loyalty settings for this tenant
+    from ..models import Tenant
+    from ..utils.settings_defaults import get_settings_with_defaults
+
+    tenant = Tenant.query.get(member.tenant_id)
+    tenant_settings = get_settings_with_defaults(tenant.settings or {}) if tenant else {}
+    loyalty_settings = tenant_settings.get('loyalty', {})
+    loyalty_mode = loyalty_settings.get('mode', 'store_credit')
 
     # Get balance
     balance = db.session.query(
@@ -864,22 +1137,88 @@ def get_points_extension_data():
 
     # Tier info
     tier_info = None
+    tier_cashback_pct = 0
+    tier_earning_multiplier = 1.0
     if member.tier:
         tier_info = {
             'name': member.tier.name,
             'earning_bonus': float(member.tier.bonus_rate * 100) if member.tier.bonus_rate else 0
         }
+        tier_cashback_pct = float(member.tier.purchase_cashback_pct or 0)
+        tier_earning_multiplier = 1.0 + float(member.tier.bonus_rate or 0)
+
+    # Get Shopify store credit balance for store credit mode
+    store_credit_balance = 0.0
+    currency_code = 'USD'
+    try:
+        from ..services.shopify_client import ShopifyClient
+        shopify_client = ShopifyClient(member.tenant_id)
+        if member.shopify_customer_id:
+            credit_result = shopify_client.get_store_credit_balance(member.shopify_customer_id)
+            if credit_result:
+                store_credit_balance = float(credit_result.get('balance', {}).get('amount', 0))
+                currency_code = credit_result.get('balance', {}).get('currencyCode', 'USD')
+    except Exception:
+        pass  # If credit fetch fails, use 0
+
+    # Build loyalty config for extension
+    loyalty_config = {
+        'mode': loyalty_mode,
+        'points_name': loyalty_settings.get('points_name', 'points'),
+        'points_name_singular': loyalty_settings.get('points_name_singular', 'point'),
+        'points_currency_symbol': loyalty_settings.get('points_currency_symbol', 'pts'),
+    }
+
+    # Add redemption info if in points mode
+    if loyalty_mode == 'points':
+        points_to_credit_value = loyalty_settings.get('points_to_credit_value', 0.01)
+        min_redemption_points = loyalty_settings.get('min_redemption_points', 100)
+        loyalty_config.update({
+            'points_to_credit_value': points_to_credit_value,
+            'min_redemption_points': min_redemption_points,
+            'redemption_increments': loyalty_settings.get('redemption_increments', 100),
+            'can_redeem': int(balance) >= min_redemption_points,
+            'max_credit_available': round(float(balance) * points_to_credit_value, 2),
+            'conversion_example': f'{int(1 / points_to_credit_value)} {loyalty_config["points_name"]} = $1.00'
+        })
 
     return jsonify({
         'is_member': True,
-        'points_enabled': True,
+        'points_enabled': loyalty_mode == 'points',  # True if in points mode
+        'loyalty_mode': loyalty_mode,
+        'loyalty_config': loyalty_config,
         'member_number': member.member_number,
+        # Points data (used in points mode)
         'points': {
             'balance': int(balance),
             'earned_this_month': int(earned_this_month),
             'available_rewards': available_rewards
         },
-        'tier': tier_info,
+        # Store credit data (used in store credit mode)
+        'store_credit': {
+            'balance': store_credit_balance,
+            'currency_code': currency_code,
+            'cashback_pct': tier_cashback_pct
+        },
+        # Member and tier info
+        'member': {
+            'id': member.id,
+            'member_number': member.member_number,
+            'name': member.name or member.email,
+            'status': member.status,
+            'tier': {
+                'name': member.tier.name if member.tier else None,
+                'cashback_pct': tier_cashback_pct,
+                'earning_multiplier': tier_earning_multiplier,
+                'benefits': member.tier.benefits if member.tier else {}
+            } if member.tier else None
+        },
+        'tier': tier_info,  # Legacy field for backwards compatibility
+        'stats': {
+            'store_credit_balance': store_credit_balance,
+            'total_trade_ins': member.total_trade_ins or 0,
+            'total_bonus_earned': float(member.total_bonus_earned or 0)
+        },
         'recent_activity': [{
             'type': t.transaction_type,
             'points': t.points,
