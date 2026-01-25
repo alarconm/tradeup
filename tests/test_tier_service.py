@@ -326,7 +326,7 @@ class TestTierEligibility:
     def test_check_eligibility_with_spend_rule(self, app, sample_member, sample_tier, sample_tenant):
         """Test eligibility check with a spend threshold rule."""
         from app.services.tier_service import TierService
-        from app.models import TierEligibilityRule, Member, MembershipTier
+        from app.models import TierEligibilityRule, Member, MembershipTier, TradeInBatch
         from app.extensions import db
 
         with app.app_context():
@@ -355,9 +355,18 @@ class TestTierEligibility:
             )
             db.session.add(rule)
 
-            # Update member's total trade value to meet threshold
+            # Create completed trade-in batch to generate windowed stats
+            # (the service uses TradeInBatch records for time-windowed eligibility)
             member = Member.query.get(sample_member.id)
-            member.total_trade_value = Decimal('600')
+            batch = TradeInBatch(
+                tenant_id=sample_tenant.id,
+                member_id=member.id,
+                batch_reference='ELIG-TEST-001',
+                status='completed',
+                total_items=5,
+                total_trade_value=Decimal('600')
+            )
+            db.session.add(batch)
             db.session.commit()
 
             service = TierService(sample_tenant.id)
@@ -424,7 +433,7 @@ class TestAutoUpgrade:
     def test_auto_upgrade_when_eligible(self, app, sample_member, sample_tier, sample_tenant):
         """Test automatic tier upgrade when member meets criteria."""
         from app.services.tier_service import TierService
-        from app.models import TierEligibilityRule, Member, MembershipTier
+        from app.models import TierEligibilityRule, Member, MembershipTier, TradeInBatch
         from app.extensions import db
 
         with app.app_context():
@@ -454,10 +463,22 @@ class TestAutoUpgrade:
             )
             db.session.add(rule)
 
-            # Update member to meet criteria
+            # Create completed trade-in batches to generate windowed stats
+            # (the service uses TradeInBatch records for time-windowed eligibility)
             member = Member.query.get(sample_member.id)
-            member.total_trade_ins = 15
             member.tier_assigned_by = 'earned'  # Allow upgrade from earned tier
+
+            # Create 15 completed trade-in batches to meet the threshold of 10
+            for i in range(15):
+                batch = TradeInBatch(
+                    tenant_id=sample_tenant.id,
+                    member_id=member.id,
+                    batch_reference=f'UPGRADE-TEST-{i:03d}',
+                    status='completed',
+                    total_items=1,
+                    total_trade_value=Decimal('50')
+                )
+                db.session.add(batch)
             db.session.commit()
 
             service = TierService(sample_tenant.id)

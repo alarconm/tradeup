@@ -20,6 +20,7 @@ from flask import current_app
 from ..extensions import db
 from ..models import Member, MembershipTier, Tenant
 from ..models.tier_history import TierChangeLog, TierEligibilityRule, TierPromotion, MemberPromoUsage
+from ..models.trade_in import TradeInBatch
 
 
 # Source priority (higher number = higher priority)
@@ -1159,7 +1160,28 @@ class TierService:
                 return member.tier_id in promotion.target_tiers
             return not promotion.target_tiers  # If no tiers specified, allow all
 
-        # TODO: Implement 'tagged' and 'manual' targeting
+        if promotion.target_type == 'tagged':
+            # Check if member has any of the required tags
+            # Tags are stored in Shopify and synced to member.tags (JSON field)
+            if not promotion.target_tags:
+                return True  # No tags required, allow all
+            member_tags = getattr(member, 'tags', None) or []
+            if isinstance(member_tags, str):
+                member_tags = [t.strip() for t in member_tags.split(',') if t.strip()]
+            # Check if any member tag matches the required tags (case-insensitive)
+            member_tags_lower = [t.lower() for t in member_tags]
+            for required_tag in promotion.target_tags:
+                if required_tag.lower() in member_tags_lower:
+                    return True
+            return False
+
+        if promotion.target_type == 'manual':
+            # Manual targeting uses a list of specific member IDs
+            # Stored in promotion.target_member_ids (JSON field)
+            target_member_ids = getattr(promotion, 'target_member_ids', None) or []
+            if not target_member_ids:
+                return True  # No specific members, allow all
+            return member.id in target_member_ids
 
         return True
 
@@ -1179,7 +1201,33 @@ class TierService:
                 datetime.utcnow().date() - member.membership_start_date
             ).days
 
-        # TODO: Calculate time-windowed stats if max_days is specified
+        # Calculate time-windowed stats if max_days is specified
+        if max_days:
+            cutoff_date = datetime.utcnow() - timedelta(days=max_days)
+
+            # Query trade-ins within the time window
+            windowed_batches = TradeInBatch.query.filter(
+                TradeInBatch.member_id == member.id,
+                TradeInBatch.created_at >= cutoff_date,
+                TradeInBatch.status == 'completed'
+            ).all()
+
+            # Calculate windowed stats
+            windowed_trade_count = len(windowed_batches)
+            windowed_trade_value = sum(
+                float(batch.total_trade_value or 0)
+                for batch in windowed_batches
+            )
+            windowed_bonus = sum(
+                float(batch.bonus_amount or 0)
+                for batch in windowed_batches
+            )
+
+            # Override stats with windowed values
+            stats['trade_in_count'] = windowed_trade_count
+            stats['trade_in_value'] = windowed_trade_value
+            stats['total_spend'] = windowed_trade_value
+            stats['bonus_earned'] = max(0, windowed_bonus)
 
         return stats
 
