@@ -110,7 +110,20 @@ def preview_event():
             product_tags=product_tags,
             audience=audience
         )
-        return jsonify(result)
+
+        # Transform to frontend-expected format
+        # Frontend expects: { summary: {...}, top_customers: [...], orders_by_source: {...} }
+        response = {
+            'summary': {
+                'total_orders': result.get('total_orders', 0),
+                'unique_customers': result.get('unique_customers', 0),
+                'total_order_value': result.get('total_order_value', 0),
+                'total_credit_to_issue': result.get('total_credit_amount', 0),
+            },
+            'top_customers': result.get('top_customers', []),
+            'orders_by_source': result.get('by_source', {}),
+        }
+        return jsonify(response)
 
     except ValueError as e:
         # Datetime validation errors

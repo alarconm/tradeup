@@ -408,6 +408,9 @@ class StoreCreditEventsService:
         # Orders without customers
         orders_without_customer = len([o for o in orders if not o.customer_id])
 
+        # Calculate total order value from all credits (not just top 10)
+        total_order_value = float(sum(c.total_spent for c in credits.values()))
+
         return {
             'start_datetime': start_datetime,
             'end_datetime': end_datetime,
@@ -417,6 +420,7 @@ class StoreCreditEventsService:
             'orders_with_customer': len(orders) - orders_without_customer,
             'orders_without_customer': orders_without_customer,
             'unique_customers': len(credits),
+            'total_order_value': total_order_value,
             'total_credit_amount': float(sum(c.credit_amount for c in credits.values())),
             'by_source': by_source,
             'top_customers': [
