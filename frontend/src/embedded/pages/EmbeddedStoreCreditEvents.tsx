@@ -193,6 +193,19 @@ function localDatetimeToUTC(localDatetime: string): string {
   return date.toISOString();
 }
 
+/**
+ * Format a Date object as a local datetime string for datetime-local input.
+ * Returns format: "YYYY-MM-DDTHH:MM" in local timezone.
+ */
+function formatLocalDatetime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 async function fetchEventSources(
   shop: string | null,
   startDatetime: string,
@@ -460,8 +473,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       description: '',
       promo_type: 'purchase_cashback',
       bonus_percent: 10,
-      starts_at: now.toISOString().slice(0, 16),
-      ends_at: nextWeek.toISOString().slice(0, 16),
+      starts_at: formatLocalDatetime(now),
+      ends_at: formatLocalDatetime(nextWeek),
       daily_start_time: '',
       daily_end_time: '',
       active_days: [],
@@ -520,8 +533,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
         daily_start_time: template.daily_start_time || '',
         daily_end_time: template.daily_end_time || '',
         active_days: template.active_days || [],
-        starts_at: now.toISOString().slice(0, 16),
-        ends_at: endTime.toISOString().slice(0, 16),
+        starts_at: formatLocalDatetime(now),
+        ends_at: formatLocalDatetime(endTime),
       }));
     }
     setEditingEvent(null);
@@ -557,8 +570,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       : new Date(now.getTime() + 3 * 60 * 60 * 1000);
 
     setBulkForm({
-      start_datetime: now.toISOString().slice(0, 16),
-      end_datetime: endTime.toISOString().slice(0, 16),
+      start_datetime: formatLocalDatetime(now),
+      end_datetime: formatLocalDatetime(endTime),
       sources: [],
       credit_percent: percent || 10,
       include_authorized: true,
