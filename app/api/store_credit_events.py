@@ -247,6 +247,87 @@ def list_sources():
         return jsonify({'error': str(e)}), 500
 
 
+@store_credit_events_bp.route('/manual-run', methods=['POST'])
+def manual_run_event():
+    """
+    Manual endpoint to run bulk store credit event.
+    Protected by secret key instead of Shopify auth for emergency use.
+
+    Query params:
+        key: Secret key for authorization
+
+    Body (JSON):
+        shop_domain: Shopify shop domain
+        start_datetime: ISO UTC datetime (e.g., 2026-01-25T01:00:00Z)
+        end_datetime: ISO UTC datetime (e.g., 2026-01-25T04:00:00Z)
+        credit_percent: Percentage to credit (default 10)
+        sources: List of sources (default all)
+        dry_run: If true, only preview (default true)
+    """
+    import logging
+    from ..models import Tenant
+    logger = logging.getLogger(__name__)
+
+    # Simple key-based auth for emergency use
+    key = request.args.get('key')
+    if key != 'tradeup-manual-event-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    data = request.json or {}
+    shop_domain = data.get('shop_domain')
+
+    if not shop_domain:
+        return jsonify({'error': 'shop_domain is required'}), 400
+
+    # Get tenant credentials
+    tenant = Tenant.query.filter_by(shopify_domain=shop_domain).first()
+    if not tenant or not tenant.shopify_access_token:
+        return jsonify({'error': f'No tenant found for {shop_domain}'}), 404
+
+    from ..services.store_credit_events import StoreCreditEventsService
+    service = StoreCreditEventsService(tenant.shopify_domain, tenant.shopify_access_token)
+
+    start = data.get('start_datetime')
+    end = data.get('end_datetime')
+    credit_percent = data.get('credit_percent', 10)
+    sources = data.get('sources', [])
+    dry_run = data.get('dry_run', True)
+
+    logger.info(f"[ManualRun] shop={shop_domain}, start={start}, end={end}, dry_run={dry_run}")
+
+    if not start or not end:
+        return jsonify({'error': 'start_datetime and end_datetime are required'}), 400
+
+    try:
+        if dry_run:
+            result = service.preview_event(
+                start_datetime=start,
+                end_datetime=end,
+                sources=sources,
+                credit_percent=credit_percent,
+                include_authorized=True,
+                audience='all_customers'
+            )
+            result['dry_run'] = True
+            return jsonify(result)
+        else:
+            result = service.run_event(
+                start_datetime=start,
+                end_datetime=end,
+                sources=sources,
+                credit_percent=credit_percent,
+                include_authorized=True,
+                job_id=f"manual-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}",
+                audience='all_customers'
+            )
+            return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"[ManualRun] Error: {str(e)}")
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 @store_credit_events_bp.route('/debug-orders', methods=['GET'])
 @require_shopify_auth
 def debug_orders():
