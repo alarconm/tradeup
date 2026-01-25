@@ -228,7 +228,7 @@ class StoreCreditEventsService:
                 orders(
                     first: 250
                     {cursor_clause}
-                    query: "created_at:>={start_datetime} AND created_at:<={end_datetime} AND {status_filter}"
+                    query: "created_at:>={start_datetime} AND created_at:<={end_datetime}"
                 ) {{
                     edges {{
                         node {{
