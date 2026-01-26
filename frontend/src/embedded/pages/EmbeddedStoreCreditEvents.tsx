@@ -627,12 +627,13 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
 
   const openBulkModal = useCallback((templateHours?: number, percent?: number) => {
     const now = new Date();
-    const endTime = templateHours
-      ? new Date(now.getTime() + templateHours * 60 * 60 * 1000)
-      : new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    // For Post-Event Rewards, look BACKWARD in time (past orders)
+    const startTime = templateHours
+      ? new Date(now.getTime() - templateHours * 60 * 60 * 1000)
+      : new Date(now.getTime() - 3 * 60 * 60 * 1000);
 
-    const startDatetime = formatLocalDatetime(now);
-    const endDatetime = formatLocalDatetime(endTime);
+    const startDatetime = formatLocalDatetime(startTime);
+    const endDatetime = formatLocalDatetime(now);
 
     setBulkForm({
       start_datetime: startDatetime,
