@@ -1191,12 +1191,30 @@ class PointsService:
         if not reward.is_available():
             return None
 
+        # Determine value based on reward type
+        if reward.reward_type == 'store_credit':
+            value = float(reward.credit_value) if reward.credit_value else 0
+            value_type = 'fixed'
+        elif reward.reward_type == 'discount_code':
+            if reward.discount_percent:
+                value = float(reward.discount_percent)
+                value_type = 'percentage'
+            else:
+                value = float(reward.discount_amount) if reward.discount_amount else 0
+                value_type = 'fixed'
+        elif reward.reward_type in ('free_product', 'free_shipping'):
+            value = float(reward.credit_value or reward.discount_amount or 0)
+            value_type = 'product'
+        else:
+            value = float(reward.credit_value or reward.discount_amount or 0)
+            value_type = 'custom'
+
         return {
             'id': reward.id,
             'type': reward.reward_type,
             'points_required': reward.points_cost,
-            'value': float(reward.value) if reward.value else 0,
-            'value_type': reward.value_type,
+            'value': value,
+            'value_type': value_type,
             'description': reward.description or reward.name,
             'reward_object': reward
         }
@@ -1235,32 +1253,166 @@ class PointsService:
     def _execute_discount_code_reward(
         self,
         member: Member,
-        value: Decimal
+        value: Decimal,
+        discount_type: str = 'fixed',
+        expires_days: int = 30
     ) -> Dict[str, Any]:
-        """Execute discount code reward."""
-        # Placeholder - would generate a unique discount code in Shopify
-        # Could use ShopifyClient.create_discount_code method
-        return {
-            'success': True,
-            'type': 'discount_code',
-            'code': f'POINTS-{member.member_number}-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}',
-            'value': float(value),
-            'requires_fulfillment': False
-        }
+        """
+        Execute discount code reward by creating a real Shopify discount code.
+
+        Args:
+            member: Member receiving the discount
+            value: Discount value (dollar amount for fixed, percentage for percentage type)
+            discount_type: 'fixed', 'percentage', or 'free_shipping'
+            expires_days: Days until the code expires
+
+        Returns:
+            Dict with discount code details or error
+        """
+        if not self.shopify_client:
+            # Try to create one from tenant
+            try:
+                from .shopify_client import ShopifyClient
+                self.shopify_client = ShopifyClient(self.tenant_id)
+            except Exception as e:
+                return {
+                    'success': False,
+                    'error': f'Shopify client not available: {str(e)}'
+                }
+
+        # Generate unique code
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        code = f'POINTS-{member.member_number}-{timestamp}'
+        title = f'Points Reward - {member.member_number}'
+
+        try:
+            # Create real discount code in Shopify
+            result = self.shopify_client.create_reward_discount_code(
+                code=code,
+                title=title,
+                discount_type=discount_type,
+                discount_value=float(value),
+                usage_limit=1,  # Single use
+                customer_id=member.shopify_customer_id,  # Restrict to this customer
+                expires_days=expires_days
+            )
+
+            if result.get('success'):
+                current_app.logger.info(
+                    f"Created discount code {result.get('code')} for member {member.member_number} "
+                    f"(value: {value}, type: {discount_type})"
+                )
+                return {
+                    'success': True,
+                    'type': 'discount_code',
+                    'discount_id': result.get('discount_id'),
+                    'code': result.get('code', code),
+                    'value': float(value),
+                    'discount_type': discount_type,
+                    'expires_days': expires_days,
+                    'requires_fulfillment': False
+                }
+            else:
+                error_msg = result.get('error') or str(result.get('errors', 'Unknown error'))
+                current_app.logger.error(f"Failed to create discount code: {error_msg}")
+                return {
+                    'success': False,
+                    'error': f'Failed to create discount code: {error_msg}'
+                }
+
+        except Exception as e:
+            current_app.logger.error(f"Exception creating discount code: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
     def _execute_product_reward(
         self,
         member: Member,
         reward_id: int
     ) -> Dict[str, Any]:
-        """Execute product reward."""
-        # Placeholder - would create a draft order or gift card
-        return {
-            'success': True,
-            'type': 'product',
-            'reward_id': reward_id,
-            'requires_fulfillment': True
-        }
+        """
+        Execute product reward by creating a Shopify gift card for the reward value.
+
+        The gift card allows the customer to "purchase" the reward product at checkout.
+        This approach is simpler than draft orders and works seamlessly with Shopify's
+        checkout flow.
+
+        Args:
+            member: Member receiving the reward
+            reward_id: ID of the Reward configuration
+
+        Returns:
+            Dict with gift card details or error
+        """
+        # Get the reward configuration
+        reward = Reward.query.get(reward_id)
+        if not reward:
+            return {
+                'success': False,
+                'error': f'Reward {reward_id} not found'
+            }
+
+        if not self.shopify_client:
+            try:
+                from .shopify_client import ShopifyClient
+                self.shopify_client = ShopifyClient(self.tenant_id)
+            except Exception as e:
+                return {
+                    'success': False,
+                    'error': f'Shopify client not available: {str(e)}'
+                }
+
+        # Calculate the value - use the reward's credit_value or discount_amount
+        reward_value = float(reward.credit_value or reward.discount_amount or 0)
+        if reward_value <= 0:
+            return {
+                'success': False,
+                'error': 'Reward has no monetary value defined'
+            }
+
+        try:
+            # Create a gift card for the reward value
+            # The gift card is tied to the customer and can be used to "buy" the reward product
+            result = self.shopify_client.create_gift_card(
+                initial_value=reward_value,
+                customer_id=member.shopify_customer_id,
+                note=f'Points reward redemption: {reward.name} (Reward #{reward_id}) for {member.member_number}',
+                expires_on=None  # No expiration for product rewards
+            )
+
+            if result.get('success'):
+                current_app.logger.info(
+                    f"Created gift card {result.get('code')} for member {member.member_number} "
+                    f"for product reward {reward.name} (value: ${reward_value})"
+                )
+                return {
+                    'success': True,
+                    'type': 'product',
+                    'reward_id': reward_id,
+                    'reward_name': reward.name,
+                    'gift_card_id': result.get('id'),
+                    'gift_card_code': result.get('code'),
+                    'masked_code': result.get('masked_code'),
+                    'value': reward_value,
+                    'requires_fulfillment': False,  # Gift card is immediate
+                    'instructions': f'Use gift card code at checkout to claim your {reward.name}'
+                }
+            else:
+                error_msg = result.get('error') or 'Unknown error'
+                current_app.logger.error(f"Failed to create gift card for product reward: {error_msg}")
+                return {
+                    'success': False,
+                    'error': f'Failed to create gift card: {error_msg}'
+                }
+
+        except Exception as e:
+            current_app.logger.error(f"Exception creating product reward gift card: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
     def _get_earning_rules(self, trigger_type: str) -> List[Dict]:
         """Get earning rules for a trigger type from database."""
@@ -1293,9 +1445,91 @@ class PointsService:
         member: Member,
         context: Dict
     ) -> Tuple[bool, str]:
-        """Check if rule conditions are met."""
-        # Placeholder - would evaluate rule conditions
-        # e.g., tier requirements, date ranges, usage limits
+        """
+        Check if earning rule conditions are met.
+
+        Evaluates:
+        - Tier restrictions
+        - Time window (starts_at, ends_at)
+        - Usage limits (per member, total)
+        - Minimum/maximum order value
+        - New member restrictions
+        - Product/collection filters
+
+        Args:
+            rule: Rule configuration dict (includes 'rule_object' with EarningRule model)
+            member: Member to check conditions for
+            context: Context dict with order details, products, etc.
+
+        Returns:
+            Tuple of (is_applicable: bool, reason: str)
+        """
+        rule_obj = rule.get('rule_object')
+        if not rule_obj:
+            return True, 'OK'  # No rule object = can't check, allow
+
+        # 1. Check if rule is active (time window + total usage)
+        if not rule_obj.is_active_now():
+            return False, 'Rule is not active or has expired'
+
+        # 2. Check tier restriction
+        if rule_obj.tier_restriction:
+            member_tier = member.tier.name if member.tier else ''
+            if not rule_obj.applies_to_tier(member_tier):
+                return False, f'Rule does not apply to tier: {member_tier}'
+
+        # 3. Check new member restriction
+        if rule_obj.new_member_only:
+            # Check if this is member's first purchase
+            first_purchase_count = PointsTransaction.query.filter_by(
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                transaction_type='earn',
+                source='purchase'
+            ).count()
+            if first_purchase_count > 0:
+                return False, 'Rule only applies to first purchase'
+
+        # 4. Check member join days restriction
+        if rule_obj.member_join_days:
+            member_age_days = (datetime.utcnow() - (member.created_at or datetime.utcnow())).days
+            if member_age_days > rule_obj.member_join_days:
+                return False, f'Rule only applies to members joined within {rule_obj.member_join_days} days'
+
+        # 5. Check minimum order value
+        order_value = context.get('order_value', 0)
+        if rule_obj.min_order_value and order_value < float(rule_obj.min_order_value):
+            return False, f'Order value ${order_value} below minimum ${rule_obj.min_order_value}'
+
+        # 6. Check maximum order value
+        if rule_obj.max_order_value and order_value > float(rule_obj.max_order_value):
+            return False, f'Order value ${order_value} above maximum ${rule_obj.max_order_value}'
+
+        # 7. Check per-member usage limit
+        if rule_obj.max_uses_per_member:
+            member_uses = PointsTransaction.query.filter_by(
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                reference_type='earning_rule',
+                reference_id=str(rule_obj.id)
+            ).count()
+            if member_uses >= rule_obj.max_uses_per_member:
+                return False, f'Member has reached max uses ({rule_obj.max_uses_per_member}) for this rule'
+
+        # 8. Check product filters (if products provided in context)
+        products = context.get('products', [])
+        if products and (rule_obj.collection_ids or rule_obj.vendor_filter or
+                         rule_obj.product_type_filter or rule_obj.product_tags_filter):
+            # Check if at least one product matches
+            any_product_matches = False
+            for product in products:
+                if rule_obj.applies_to_product(product):
+                    any_product_matches = True
+                    break
+            if not any_product_matches:
+                return False, 'No products match rule filters'
+
+        # All conditions passed
         return True, 'OK'
 
     def _calculate_rule_points(

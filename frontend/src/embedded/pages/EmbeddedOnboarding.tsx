@@ -157,6 +157,14 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
     },
   });
 
+  // IMPORTANT: useEffect must be called before any early returns (Rules of Hooks)
+  // If onboarding is complete, redirect to dashboard
+  useEffect(() => {
+    if (status?.setup_complete) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [status?.setup_complete, navigate]);
+
   if (!shop) {
     return (
       <Page title="Setup Wizard">
@@ -188,13 +196,6 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
       </Page>
     );
   }
-
-  // If onboarding is complete, redirect to dashboard
-  useEffect(() => {
-    if (status?.setup_complete) {
-      navigate('/app/dashboard', { replace: true });
-    }
-  }, [status?.setup_complete, navigate]);
 
   // Show loading while redirecting
   if (status?.setup_complete) {

@@ -969,3 +969,289 @@ def get_product_types():
         return jsonify({'productTypes': product_types}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== Credit Ledger (Full History) ====================
+
+@promotions_bp.route('/credit/ledger', methods=['GET'])
+@require_shopify_auth
+def get_credit_ledger():
+    """
+    Get full credit ledger with filtering and pagination.
+    World-class credit ledger view for merchants.
+
+    Query params:
+        page: Page number (default 1)
+        per_page: Items per page (default 50, max 200)
+        start_date: Filter by start date (ISO format)
+        end_date: Filter by end date (ISO format)
+        event_type: Filter by event type (trade_in, purchase, adjustment, bulk, etc.)
+        min_amount: Minimum amount filter
+        max_amount: Maximum amount filter
+        member_id: Filter by specific member
+        search: Search by member email or description
+        sort_by: Sort field (created_at, amount, balance_after)
+        sort_dir: Sort direction (asc, desc)
+
+    Returns:
+        Paginated credit ledger with summary stats
+    """
+    try:
+        # Pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 200)
+
+        # Build query
+        query = StoreCreditLedger.query
+
+        # Date range filter
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if start_date:
+            try:
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                query = query.filter(StoreCreditLedger.created_at >= start_dt)
+            except ValueError:
+                return jsonify({'error': 'Invalid start_date format'}), 400
+
+        if end_date:
+            try:
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                query = query.filter(StoreCreditLedger.created_at <= end_dt)
+            except ValueError:
+                return jsonify({'error': 'Invalid end_date format'}), 400
+
+        # Event type filter
+        event_type = request.args.get('event_type')
+        if event_type:
+            query = query.filter(StoreCreditLedger.event_type == event_type)
+
+        # Amount filters
+        min_amount = request.args.get('min_amount', type=float)
+        max_amount = request.args.get('max_amount', type=float)
+
+        if min_amount is not None:
+            query = query.filter(StoreCreditLedger.amount >= min_amount)
+        if max_amount is not None:
+            query = query.filter(StoreCreditLedger.amount <= max_amount)
+
+        # Member filter
+        member_id = request.args.get('member_id', type=int)
+        if member_id:
+            query = query.filter(StoreCreditLedger.member_id == member_id)
+
+        # Search filter (join with Member for email)
+        search = request.args.get('search')
+        if search:
+            search_term = f'%{search}%'
+            query = query.join(Member).filter(
+                or_(
+                    Member.email.ilike(search_term),
+                    StoreCreditLedger.description.ilike(search_term),
+                    StoreCreditLedger.source_reference.ilike(search_term),
+                )
+            )
+
+        # Sorting
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_dir = request.args.get('sort_dir', 'desc')
+
+        sort_column = {
+            'created_at': StoreCreditLedger.created_at,
+            'amount': StoreCreditLedger.amount,
+            'balance_after': StoreCreditLedger.balance_after,
+        }.get(sort_by, StoreCreditLedger.created_at)
+
+        if sort_dir == 'asc':
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
+
+        # Execute with pagination
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        # Get summary stats for the filtered results
+        stats_query = StoreCreditLedger.query
+
+        # Apply same filters for stats
+        if start_date:
+            stats_query = stats_query.filter(StoreCreditLedger.created_at >= start_dt)
+        if end_date:
+            stats_query = stats_query.filter(StoreCreditLedger.created_at <= end_dt)
+        if event_type:
+            stats_query = stats_query.filter(StoreCreditLedger.event_type == event_type)
+        if member_id:
+            stats_query = stats_query.filter(StoreCreditLedger.member_id == member_id)
+
+        # Calculate summary
+        summary_stats = db.session.query(
+            func.sum(sa.case((StoreCreditLedger.amount > 0, StoreCreditLedger.amount), else_=0)).label('total_credited'),
+            func.sum(sa.case((StoreCreditLedger.amount < 0, func.abs(StoreCreditLedger.amount)), else_=0)).label('total_debited'),
+            func.count(StoreCreditLedger.id).label('total_transactions'),
+            func.count(func.distinct(StoreCreditLedger.member_id)).label('unique_members'),
+        ).filter(
+            # Apply same filters
+            True if not start_date else StoreCreditLedger.created_at >= start_dt,
+            True if not end_date else StoreCreditLedger.created_at <= end_dt,
+            True if not event_type else StoreCreditLedger.event_type == event_type,
+            True if not member_id else StoreCreditLedger.member_id == member_id,
+        ).first()
+
+        # Build response with member info
+        entries = []
+        for entry in pagination.items:
+            entry_dict = entry.to_dict()
+            # Add member info if available
+            if entry.member:
+                entry_dict['member_email'] = entry.member.email
+                entry_dict['member_name'] = f"{entry.member.first_name or ''} {entry.member.last_name or ''}".strip() or entry.member.email
+            entries.append(entry_dict)
+
+        return jsonify({
+            'entries': entries,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': per_page,
+                'total_pages': pagination.pages,
+                'total_items': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev,
+            },
+            'summary': {
+                'total_credited': float(summary_stats.total_credited or 0),
+                'total_debited': float(summary_stats.total_debited or 0),
+                'net_change': float((summary_stats.total_credited or 0) - (summary_stats.total_debited or 0)),
+                'total_transactions': summary_stats.total_transactions or 0,
+                'unique_members': summary_stats.unique_members or 0,
+            },
+            'filters_applied': {
+                'start_date': start_date,
+                'end_date': end_date,
+                'event_type': event_type,
+                'member_id': member_id,
+                'search': search,
+                'min_amount': min_amount,
+                'max_amount': max_amount,
+            },
+        }), 200
+
+    except Exception as e:
+        current_app.logger.exception(f"Credit ledger error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@promotions_bp.route('/credit/ledger/export', methods=['GET'])
+@require_shopify_auth
+def export_credit_ledger():
+    """
+    Export credit ledger as CSV.
+
+    Query params: Same as GET /credit/ledger but returns CSV download.
+    """
+    try:
+        import csv
+        import io
+        from flask import make_response
+
+        # Build query (same logic as list endpoint)
+        query = StoreCreditLedger.query
+
+        # Date range filter
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            query = query.filter(StoreCreditLedger.created_at >= start_dt)
+
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            query = query.filter(StoreCreditLedger.created_at <= end_dt)
+
+        event_type = request.args.get('event_type')
+        if event_type:
+            query = query.filter(StoreCreditLedger.event_type == event_type)
+
+        member_id = request.args.get('member_id', type=int)
+        if member_id:
+            query = query.filter(StoreCreditLedger.member_id == member_id)
+
+        # Limit export size
+        entries = query.order_by(StoreCreditLedger.created_at.desc()).limit(10000).all()
+
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        writer.writerow([
+            'Date',
+            'Member Email',
+            'Event Type',
+            'Amount',
+            'Balance After',
+            'Description',
+            'Source',
+            'Source Reference',
+            'Promotion',
+            'Channel',
+            'Created By',
+        ])
+
+        # Data rows
+        for entry in entries:
+            member_email = entry.member.email if entry.member else 'Unknown'
+            writer.writerow([
+                entry.created_at.isoformat() if entry.created_at else '',
+                member_email,
+                entry.event_type,
+                float(entry.amount),
+                float(entry.balance_after),
+                entry.description or '',
+                entry.source_type or '',
+                entry.source_reference or '',
+                entry.promotion_name or '',
+                entry.channel or '',
+                entry.created_by or '',
+            ])
+
+        # Create response
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+
+        filename = f'credit-ledger-{datetime.utcnow().strftime("%Y%m%d-%H%M%S")}.csv'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+
+        return response
+
+    except Exception as e:
+        current_app.logger.exception(f"Credit ledger export error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@promotions_bp.route('/credit/ledger/event-types', methods=['GET'])
+@require_shopify_auth
+def get_event_types():
+    """Get list of all event types used in the ledger."""
+    try:
+        event_types = db.session.query(
+            StoreCreditLedger.event_type,
+            func.count(StoreCreditLedger.id).label('count'),
+            func.sum(StoreCreditLedger.amount).label('total'),
+        ).group_by(StoreCreditLedger.event_type).all()
+
+        return jsonify({
+            'event_types': [
+                {
+                    'type': et[0],
+                    'count': et[1],
+                    'total': float(et[2] or 0),
+                }
+                for et in event_types
+            ]
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

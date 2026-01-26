@@ -44,6 +44,7 @@ const EmbeddedWidgets = lazy(() => import('./pages/EmbeddedWidgets').then(m => (
 const EmbeddedStoreCreditEvents = lazy(() => import('./pages/EmbeddedStoreCreditEvents').then(m => ({ default: m.EmbeddedStoreCreditEvents })));
 const EmbeddedPendingDistributions = lazy(() => import('./pages/EmbeddedPendingDistributions').then(m => ({ default: m.EmbeddedPendingDistributions })));
 const EmbeddedReviewDashboard = lazy(() => import('./pages/EmbeddedReviewDashboard').then(m => ({ default: m.EmbeddedReviewDashboard })));
+const EmbeddedCreditLedger = lazy(() => import('./pages/EmbeddedCreditLedger').then(m => ({ default: m.EmbeddedCreditLedger })));
 
 // Components - SupportButton is small, can load sync
 import { SupportButton } from './components/SupportChatWidget';
@@ -98,6 +99,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Link to="/app/members">Members</Link>
         <Link to="/app/trade-ins">Trade-Ins</Link>
         <Link to="/app/bonus-events">Bonus Events</Link>
+        <Link to="/app/credit-ledger">Credit Ledger</Link>
         {showAdvanced && <Link to="/app/promotions">Promotions</Link>}
         {showAdvanced && <Link to="/app/cashback">Cashback</Link>}
         {showAdvanced && <Link to="/app/points">Points & Rewards</Link>}
@@ -122,6 +124,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
           <Route path="/trade-ins/new" element={<Navigate to="/app/trade-ins" replace />} />
           <Route path="/trade-ins/categories" element={<Navigate to="/app/trade-ins" replace />} />
           <Route path="/bonus-events" element={<EmbeddedStoreCreditEvents shop={shop} />} />
+          <Route path="/credit-ledger" element={<EmbeddedCreditLedger shop={shop} />} />
           <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
           <Route path="/cashback" element={<EmbeddedCashback shop={shop} />} />
           <Route path="/points" element={<EmbeddedPoints shop={shop} />} />
