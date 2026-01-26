@@ -460,6 +460,8 @@ def fix_schema():
         ("nudges_sent", "order_id", "VARCHAR(100)"),
         ("nudges_sent", "order_total", "NUMERIC(10, 2)"),
         ("nudges_sent", "tracking_id", "VARCHAR(100)"),
+        # StoreCreditLedger - tenant isolation
+        ("store_credit_ledger", "tenant_id", "INTEGER REFERENCES tenants(id)"),
     ]
 
     results = []
@@ -576,6 +578,46 @@ def fix_schema():
             results.append({'table': 'store_credit_events', 'action': 'indexes_created'})
         except Exception as e:
             results.append({'table': 'store_credit_events', 'action': f'exists_or_error: {str(e)}'})
+
+        # Create store_credit_ledger table if not exists (for transaction-level credit tracking)
+        try:
+            create_ledger_sql = text('''
+                CREATE TABLE IF NOT EXISTS store_credit_ledger (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER REFERENCES tenants(id),
+                    member_id INTEGER NOT NULL REFERENCES members(id),
+                    event_type VARCHAR(30) NOT NULL,
+                    amount NUMERIC(10, 2) NOT NULL,
+                    balance_after NUMERIC(10, 2) NOT NULL,
+                    description TEXT,
+                    source_type VARCHAR(50),
+                    source_id INTEGER,
+                    source_reference VARCHAR(100),
+                    promotion_id INTEGER REFERENCES promotions(id),
+                    promotion_name VARCHAR(100),
+                    channel VARCHAR(50),
+                    order_id VARCHAR(100),
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    expires_at TIMESTAMP
+                )
+            ''')
+            db.session.execute(create_ledger_sql)
+            results.append({'table': 'store_credit_ledger', 'action': 'created'})
+
+            # Add indexes
+            ledger_index_sqls = [
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_ledger_tenant_id ON store_credit_ledger (tenant_id)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_ledger_member_id ON store_credit_ledger (member_id)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_ledger_source_id ON store_credit_ledger (source_id)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_ledger_created_at ON store_credit_ledger (created_at)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_ledger_event_type ON store_credit_ledger (event_type)'
+            ]
+            for sql in ledger_index_sqls:
+                db.session.execute(text(sql))
+            results.append({'table': 'store_credit_ledger', 'action': 'indexes_created'})
+        except Exception as e:
+            results.append({'table': 'store_credit_ledger', 'action': f'exists_or_error: {str(e)}'})
 
         db.session.commit()
 
