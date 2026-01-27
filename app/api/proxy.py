@@ -559,7 +559,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         if is_points_mode:
             earning_desc = f'<li><strong>{earning_mult}x</strong> {points_name} on purchases</li>'
         else:
-            earning_desc = f'<li><strong>{cashback}%</strong> cashback on purchases</li>' if cashback else ''
+            earning_desc = f'<li><strong>{cashback}%</strong> store credit on purchases</li>' if cashback else ''
 
         tiers_html += f'''
         <div class="tradeup-tier-card {current_class}">
@@ -569,7 +569,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
             </div>
             <ul class="tradeup-tier-benefits">
                 {earning_desc}
-                {f'<li><strong>{cashback}%</strong> cashback</li>' if is_points_mode and cashback else ''}
+                {f'<li><strong>{cashback}%</strong> store credit</li>' if is_points_mode and cashback else ''}
                 {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
                 {f'<li><strong>{dollar}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
                 {benefits_html}
@@ -668,7 +668,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 <div class="tradeup-step">
                     <div class="tradeup-step-number">1</div>
                     <h4>Earn Credit</h4>
-                    <p>Earn cashback on purchases and bonus credit on trade-ins. Higher tiers earn more!</p>
+                    <p>Earn store credit on purchases and bonus credit on trade-ins. Higher tiers earn more!</p>
                 </div>
                 <div class="tradeup-step">
                     <div class="tradeup-step-number">2</div>
@@ -1183,7 +1183,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         <!-- Hero Section -->
         <section class="tradeup-hero">
             <h1>Rewards Program</h1>
-            <p>{'Earn points on every purchase, unlock exclusive rewards, and enjoy member-only benefits.' if is_points_mode else 'Earn cashback on every purchase, get bonus credit on trade-ins, and enjoy member-only benefits.'}</p>
+            <p>{'Earn points on every purchase, unlock exclusive rewards, and enjoy member-only benefits.' if is_points_mode else 'Earn store credit on every purchase, get bonus credit on trade-ins, and enjoy member-only benefits.'}</p>
         </section>
 
         <!-- Member Card or CTA -->
@@ -1196,7 +1196,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#128722;</div>
                     <h4>Shop & Earn</h4>
-                    <p>{'Earn 1 point for every $1 spent on purchases' if is_points_mode else 'Earn cashback on every purchase'}</p>
+                    <p>{'Earn 1 point for every $1 spent on purchases' if is_points_mode else 'Earn store credit on every purchase'}</p>
                 </div>
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#127873;</div>
@@ -1758,7 +1758,7 @@ def render_published_loyalty_page(config, shop, tenant, member, points_balance, 
                     </div>
                     <ul class="lp-tier-benefits">
                         <li><strong>{earning_mult}x</strong> points on purchases</li>
-                        {f'<li><strong>{cashback}%</strong> cashback</li>' if cashback else ''}
+                        {f'<li><strong>{cashback}%</strong> store credit</li>' if cashback else ''}
                         {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
                         {f'<li><strong>{dollar}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
                     </ul>
