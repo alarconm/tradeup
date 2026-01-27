@@ -1183,7 +1183,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         <!-- Hero Section -->
         <section class="tradeup-hero">
             <h1>Rewards Program</h1>
-            <p>Earn points on every purchase, unlock exclusive rewards, and enjoy member-only benefits.</p>
+            <p>{'Earn points on every purchase, unlock exclusive rewards, and enjoy member-only benefits.' if is_points_mode else 'Earn cashback on every purchase, get bonus credit on trade-ins, and enjoy member-only benefits.'}</p>
         </section>
 
         <!-- Member Card or CTA -->
@@ -1191,17 +1191,17 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
 
         <!-- How to Earn Section -->
         <section class="tradeup-section">
-            <h2>How to Earn Points</h2>
+            <h2>{'How to Earn Points' if is_points_mode else 'How to Earn Rewards'}</h2>
             <div class="tradeup-earn-grid">
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#128722;</div>
                     <h4>Shop & Earn</h4>
-                    <p>Earn 1 point for every $1 spent on purchases</p>
+                    <p>{'Earn 1 point for every $1 spent on purchases' if is_points_mode else 'Earn cashback on every purchase'}</p>
                 </div>
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#127873;</div>
                     <h4>Trade-Ins</h4>
-                    <p>Earn bonus points when you trade in your items</p>
+                    <p>{'Earn bonus points when you trade in your items' if is_points_mode else 'Earn bonus credit when you trade in your items'}</p>
                 </div>
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#128101;</div>
@@ -1211,7 +1211,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 <div class="tradeup-earn-card">
                     <div class="tradeup-earn-icon">&#127881;</div>
                     <h4>Special Events</h4>
-                    <p>Bonus point days and exclusive member promotions</p>
+                    <p>{'Bonus point days and exclusive member promotions' if is_points_mode else 'Bonus credit days and exclusive member promotions'}</p>
                 </div>
             </div>
         </section>
