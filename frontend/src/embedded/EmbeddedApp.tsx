@@ -108,7 +108,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         {showAdvanced && <Link to="/app/gamification">Gamification</Link>}
         {showAdvanced && <Link to="/app/page-builder">Page Builder</Link>}
         {showAdvanced && <Link to="/app/widgets">Widgets</Link>}
-        {showAdvanced && <Link to="/app/analytics">Analytics</Link>}
+        <Link to="/app/analytics">Analytics</Link>
         <Link to="/app/settings">Settings</Link>
       </NavMenu>
 

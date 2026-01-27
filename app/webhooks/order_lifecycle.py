@@ -110,11 +110,12 @@ def process_referral_on_order(tenant: Tenant, member: Member, order_data: dict) 
     ).first()
 
     if not program:
-        # No referral program - check legacy config
+        # No referral program - use tenant-specific config or defaults
         from ..api.referrals import ReferralConfig
-        program_grant_on = 'signup' if ReferralConfig.GRANT_ON_SIGNUP else 'first_purchase'
-        referrer_reward = ReferralConfig.REFERRER_CREDIT
-        referee_reward = ReferralConfig.REFEREE_CREDIT
+        ref_config = ReferralConfig.get_config(tenant)
+        program_grant_on = 'signup' if ref_config['grant_on_signup'] else 'first_purchase'
+        referrer_reward = ref_config['referrer_credit']
+        referee_reward = ref_config['referee_credit']
     else:
         program_grant_on = program.grant_on
         referrer_reward = program.referrer_reward_amount

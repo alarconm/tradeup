@@ -238,11 +238,14 @@ class ShopifyClient:
         """
 
         result = self._execute_query(query, {'customerId': customer_id})
-        customer = result.get('customer', {})
-        accounts = customer.get('storeCreditAccounts', {}).get('edges', [])
+        # Handle None values from GraphQL - use 'or {}' to convert None to empty dict
+        customer = result.get('customer') or {}
+        store_credit_accounts = customer.get('storeCreditAccounts') or {}
+        accounts = store_credit_accounts.get('edges') or []
 
-        if accounts:
-            return accounts[0]['node']['id']
+        if accounts and accounts[0]:
+            node = accounts[0].get('node') or {}
+            return node.get('id')
 
         return None
 
@@ -319,22 +322,25 @@ class ShopifyClient:
 
         result = self._execute_query(query, variables)
 
-        mutation_result = result.get('storeCreditAccountCredit', {})
-        user_errors = mutation_result.get('userErrors', [])
+        mutation_result = result.get('storeCreditAccountCredit') or {}
+        user_errors = mutation_result.get('userErrors') or []
 
         if user_errors:
             raise Exception(f"Shopify errors: {user_errors}")
 
-        transaction = mutation_result.get('storeCreditAccountTransaction', {})
-        account = transaction.get('account', {})
+        # Handle None values from GraphQL - use 'or {}' to convert None to empty dict
+        transaction = mutation_result.get('storeCreditAccountTransaction') or {}
+        account = transaction.get('account') or {}
+        amount_data = transaction.get('amount') or {}
+        balance_data = account.get('balance') or {}
 
         return {
             'success': True,
             'transaction_id': transaction.get('id'),
-            'amount': float(transaction.get('amount', {}).get('amount', 0)),
-            'currency': transaction.get('amount', {}).get('currencyCode'),
+            'amount': float(amount_data.get('amount', 0)),
+            'currency': amount_data.get('currencyCode'),
             'account_id': account.get('id'),
-            'new_balance': float(account.get('balance', {}).get('amount', 0))
+            'new_balance': float(balance_data.get('amount', 0))
         }
 
     def debit_store_credit(
@@ -416,22 +422,25 @@ class ShopifyClient:
 
         result = self._execute_query(query, variables)
 
-        mutation_result = result.get('storeCreditAccountDebit', {})
-        user_errors = mutation_result.get('userErrors', [])
+        mutation_result = result.get('storeCreditAccountDebit') or {}
+        user_errors = mutation_result.get('userErrors') or []
 
         if user_errors:
             raise Exception(f"Shopify errors: {user_errors}")
 
-        transaction = mutation_result.get('storeCreditAccountTransaction', {})
-        account = transaction.get('account', {})
+        # Handle None values from GraphQL - use 'or {}' to convert None to empty dict
+        transaction = mutation_result.get('storeCreditAccountTransaction') or {}
+        account = transaction.get('account') or {}
+        amount_data = transaction.get('amount') or {}
+        balance_data = account.get('balance') or {}
 
         return {
             'success': True,
             'transaction_id': transaction.get('id'),
-            'amount': float(transaction.get('amount', {}).get('amount', 0)),
-            'currency': transaction.get('amount', {}).get('currencyCode'),
+            'amount': float(amount_data.get('amount', 0)),
+            'currency': amount_data.get('currencyCode'),
             'account_id': account.get('id'),
-            'new_balance': float(account.get('balance', {}).get('amount', 0))
+            'new_balance': float(balance_data.get('amount', 0))
         }
 
     def get_store_credit_balance(self, customer_id: str) -> Dict[str, Any]:
@@ -469,8 +478,10 @@ class ShopifyClient:
 
         result = self._execute_query(query, {'customerId': customer_id})
 
-        customer = result.get('customer', {})
-        accounts = customer.get('storeCreditAccounts', {}).get('edges', [])
+        # Handle None values from GraphQL - use 'or {}' to convert None to empty dict
+        customer = result.get('customer') or {}
+        store_credit_accounts = customer.get('storeCreditAccounts') or {}
+        accounts = store_credit_accounts.get('edges') or []
 
         if not accounts:
             return {
@@ -479,8 +490,8 @@ class ShopifyClient:
                 'currency': self.get_shop_currency()
             }
 
-        account = accounts[0].get('node', {})
-        balance_data = account.get('balance', {})
+        account = (accounts[0].get('node') or {}) if accounts[0] else {}
+        balance_data = account.get('balance') or {}
 
         return {
             'customer_id': customer_id,
@@ -1649,6 +1660,158 @@ class ShopifyClient:
             })
 
         return products
+
+    def search_products(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
+        """
+        Search for products by title or other attributes.
+
+        Args:
+            query: Search query (searches title, vendor, product_type, etc.)
+            limit: Maximum products to return (default 25)
+
+        Returns:
+            List of product dicts with id, title, handle, image, variants
+        """
+        graphql_query = """
+        query searchProducts($query: String!, $first: Int!) {
+            products(first: $first, query: $query) {
+                edges {
+                    node {
+                        id
+                        title
+                        handle
+                        status
+                        productType
+                        vendor
+                        featuredImage {
+                            url
+                            altText
+                        }
+                        variants(first: 10) {
+                            edges {
+                                node {
+                                    id
+                                    title
+                                    price
+                                    sku
+                                    inventoryQuantity
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        # Build search query - search by title if simple text
+        search_query = f"title:*{query}*" if query and not query.startswith('title:') and not query.startswith('tag:') else query
+
+        result = self._execute_query(graphql_query, {'query': search_query, 'first': limit})
+
+        products = []
+        for edge in result.get('products', {}).get('edges', []):
+            node = edge.get('node', {})
+
+            # Process variants
+            variants = []
+            for v_edge in node.get('variants', {}).get('edges', []):
+                v_node = v_edge.get('node', {})
+                variants.append({
+                    'id': v_node.get('id'),
+                    'title': v_node.get('title'),
+                    'price': v_node.get('price'),
+                    'sku': v_node.get('sku'),
+                    'inventoryQuantity': v_node.get('inventoryQuantity')
+                })
+
+            # Process image
+            featured_image = node.get('featuredImage')
+            image_url = featured_image.get('url') if featured_image else None
+
+            products.append({
+                'id': node.get('id'),
+                'title': node.get('title'),
+                'handle': node.get('handle'),
+                'status': node.get('status'),
+                'productType': node.get('productType'),
+                'vendor': node.get('vendor'),
+                'imageUrl': image_url,
+                'variants': variants
+            })
+
+        return products
+
+    def get_product_by_id(self, product_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single product by its Shopify GID.
+
+        Args:
+            product_id: Shopify product GID (e.g., "gid://shopify/Product/123456")
+
+        Returns:
+            Product dict or None if not found
+        """
+        query = """
+        query getProduct($id: ID!) {
+            product(id: $id) {
+                id
+                title
+                handle
+                status
+                productType
+                vendor
+                featuredImage {
+                    url
+                    altText
+                }
+                variants(first: 10) {
+                    edges {
+                        node {
+                            id
+                            title
+                            price
+                            sku
+                            inventoryQuantity
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        result = self._execute_query(query, {'id': product_id})
+        node = result.get('product')
+
+        if not node:
+            return None
+
+        # Process variants
+        variants = []
+        for v_edge in node.get('variants', {}).get('edges', []):
+            v_node = v_edge.get('node', {})
+            variants.append({
+                'id': v_node.get('id'),
+                'title': v_node.get('title'),
+                'price': v_node.get('price'),
+                'sku': v_node.get('sku'),
+                'inventoryQuantity': v_node.get('inventoryQuantity')
+            })
+
+        # Process image
+        featured_image = node.get('featuredImage')
+        image_url = featured_image.get('url') if featured_image else None
+
+        return {
+            'id': node.get('id'),
+            'title': node.get('title'),
+            'handle': node.get('handle'),
+            'status': node.get('status'),
+            'productType': node.get('productType'),
+            'vendor': node.get('vendor'),
+            'imageUrl': image_url,
+            'variants': variants
+        }
 
     def product_set(
         self,

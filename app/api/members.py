@@ -377,7 +377,7 @@ def list_members():
         if status:
             query = query.filter_by(status=status)
 
-        # Search by name, email, or member number
+        # Search by name, email, member number, or partner customer ID
         # Note: first_name/last_name are derived from 'name' in to_dict(), not DB columns
         if search:
             search_pattern = f'%{search}%'
@@ -385,7 +385,8 @@ def list_members():
                 db.or_(
                     Member.name.ilike(search_pattern),
                     Member.email.ilike(search_pattern),
-                    Member.member_number.ilike(search_pattern)
+                    Member.member_number.ilike(search_pattern),
+                    Member.partner_customer_id.ilike(search_pattern)
                 )
             )
 
@@ -515,6 +516,8 @@ def update_member(member_id):
         member.status = data['status']
     if 'shopify_customer_id' in data:
         member.shopify_customer_id = data['shopify_customer_id']
+    if 'partner_customer_id' in data:
+        member.partner_customer_id = data['partner_customer_id']
     if 'notes' in data:
         member.notes = data['notes']
 

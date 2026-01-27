@@ -30,8 +30,11 @@ import {
   Thumbnail,
   Divider,
   Icon,
+  Checkbox,
+  Popover,
+  ActionList,
 } from '@shopify/polaris';
-import { ExportIcon, EmailIcon, PlusIcon, SearchIcon, ImportIcon } from '@shopify/polaris-icons';
+import { ExportIcon, EmailIcon, PlusIcon, SearchIcon, ImportIcon, ChevronDownIcon } from '@shopify/polaris-icons';
 import { TitleBar } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -53,9 +56,12 @@ interface MembersProps {
 interface Member {
   id: number;
   shopify_customer_id: string;
+  partner_customer_id: string | null;
+  member_number: string;
   first_name: string;
   last_name: string;
   email: string;
+  phone: string | null;
   tier: {
     id: number;
     name: string;
@@ -165,7 +171,11 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [bulkActionsOpen, setBulkActionsOpen] = useState(false);
+  const [bulkAssignTierModalOpen, setBulkAssignTierModalOpen] = useState(false);
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
   // Fast debounce for instant search feel (like Shopify POS)
   const debouncedSearch = useDebouncedValue(search, 150);
@@ -255,6 +265,37 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       year: 'numeric',
     });
   }, [storeTimezone]);
+
+  // Bulk selection handlers
+  const handleToggleMember = useCallback((memberId: number) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(memberId)
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
+  }, []);
+
+  const handleSelectAllOnPage = useCallback(() => {
+    const currentPageIds = data?.members?.filter(m => m && m.id != null).map(m => m.id) || [];
+    const allSelected = currentPageIds.every(id => selectedMemberIds.includes(id));
+
+    if (allSelected) {
+      // Deselect all on current page
+      setSelectedMemberIds(prev => prev.filter(id => !currentPageIds.includes(id)));
+    } else {
+      // Select all on current page
+      setSelectedMemberIds(prev => [...new Set([...prev, ...currentPageIds])]);
+    }
+  }, [data?.members, selectedMemberIds]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedMemberIds([]);
+  }, []);
+
+  // Check if all members on current page are selected
+  const currentPageIds = data?.members?.filter(m => m && m.id != null).map(m => m.id) || [];
+  const allOnPageSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedMemberIds.includes(id));
+  const someOnPageSelected = currentPageIds.some(id => selectedMemberIds.includes(id));
 
   if (!shop) {
     return (
@@ -407,6 +448,53 @@ export function EmbeddedMembers({ shop }: MembersProps) {
               />
             </Box>
 
+            {/* Bulk Actions Bar */}
+            {selectedMemberIds.length > 0 && (
+              <Box padding="400" background="bg-surface-secondary">
+                <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Checkbox
+                      label=""
+                      checked={allOnPageSelected}
+                      onChange={handleSelectAllOnPage}
+                    />
+                    <Text as="span" variant="bodyMd">
+                      {selectedMemberIds.length} member{selectedMemberIds.length !== 1 ? 's' : ''} selected
+                    </Text>
+                    <Button variant="plain" onClick={clearSelection}>
+                      Clear selection
+                    </Button>
+                  </InlineStack>
+                  <Popover
+                    active={bulkActionsOpen}
+                    activator={
+                      <Button
+                        onClick={() => setBulkActionsOpen(!bulkActionsOpen)}
+                        disclosure
+                      >
+                        Bulk Actions
+                      </Button>
+                    }
+                    autofocusTarget="first-node"
+                    onClose={() => setBulkActionsOpen(false)}
+                  >
+                    <ActionList
+                      actionRole="menuitem"
+                      items={[
+                        {
+                          content: 'Assign Tier',
+                          onAction: () => {
+                            setBulkActionsOpen(false);
+                            setBulkAssignTierModalOpen(true);
+                          },
+                        },
+                      ]}
+                    />
+                  </Popover>
+                </InlineStack>
+              </Box>
+            )}
+
             {isLoading ? (
               <Box padding="1600">
                 <InlineStack align="center">
@@ -419,45 +507,63 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                   /* Mobile: Card-based layout */
                   <Box padding="300">
                     <BlockStack gap="300">
+                      {/* Select All header for mobile */}
+                      <InlineStack gap="200" blockAlign="center">
+                        <Checkbox
+                          label="Select all on page"
+                          checked={allOnPageSelected}
+                          onChange={handleSelectAllOnPage}
+                          labelHidden={!someOnPageSelected && !allOnPageSelected}
+                        />
+                      </InlineStack>
                       {data.members.filter(m => m && m.id != null).map((member, index) => (
                         <Box key={member.id}>
                           {index > 0 && <Divider />}
                           <Box paddingBlock="300">
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="start">
-                                <BlockStack gap="050">
-                                  <Button
-                                    variant="plain"
-                                    onClick={() => setDetailMember(member)}
-                                  >
-                                    {member.first_name} {member.last_name}
-                                  </Button>
-                                  <Text as="p" variant="bodySm" tone="subdued">
-                                    {member.email}
-                                  </Text>
+                            <InlineStack gap="300" blockAlign="start" wrap={false}>
+                              <Checkbox
+                                label=""
+                                checked={selectedMemberIds.includes(member.id)}
+                                onChange={() => handleToggleMember(member.id)}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <BlockStack gap="200">
+                                  <InlineStack align="space-between" blockAlign="start">
+                                    <BlockStack gap="050">
+                                      <Button
+                                        variant="plain"
+                                        onClick={() => setDetailMember(member)}
+                                      >
+                                        {member.first_name} {member.last_name}
+                                      </Button>
+                                      <Text as="p" variant="bodySm" tone="subdued">
+                                        {member.email}
+                                      </Text>
+                                    </BlockStack>
+                                    <BlockStack gap="100" inlineAlign="end">
+                                      <Badge tone="info">{String(member.tier?.name || 'None')}</Badge>
+                                      <Badge tone={member.status === 'active' ? 'success' : undefined}>
+                                        {String(member.status || 'unknown')}
+                                      </Badge>
+                                    </BlockStack>
+                                  </InlineStack>
+                                  <InlineStack gap="400" wrap>
+                                    <BlockStack gap="050">
+                                      <Text as="span" variant="bodySm" tone="subdued">Trade-Ins</Text>
+                                      <Text as="span" fontWeight="medium">{member.trade_in_count}</Text>
+                                    </BlockStack>
+                                    <BlockStack gap="050">
+                                      <Text as="span" variant="bodySm" tone="subdued">Credits</Text>
+                                      <Text as="span" fontWeight="medium">{formatCurrency(member.total_credits_issued)}</Text>
+                                    </BlockStack>
+                                    <BlockStack gap="050">
+                                      <Text as="span" variant="bodySm" tone="subdued">Last Active</Text>
+                                      <Text as="span" fontWeight="medium">{formatDate(member.last_trade_in_at)}</Text>
+                                    </BlockStack>
+                                  </InlineStack>
                                 </BlockStack>
-                                <BlockStack gap="100" inlineAlign="end">
-                                  <Badge tone="info">{String(member.tier?.name || 'None')}</Badge>
-                                  <Badge tone={member.status === 'active' ? 'success' : undefined}>
-                                    {String(member.status || 'unknown')}
-                                  </Badge>
-                                </BlockStack>
-                              </InlineStack>
-                              <InlineStack gap="400" wrap>
-                                <BlockStack gap="050">
-                                  <Text as="span" variant="bodySm" tone="subdued">Trade-Ins</Text>
-                                  <Text as="span" fontWeight="medium">{member.trade_in_count}</Text>
-                                </BlockStack>
-                                <BlockStack gap="050">
-                                  <Text as="span" variant="bodySm" tone="subdued">Credits</Text>
-                                  <Text as="span" fontWeight="medium">{formatCurrency(member.total_credits_issued)}</Text>
-                                </BlockStack>
-                                <BlockStack gap="050">
-                                  <Text as="span" variant="bodySm" tone="subdued">Last Active</Text>
-                                  <Text as="span" fontWeight="medium">{formatDate(member.last_trade_in_at)}</Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
+                              </div>
+                            </InlineStack>
                           </Box>
                         </Box>
                       ))}
@@ -470,11 +576,18 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                       'text',
                       'text',
                       'text',
+                      'text',
                       'numeric',
                       'numeric',
                       'text',
                     ]}
                     headings={[
+                      <Checkbox
+                        key="select-all"
+                        label=""
+                        checked={allOnPageSelected}
+                        onChange={handleSelectAllOnPage}
+                      />,
                       'Member',
                       'Tier',
                       'Status',
@@ -483,6 +596,12 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                       'Last Activity',
                     ]}
                     rows={data.members.filter(m => m && m.id != null).map((member) => [
+                      <Checkbox
+                        key={`select-${member.id}`}
+                        label=""
+                        checked={selectedMemberIds.includes(member.id)}
+                        onChange={() => handleToggleMember(member.id)}
+                      />,
                       <BlockStack gap="100" key={member.id}>
                         <Button
                           variant="plain"
@@ -570,6 +689,19 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         onClose={() => setImportModalOpen(false)}
         shop={shop}
       />
+
+      {/* Bulk Assign Tier Modal */}
+      <BulkAssignTierModal
+        open={bulkAssignTierModalOpen}
+        onClose={() => setBulkAssignTierModalOpen(false)}
+        shop={shop}
+        selectedMemberIds={selectedMemberIds}
+        tiers={tiersData?.tiers}
+        onSuccess={() => {
+          clearSelection();
+          queryClient.invalidateQueries({ queryKey: ['members'] });
+        }}
+      />
     </Page>
     </>
   );
@@ -625,14 +757,19 @@ function MemberDetailModal({
   const [tierReason, setTierReason] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [issueCreditOpen, setIssueCreditOpen] = useState(false);
+  const [deductCreditOpen, setDeductCreditOpen] = useState(false);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditDescription, setCreditDescription] = useState('');
   const [creditExpiration, setCreditExpiration] = useState('');
+  const [deductAmount, setDeductAmount] = useState('');
+  const [deductDescription, setDeductDescription] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
   const [reactivateConfirmOpen, setReactivateConfirmOpen] = useState(false);
   const [showCreditHistory, setShowCreditHistory] = useState(false);
+  const [editPartnerIdOpen, setEditPartnerIdOpen] = useState(false);
+  const [partnerCustomerId, setPartnerCustomerId] = useState('');
   const queryClient = useQueryClient();
 
   // Fetch available tiers
@@ -738,6 +875,30 @@ function MemberDetailModal({
     },
   });
 
+  // Deduct credit mutation
+  const deductCreditMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/membership/store-credit/deduct`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          member_id: member?.id,
+          amount: parseFloat(deductAmount),
+          description: deductDescription || 'Manual deduction',
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to deduct credit');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-history', shop, member?.id] });
+      // Keep modal open to show success message - user closes with Done button
+    },
+  });
+
   // Close issue credit modal and reset form
   const closeIssueCreditModal = useCallback((closeParent: boolean = false) => {
     setIssueCreditOpen(false);
@@ -750,6 +911,18 @@ function MemberDetailModal({
       onClose();
     }
   }, [issueCreditMutation, onClose]);
+
+  // Close deduct credit modal and reset form
+  const closeDeductCreditModal = useCallback((closeParent: boolean = false) => {
+    setDeductCreditOpen(false);
+    setDeductAmount('');
+    setDeductDescription('');
+    deductCreditMutation.reset();
+    // Close parent modal if credit was successfully deducted so member data refreshes
+    if (closeParent) {
+      onClose();
+    }
+  }, [deductCreditMutation, onClose]);
 
   // Cancel membership mutation
   const cancelMembershipMutation = useMutation({
@@ -830,6 +1003,34 @@ function MemberDetailModal({
     },
   });
 
+  // Update partner customer ID mutation
+  const updatePartnerIdMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/${member?.id}`, shop, {
+        method: 'PUT',
+        body: JSON.stringify({
+          partner_customer_id: partnerCustomerId.trim() || null,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update partner ID');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      // Update the member in the parent state with the new partner ID
+      if (member) {
+        onMemberUpdated({
+          ...member,
+          partner_customer_id: partnerCustomerId.trim() || null,
+        });
+      }
+      setEditPartnerIdOpen(false);
+    },
+  });
+
   if (!member) return null;
 
   const tierOptions = [
@@ -849,6 +1050,12 @@ function MemberDetailModal({
           disabled: !member.shopify_customer_id,
         }}
         secondaryActions={[
+          {
+            content: 'Deduct Credit',
+            onAction: () => setDeductCreditOpen(true),
+            destructive: true,
+            disabled: !member.shopify_customer_id,
+          },
           {
             content: 'Change Tier',
             onAction: () => setChangeTierOpen(true),
@@ -899,6 +1106,33 @@ function MemberDetailModal({
                   Tier
                 </Text>
                 <Badge tone="info">{String(member.tier?.name || 'None')}</Badge>
+              </BlockStack>
+            </InlineStack>
+
+            <InlineStack gap="400">
+              <BlockStack gap="100">
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Member Number
+                </Text>
+                <Text as="span">{member.member_number || '-'}</Text>
+              </BlockStack>
+              <BlockStack gap="100">
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Partner ID
+                </Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Text as="span">{member.partner_customer_id || '-'}</Text>
+                  <Button
+                    variant="plain"
+                    size="slim"
+                    onClick={() => {
+                      setPartnerCustomerId(member.partner_customer_id || '');
+                      setEditPartnerIdOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </InlineStack>
               </BlockStack>
             </InlineStack>
 
@@ -1164,6 +1398,82 @@ function MemberDetailModal({
         </Modal.Section>
       </Modal>
 
+      {/* Deduct Credit Modal */}
+      <Modal
+        open={deductCreditOpen}
+        onClose={() => closeDeductCreditModal(false)}
+        title="Deduct Store Credit"
+        primaryAction={
+          deductCreditMutation.isSuccess
+            ? {
+                content: 'Done',
+                onAction: () => closeDeductCreditModal(true),
+              }
+            : {
+                content: 'Deduct Credit',
+                onAction: () => deductCreditMutation.mutate(),
+                loading: deductCreditMutation.isPending,
+                disabled: !deductAmount || parseFloat(deductAmount) <= 0 || !deductDescription,
+                destructive: true,
+              }
+        }
+        secondaryActions={
+          deductCreditMutation.isSuccess
+            ? []
+            : [{ content: 'Cancel', onAction: () => closeDeductCreditModal(false) }]
+        }
+      >
+        <Modal.Section>
+          {deductCreditMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{deductCreditMutation.error?.message || 'Failed to deduct credit'}</p>
+              </Banner>
+            </Box>
+          )}
+          {deductCreditMutation.isSuccess ? (
+            <Banner tone="success">
+              <BlockStack gap="200">
+                <Text as="p" variant="headingMd">Credit Deducted Successfully!</Text>
+                <Text as="p">
+                  {formatCurrency(parseFloat(deductAmount))} has been deducted from {member.first_name}'s Shopify store credit balance.
+                </Text>
+              </BlockStack>
+            </Banner>
+          ) : (
+            <FormLayout>
+              <Banner tone="warning">
+                <Text as="p">
+                  This will deduct store credit from the member's Shopify account.
+                  Use this for corrections, chargebacks, or other adjustments.
+                </Text>
+              </Banner>
+              <TextField
+                label="Deduction Amount"
+                type="number"
+                value={deductAmount}
+                onChange={setDeductAmount}
+                prefix="$"
+                min={0.01}
+                step={0.01}
+                autoComplete="off"
+                helpText="Amount to deduct from member's store credit balance"
+              />
+              <TextField
+                label="Reason (required)"
+                value={deductDescription}
+                onChange={setDeductDescription}
+                placeholder="e.g., Chargeback reversal, Correction for order #1234"
+                autoComplete="off"
+                helpText="Reason for the deduction (visible in history)"
+                requiredIndicator
+                error={deductAmount && parseFloat(deductAmount) > 0 && !deductDescription ? 'Please provide a reason for this deduction' : undefined}
+              />
+            </FormLayout>
+          )}
+        </Modal.Section>
+      </Modal>
+
       {/* Cancel Membership Confirmation Modal */}
       <Modal
         open={cancelConfirmOpen}
@@ -1311,6 +1621,52 @@ function MemberDetailModal({
               </Text>
             </BlockStack>
           </Banner>
+        </Modal.Section>
+      </Modal>
+
+      {/* Edit Partner ID Modal */}
+      <Modal
+        open={editPartnerIdOpen}
+        onClose={() => {
+          setEditPartnerIdOpen(false);
+          setPartnerCustomerId('');
+          updatePartnerIdMutation.reset();
+        }}
+        title="Edit Partner ID"
+        primaryAction={{
+          content: 'Save',
+          onAction: () => updatePartnerIdMutation.mutate(),
+          loading: updatePartnerIdMutation.isPending,
+        }}
+        secondaryActions={[
+          {
+            content: 'Cancel',
+            onAction: () => {
+              setEditPartnerIdOpen(false);
+              setPartnerCustomerId('');
+              updatePartnerIdMutation.reset();
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          {updatePartnerIdMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{updatePartnerIdMutation.error?.message || 'Failed to update partner ID'}</p>
+              </Banner>
+            </Box>
+          )}
+          <FormLayout>
+            <TextField
+              label="Partner Customer ID"
+              value={partnerCustomerId}
+              onChange={setPartnerCustomerId}
+              placeholder="e.g., ORB-12345, CUST-789"
+              autoComplete="off"
+              helpText="Your store's internal customer ID for this member (e.g., from your POS system)"
+            />
+          </FormLayout>
         </Modal.Section>
       </Modal>
     </>
@@ -2308,6 +2664,149 @@ function ImportCSVModal({ open, onClose, shop }: ImportCSVModalProps) {
                 </Text>
               </BlockStack>
             </Card>
+          </BlockStack>
+        </Modal.Section>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Bulk Assign Tier Modal - Assign a tier to multiple members at once
+ */
+interface BulkAssignTierModalProps {
+  open: boolean;
+  onClose: () => void;
+  shop: string | null;
+  selectedMemberIds: number[];
+  tiers?: MembershipTier[];
+  onSuccess: () => void;
+}
+
+function BulkAssignTierModal({
+  open,
+  onClose,
+  shop,
+  selectedMemberIds,
+  tiers,
+  onSuccess,
+}: BulkAssignTierModalProps) {
+  const [selectedTierId, setSelectedTierId] = useState<string>('');
+  const [reason, setReason] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [result, setResult] = useState<{ successful: number; failed: number } | null>(null);
+
+  // Bulk assign mutation
+  const bulkAssignMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/tiers/bulk-assign`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          member_ids: selectedMemberIds,
+          tier_id: selectedTierId ? parseInt(selectedTierId) : null,
+          reason: reason || 'Bulk assignment',
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to assign tier');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSuccess(true);
+      setResult({
+        successful: data.successful || selectedMemberIds.length,
+        failed: data.failed || 0,
+      });
+      onSuccess();
+    },
+  });
+
+  const handleClose = useCallback(() => {
+    setSelectedTierId('');
+    setReason('');
+    setSuccess(false);
+    setResult(null);
+    bulkAssignMutation.reset();
+    onClose();
+  }, [onClose, bulkAssignMutation]);
+
+  // Build tier options - filter out null/undefined tiers
+  const tierOptions = [
+    { label: 'Remove Tier (No Tier)', value: '' },
+    ...(tiers?.filter(t => t && t.name).map((t) => ({
+      label: t.name || '',
+      value: String(t.id),
+    })) || []),
+  ];
+
+  const selectedTierName = selectedTierId
+    ? tiers?.find(t => String(t.id) === selectedTierId)?.name || 'Unknown'
+    : 'No Tier';
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Bulk Assign Tier"
+      primaryAction={
+        success
+          ? { content: 'Done', onAction: handleClose }
+          : {
+              content: `Assign to ${selectedMemberIds.length} member${selectedMemberIds.length !== 1 ? 's' : ''}`,
+              onAction: () => bulkAssignMutation.mutate(),
+              loading: bulkAssignMutation.isPending,
+            }
+      }
+      secondaryActions={
+        success ? [] : [{ content: 'Cancel', onAction: handleClose }]
+      }
+    >
+      {success ? (
+        <Modal.Section>
+          <Banner tone="success">
+            <BlockStack gap="200">
+              <Text as="p" variant="headingMd">Tier Assigned Successfully!</Text>
+              <Text as="p">
+                {result?.successful} member{result?.successful !== 1 ? 's were' : ' was'} assigned to {selectedTierName}
+                {result?.failed ? ` (${result.failed} failed)` : ''}.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      ) : (
+        <Modal.Section>
+          <BlockStack gap="400">
+            {bulkAssignMutation.isError && (
+              <Banner tone="critical">
+                <p>{bulkAssignMutation.error?.message || 'Failed to assign tier'}</p>
+              </Banner>
+            )}
+
+            <Banner>
+              <Text as="p">
+                You are about to assign a tier to <strong>{selectedMemberIds.length}</strong> selected member{selectedMemberIds.length !== 1 ? 's' : ''}.
+              </Text>
+            </Banner>
+
+            <FormLayout>
+              <Select
+                label="Select Tier"
+                options={tierOptions}
+                value={selectedTierId}
+                onChange={setSelectedTierId}
+                helpText="Choose the tier to assign to all selected members"
+              />
+              <TextField
+                label="Reason (optional)"
+                value={reason}
+                onChange={setReason}
+                placeholder="e.g., Bulk upgrade campaign, Loyalty reward"
+                autoComplete="off"
+                helpText="This will be recorded in each member's tier history"
+              />
+            </FormLayout>
           </BlockStack>
         </Modal.Section>
       )}

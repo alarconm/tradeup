@@ -177,3 +177,69 @@ def list_segments():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@shopify_data_bp.route('/products/search', methods=['GET'])
+@require_shopify_auth
+def search_products():
+    """
+    Search for products by title or other attributes.
+
+    Query params:
+        q: Search query (required) - searches product titles
+        limit: Maximum results (default 25, max 50)
+
+    Returns:
+        List of products with id, title, handle, image, variants
+    """
+    client = get_shopify_client_for_tenant()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({'error': 'Search query (q) is required'}), 400
+
+    limit = min(request.args.get('limit', 25, type=int), 50)
+
+    try:
+        products = client.search_products(query, limit)
+        return jsonify({
+            'products': products,
+            'count': len(products),
+            'query': query
+        })
+    except Exception as e:
+        logger.exception(f'Product search error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@shopify_data_bp.route('/products/<path:product_id>', methods=['GET'])
+@require_shopify_auth
+def get_product(product_id: str):
+    """
+    Get a single product by ID.
+
+    Args:
+        product_id: Shopify product GID (e.g., "gid://shopify/Product/123456")
+
+    Returns:
+        Product details with id, title, handle, image, variants
+    """
+    client = get_shopify_client_for_tenant()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    try:
+        # Ensure it's a proper GID format
+        if not product_id.startswith('gid://'):
+            product_id = f'gid://shopify/Product/{product_id}'
+
+        product = client.get_product_by_id(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        return jsonify({'product': product})
+    except Exception as e:
+        logger.exception(f'Get product error: {e}')
+        return jsonify({'error': str(e)}), 500

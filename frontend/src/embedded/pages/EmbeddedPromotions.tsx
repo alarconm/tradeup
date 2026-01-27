@@ -81,6 +81,7 @@ interface Promotion {
   min_value: number;
   stackable: boolean;
   max_uses: number | null;
+  max_uses_per_member: number | null;
   current_uses: number;
   active: boolean;
   is_active_now: boolean;
@@ -343,6 +344,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     min_value: '',
     stackable: true,
     max_uses: '',
+    max_uses_per_member: '',
     active: true,
     credit_expiration_days: '',
   };
@@ -578,6 +580,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       min_value: '',
       stackable: true,
       max_uses: '',
+      max_uses_per_member: '',
       active: true,
       credit_expiration_days: '',
     });
@@ -618,6 +621,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       min_value: promo.min_value?.toString() || '',
       stackable: promo.stackable,
       max_uses: promo.max_uses?.toString() || '',
+      max_uses_per_member: promo.max_uses_per_member?.toString() || '',
       active: promo.active,
       credit_expiration_days: promo.credit_expiration_days?.toString() || '',
     });
@@ -662,6 +666,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       // Numeric fields
       min_value: formData.min_value ? parseFloat(formData.min_value) : 0,
       max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
+      max_uses_per_member: formData.max_uses_per_member ? parseInt(formData.max_uses_per_member) : null,
       credit_expiration_days: formData.credit_expiration_days ? parseInt(formData.credit_expiration_days) : null,
     };
 
@@ -868,9 +873,16 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                                   {getPromoValue(promo)}
                                 </Text>
                               </InlineStack>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                {promo.starts_at ? new Date(promo.starts_at).toLocaleDateString() : '—'} - {promo.ends_at ? new Date(promo.ends_at).toLocaleDateString() : '—'}
-                              </Text>
+                              <InlineStack gap="300" wrap>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  {promo.starts_at ? new Date(promo.starts_at).toLocaleDateString() : '—'} - {promo.ends_at ? new Date(promo.ends_at).toLocaleDateString() : '—'}
+                                </Text>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  {promo.max_uses
+                                    ? `${promo.current_uses || 0} / ${promo.max_uses} uses`
+                                    : `${promo.current_uses || 0} uses`}
+                                </Text>
+                              </InlineStack>
                               <InlineStack gap="200">
                                 <Button
                                   size="slim"
@@ -899,8 +911,8 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 ) : (
                   /* Desktop: DataTable layout */
                   <DataTable
-                    columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text']}
-                    headings={['Name', 'Type', 'Value', 'Schedule', 'Status', 'Actions']}
+                    columnContentTypes={['text', 'text', 'text', 'text', 'text', 'text', 'text']}
+                    headings={['Name', 'Type', 'Value', 'Schedule', 'Usage', 'Status', 'Actions']}
                     rows={promotions.filter(p => p && p.id != null).map((promo) => [
                       <BlockStack gap="100" key={promo.id}>
                         <Text as="span" variant="bodyMd" fontWeight="semibold">{promo.name || 'Untitled'}</Text>
@@ -910,6 +922,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                       getPromoValue(promo),
                       <Text as="span" variant="bodySm" key={promo.id}>
                         {promo.starts_at ? new Date(promo.starts_at).toLocaleDateString() : '—'} - {promo.ends_at ? new Date(promo.ends_at).toLocaleDateString() : '—'}
+                      </Text>,
+                      <Text as="span" variant="bodySm" key={`usage-${promo.id}`}>
+                        {promo.max_uses
+                          ? `${promo.current_uses || 0} / ${promo.max_uses}`
+                          : promo.current_uses
+                            ? `${promo.current_uses} uses`
+                            : '0 uses'}
                       </Text>,
                       getStatusBadge(promo),
                       <InlineStack gap="200" key={promo.id}>
@@ -1466,6 +1485,15 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 helpText="Total uses allowed"
               />
             </FormLayout.Group>
+
+            <TextField
+              label="Max Uses Per Member (optional)"
+              type="number"
+              value={formData.max_uses_per_member}
+              onChange={(value) => setFormData({ ...formData, max_uses_per_member: value })}
+              autoComplete="off"
+              helpText="Limit how many times each member can use this promo"
+            />
 
             <Divider />
             <Text as="h3" variant="headingSm">Credit Settings</Text>

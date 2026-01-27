@@ -25,12 +25,31 @@ tiers_bp = Blueprint('tiers', __name__, url_prefix='/api/tiers')
 
 
 def get_tenant():
-    """Get tenant from request context or header."""
-    if hasattr(g, 'tenant'):
+    """Get tenant from request context, header, or shop parameter."""
+    if hasattr(g, 'tenant') and g.tenant:
         return g.tenant
+
+    # Try X-Tenant-ID header
     tenant_id = request.headers.get('X-Tenant-ID')
     if tenant_id:
-        return Tenant.query.get(int(tenant_id))
+        tenant = Tenant.query.get(int(tenant_id))
+        if tenant:
+            return tenant
+
+    # Try shop parameter (from URL query string)
+    shop = request.args.get('shop')
+    if shop:
+        tenant = Tenant.query.filter_by(shopify_domain=shop).first()
+        if tenant:
+            return tenant
+
+    # Try X-Shop-Domain header
+    shop = request.headers.get('X-Shop-Domain')
+    if shop:
+        tenant = Tenant.query.filter_by(shopify_domain=shop).first()
+        if tenant:
+            return tenant
+
     return None
 
 
@@ -92,7 +111,7 @@ def bulk_assign_tier():
     Request body:
     {
         "member_ids": [1, 2, 3],
-        "tier_id": 1,
+        "tier_id": 1,  # or null to remove tier
         "reason": "Bulk upgrade campaign",
         "duration_days": 30
     }
@@ -110,15 +129,40 @@ def bulk_assign_tier():
 
     if not member_ids:
         return jsonify({'error': 'member_ids is required'}), 400
-    if not tier_id:
-        return jsonify({'error': 'tier_id is required'}), 400
 
+    tier_service = TierService(tenant.id)
+
+    # Handle tier removal (tier_id is null or empty)
+    if not tier_id:
+        results = {
+            'successful': 0,
+            'failed': 0,
+            'failures': []
+        }
+        for member_id in member_ids:
+            result = tier_service.remove_tier(
+                member_id=member_id,
+                source_type='staff',
+                source_reference=staff_email,
+                reason=reason or 'Bulk tier removal',
+                created_by=staff_email
+            )
+            if result.get('success'):
+                results['successful'] += 1
+            else:
+                results['failed'] += 1
+                results['failures'].append({
+                    'member_id': member_id,
+                    'error': result.get('error')
+                })
+        return jsonify(results), 200
+
+    # Assign tier
     expires_at = None
     if duration_days:
         from datetime import timedelta
         expires_at = datetime.utcnow() + timedelta(days=duration_days)
 
-    tier_service = TierService(tenant.id)
     result = tier_service.bulk_assign_tier(
         member_ids=member_ids,
         tier_id=tier_id,
@@ -129,7 +173,12 @@ def bulk_assign_tier():
         created_by=staff_email
     )
 
-    return jsonify(result), 200
+    # Normalize response format
+    return jsonify({
+        'successful': result.get('success_count', 0),
+        'failed': result.get('failure_count', 0),
+        'failures': result.get('failures', [])
+    }), 200
 
 
 # ==================== Promotion Endpoints ====================

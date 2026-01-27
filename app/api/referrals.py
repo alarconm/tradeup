@@ -15,17 +15,43 @@ referrals_bp = Blueprint('referrals', __name__)
 
 
 class ReferralConfig:
-    """Default referral program configuration."""
-    # Credit amounts
-    REFERRER_CREDIT = Decimal('10.00')  # Credit given to the person who referred
-    REFEREE_CREDIT = Decimal('5.00')    # Credit given to the new member
+    """
+    Referral program configuration.
+    Reads from tenant settings with defaults.
+    """
+    # Default values
+    DEFAULT_REFERRER_CREDIT = Decimal('10.00')
+    DEFAULT_REFEREE_CREDIT = Decimal('5.00')
+    DEFAULT_GRANT_ON_SIGNUP = True
+    DEFAULT_REQUIRE_FIRST_PURCHASE = False
+    DEFAULT_MAX_REFERRALS_PER_MONTH = 50
 
-    # When credit is granted
-    GRANT_ON_SIGNUP = True              # Grant on member creation
-    REQUIRE_FIRST_PURCHASE = False      # Or require a purchase first
+    @classmethod
+    def get_config(cls, tenant):
+        """Get referral config for a tenant, with defaults."""
+        if tenant and tenant.settings and 'referral_config' in tenant.settings:
+            config = tenant.settings['referral_config']
+            return {
+                'referrer_credit': Decimal(str(config.get('referrer_credit', cls.DEFAULT_REFERRER_CREDIT))),
+                'referee_credit': Decimal(str(config.get('referee_credit', cls.DEFAULT_REFEREE_CREDIT))),
+                'grant_on_signup': config.get('grant_on_signup', cls.DEFAULT_GRANT_ON_SIGNUP),
+                'require_first_purchase': config.get('require_first_purchase', cls.DEFAULT_REQUIRE_FIRST_PURCHASE),
+                'max_referrals_per_month': config.get('max_referrals_per_month', cls.DEFAULT_MAX_REFERRALS_PER_MONTH),
+            }
+        return {
+            'referrer_credit': cls.DEFAULT_REFERRER_CREDIT,
+            'referee_credit': cls.DEFAULT_REFEREE_CREDIT,
+            'grant_on_signup': cls.DEFAULT_GRANT_ON_SIGNUP,
+            'require_first_purchase': cls.DEFAULT_REQUIRE_FIRST_PURCHASE,
+            'max_referrals_per_month': cls.DEFAULT_MAX_REFERRALS_PER_MONTH,
+        }
 
-    # Limits
-    MAX_REFERRALS_PER_MONTH = 50        # Prevent abuse
+    # Legacy class attributes for backwards compatibility
+    REFERRER_CREDIT = DEFAULT_REFERRER_CREDIT
+    REFEREE_CREDIT = DEFAULT_REFEREE_CREDIT
+    GRANT_ON_SIGNUP = DEFAULT_GRANT_ON_SIGNUP
+    REQUIRE_FIRST_PURCHASE = DEFAULT_REQUIRE_FIRST_PURCHASE
+    MAX_REFERRALS_PER_MONTH = DEFAULT_MAX_REFERRALS_PER_MONTH
 
 
 # ==================== ADMIN ENDPOINTS ====================
@@ -82,12 +108,16 @@ def get_referral_stats():
         Member.referred_by_id.isnot(None)
     ).order_by(Member.created_at.desc()).limit(10).all()
 
+    # Get tenant-specific config
+    tenant = g.tenant
+    config = ReferralConfig.get_config(tenant)
+
     return jsonify({
         'stats': {
             'total_referrals': total_referrals,
             'total_credit_issued': float(total_referral_credit),
-            'referrer_reward': float(ReferralConfig.REFERRER_CREDIT),
-            'referee_reward': float(ReferralConfig.REFEREE_CREDIT)
+            'referrer_reward': float(config['referrer_credit']),
+            'referee_reward': float(config['referee_credit'])
         },
         'top_referrers': [{
             'id': r.id,
@@ -113,15 +143,107 @@ def get_referral_config():
     """
     Get referral program configuration.
     """
+    tenant = g.tenant
+    config = ReferralConfig.get_config(tenant)
+
     return jsonify({
         'config': {
-            'referrer_credit': float(ReferralConfig.REFERRER_CREDIT),
-            'referee_credit': float(ReferralConfig.REFEREE_CREDIT),
-            'grant_on_signup': ReferralConfig.GRANT_ON_SIGNUP,
-            'require_first_purchase': ReferralConfig.REQUIRE_FIRST_PURCHASE,
-            'max_referrals_per_month': ReferralConfig.MAX_REFERRALS_PER_MONTH
+            'referrer_credit': float(config['referrer_credit']),
+            'referee_credit': float(config['referee_credit']),
+            'grant_on_signup': config['grant_on_signup'],
+            'require_first_purchase': config['require_first_purchase'],
+            'max_referrals_per_month': config['max_referrals_per_month']
         }
     })
+
+
+@referrals_bp.route('/admin/config', methods=['PUT'])
+@require_shopify_auth
+def update_referral_config():
+    """
+    Update referral program configuration.
+
+    Request body:
+    {
+        "referrer_credit": 10.00,
+        "referee_credit": 5.00,
+        "grant_on_signup": true,
+        "require_first_purchase": false,
+        "max_referrals_per_month": 50
+    }
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    data = request.json or {}
+    tenant = g.tenant
+
+    # Initialize settings if needed
+    if tenant.settings is None:
+        tenant.settings = {}
+
+    # Get existing config or create new
+    referral_config = tenant.settings.get('referral_config', {})
+
+    # Validate and update fields
+    if 'referrer_credit' in data:
+        try:
+            amount = float(data['referrer_credit'])
+            if amount < 0:
+                return jsonify({'error': 'Referrer credit cannot be negative'}), 400
+            if amount > 1000:
+                return jsonify({'error': 'Referrer credit cannot exceed $1000'}), 400
+            referral_config['referrer_credit'] = amount
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid referrer credit amount'}), 400
+
+    if 'referee_credit' in data:
+        try:
+            amount = float(data['referee_credit'])
+            if amount < 0:
+                return jsonify({'error': 'Referee credit cannot be negative'}), 400
+            if amount > 1000:
+                return jsonify({'error': 'Referee credit cannot exceed $1000'}), 400
+            referral_config['referee_credit'] = amount
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid referee credit amount'}), 400
+
+    if 'grant_on_signup' in data:
+        referral_config['grant_on_signup'] = bool(data['grant_on_signup'])
+
+    if 'require_first_purchase' in data:
+        referral_config['require_first_purchase'] = bool(data['require_first_purchase'])
+
+    if 'max_referrals_per_month' in data:
+        try:
+            limit = int(data['max_referrals_per_month'])
+            if limit < 1:
+                return jsonify({'error': 'Monthly limit must be at least 1'}), 400
+            if limit > 1000:
+                return jsonify({'error': 'Monthly limit cannot exceed 1000'}), 400
+            referral_config['max_referrals_per_month'] = limit
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid monthly limit'}), 400
+
+    # Save back to settings
+    tenant.settings['referral_config'] = referral_config
+    flag_modified(tenant, 'settings')
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'config': {
+                'referrer_credit': referral_config.get('referrer_credit', float(ReferralConfig.DEFAULT_REFERRER_CREDIT)),
+                'referee_credit': referral_config.get('referee_credit', float(ReferralConfig.DEFAULT_REFEREE_CREDIT)),
+                'grant_on_signup': referral_config.get('grant_on_signup', ReferralConfig.DEFAULT_GRANT_ON_SIGNUP),
+                'require_first_purchase': referral_config.get('require_first_purchase', ReferralConfig.DEFAULT_REQUIRE_FIRST_PURCHASE),
+                'max_referrals_per_month': referral_config.get('max_referrals_per_month', ReferralConfig.DEFAULT_MAX_REFERRALS_PER_MONTH)
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update referral config: {e}")
+        return jsonify({'error': 'Failed to save configuration'}), 500
 
 
 # ==================== MEMBER ENDPOINTS ====================
@@ -173,10 +295,15 @@ def validate_referral_code():
     if not referrer:
         return jsonify({'valid': False, 'error': 'Invalid or expired code'})
 
+    # Get tenant-specific config
+    from ..models.tenant import Tenant
+    tenant = Tenant.query.filter_by(id=referrer.tenant_id).first()
+    config = ReferralConfig.get_config(tenant)
+
     return jsonify({
         'valid': True,
         'referrer_name': referrer.name.split()[0] if referrer.name else 'a friend',
-        'referee_credit': float(ReferralConfig.REFEREE_CREDIT)
+        'referee_credit': float(config['referee_credit'])
     })
 
 
@@ -225,10 +352,14 @@ def apply_referral():
     try:
         db.session.commit()
 
+        # Get tenant-specific config
+        tenant = g.tenant
+        config = ReferralConfig.get_config(tenant)
+
         # Grant credits if configured for immediate grant
         credits_granted = []
-        if ReferralConfig.GRANT_ON_SIGNUP:
-            credits_granted = grant_referral_credits(referrer, new_member)
+        if config['grant_on_signup']:
+            credits_granted = grant_referral_credits(referrer, new_member, config)
 
         return jsonify({
             'success': True,
@@ -242,20 +373,35 @@ def apply_referral():
         return jsonify({'error': 'Failed to apply referral'}), 500
 
 
-def grant_referral_credits(referrer: Member, referee: Member) -> list:
+def grant_referral_credits(referrer: Member, referee: Member, config: dict = None) -> list:
     """
     Grant store credits for a successful referral.
+
+    Args:
+        referrer: The member who made the referral
+        referee: The new member who was referred
+        config: Optional tenant-specific referral config. If not provided, uses defaults.
     """
     from ..services.store_credit_service import store_credit_service
+
+    # Use defaults if config not provided
+    if config is None:
+        config = {
+            'referrer_credit': ReferralConfig.DEFAULT_REFERRER_CREDIT,
+            'referee_credit': ReferralConfig.DEFAULT_REFEREE_CREDIT,
+        }
+
+    referrer_credit = Decimal(str(config['referrer_credit']))
+    referee_credit = Decimal(str(config['referee_credit']))
 
     credits_granted = []
 
     try:
         # Credit to referrer
-        if ReferralConfig.REFERRER_CREDIT > 0:
+        if referrer_credit > 0:
             store_credit_service.add_credit(
                 member_id=referrer.id,
-                amount=ReferralConfig.REFERRER_CREDIT,
+                amount=referrer_credit,
                 event_type='referral_bonus',
                 description=f'Referral bonus - {referee.name or referee.email} joined',
                 source_type='referral',
@@ -264,18 +410,18 @@ def grant_referral_credits(referrer: Member, referee: Member) -> list:
             )
             referrer.referral_earnings = (
                 Decimal(str(referrer.referral_earnings or 0)) +
-                ReferralConfig.REFERRER_CREDIT
+                referrer_credit
             )
             credits_granted.append({
                 'recipient': 'referrer',
-                'amount': float(ReferralConfig.REFERRER_CREDIT)
+                'amount': float(referrer_credit)
             })
 
         # Credit to referee (new member)
-        if ReferralConfig.REFEREE_CREDIT > 0:
+        if referee_credit > 0:
             store_credit_service.add_credit(
                 member_id=referee.id,
-                amount=ReferralConfig.REFEREE_CREDIT,
+                amount=referee_credit,
                 event_type='referral_bonus',
                 description=f'Welcome bonus - referred by {referrer.name or referrer.member_number}',
                 source_type='referral',
@@ -284,7 +430,7 @@ def grant_referral_credits(referrer: Member, referee: Member) -> list:
             )
             credits_granted.append({
                 'recipient': 'referee',
-                'amount': float(ReferralConfig.REFEREE_CREDIT)
+                'amount': float(referee_credit)
             })
 
         db.session.commit()
@@ -303,14 +449,28 @@ def get_public_referral_info():
     """
     Get referral program info for storefront display.
     Public endpoint - no auth required.
+    Accepts shop_domain query parameter to return tenant-specific config.
     """
+    from ..models.tenant import Tenant
+
+    shop_domain = request.args.get('shop_domain') or request.args.get('shop')
+    tenant = None
+    if shop_domain:
+        # Try to find tenant by shop domain
+        tenant = Tenant.query.filter(
+            (Tenant.shopify_domain == shop_domain) |
+            (Tenant.shopify_domain == shop_domain.replace('.myshopify.com', ''))
+        ).first()
+
+    config = ReferralConfig.get_config(tenant)
+
     return jsonify({
         'program': {
             'name': 'Refer a Friend',
-            'referrer_reward': float(ReferralConfig.REFERRER_CREDIT),
-            'referee_reward': float(ReferralConfig.REFEREE_CREDIT),
-            'description': f'Give your friends ${ReferralConfig.REFEREE_CREDIT} off, '
-                          f'get ${ReferralConfig.REFERRER_CREDIT} for yourself!'
+            'referrer_reward': float(config['referrer_credit']),
+            'referee_reward': float(config['referee_credit']),
+            'description': f'Give your friends ${config["referee_credit"]} off, '
+                          f'get ${config["referrer_credit"]} for yourself!'
         }
     })
 
@@ -424,12 +584,13 @@ def get_member_share_links(member_id: int):
     db.session.commit()
 
     tenant = g.tenant
-    shop_url = f'https://{tenant.shop_domain}'
+    shop_url = f'https://{tenant.shopify_domain}'
     referral_url = f'{shop_url}/apps/rewards/refer/{code}'
 
-    # Get reward amounts
-    referrer_reward = float(ReferralConfig.REFERRER_CREDIT)
-    referee_reward = float(ReferralConfig.REFEREE_CREDIT)
+    # Get tenant-specific reward amounts
+    config = ReferralConfig.get_config(tenant)
+    referrer_reward = float(config['referrer_credit'])
+    referee_reward = float(config['referee_credit'])
 
     # Build share messages
     share_text = f"Get ${referee_reward:.0f} off your first order!"

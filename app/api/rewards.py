@@ -104,7 +104,7 @@ def create_reward():
         if field not in data or data[field] is None:
             return jsonify({'error': f'{field} is required'}), 400
 
-    valid_reward_types = ['discount', 'product', 'store_credit', 'free_shipping', 'custom']
+    valid_reward_types = ['discount', 'discount_code', 'product', 'free_product', 'store_credit', 'free_shipping', 'exclusive_access', 'custom']
     if data['reward_type'] not in valid_reward_types:
         return jsonify({'error': f'reward_type must be one of: {valid_reward_types}'}), 400
 
@@ -122,18 +122,27 @@ def create_reward():
             description=data.get('description'),
             points_cost=points_cost,
             reward_type=data['reward_type'],
-            reward_value=Decimal(str(data['reward_value'])) if data.get('reward_value') else None,
-            discount_type=data.get('discount_type'),
+            # Value fields - support both old and new naming
+            credit_value=Decimal(str(data['credit_value'])) if data.get('credit_value') else (
+                Decimal(str(data['reward_value'])) if data.get('reward_value') else None
+            ),
+            discount_percent=Decimal(str(data['discount_percent'])) if data.get('discount_percent') else None,
+            discount_amount=Decimal(str(data['discount_amount'])) if data.get('discount_amount') else None,
             product_id=data.get('product_id'),
-            discount_code_prefix=data.get('discount_code_prefix'),
-            min_purchase_amount=Decimal(str(data['min_purchase_amount'])) if data.get('min_purchase_amount') else None,
-            max_uses_per_member=data.get('max_uses_per_member'),
-            stock_quantity=data.get('stock_quantity'),
-            tier_ids=data.get('tier_ids'),
+            max_redemptions_per_member=data.get('max_redemptions_per_member') or data.get('max_uses_per_member'),
+            available_quantity=data.get('available_quantity') or data.get('stock_quantity'),
+            tier_restriction=data.get('tier_restriction') or data.get('tier_ids'),
             is_active=data.get('is_active', True),
+            is_featured=data.get('is_featured', False),
             starts_at=datetime.fromisoformat(data['starts_at'].replace('Z', '+00:00')) if data.get('starts_at') else None,
             ends_at=datetime.fromisoformat(data['ends_at'].replace('Z', '+00:00')) if data.get('ends_at') else None,
-            image_url=data.get('image_url')
+            image_url=data.get('image_url'),
+            badge_text=data.get('badge_text'),
+            display_order=data.get('display_order', 0),
+            category=data.get('category'),
+            short_description=data.get('short_description'),
+            terms=data.get('terms'),
+            voucher_valid_days=data.get('voucher_valid_days', 30)
         )
 
         db.session.add(reward)
@@ -210,30 +219,45 @@ def update_reward(reward_id):
             reward.points_cost = int(data['points_cost'])
         if 'reward_type' in data:
             reward.reward_type = data['reward_type']
-        if 'reward_value' in data:
-            reward.reward_value = Decimal(str(data['reward_value'])) if data['reward_value'] else None
-        if 'discount_type' in data:
-            reward.discount_type = data['discount_type']
+        # Value fields - support both old and new naming
+        if 'credit_value' in data:
+            reward.credit_value = Decimal(str(data['credit_value'])) if data['credit_value'] else None
+        elif 'reward_value' in data:
+            reward.credit_value = Decimal(str(data['reward_value'])) if data['reward_value'] else None
+        if 'discount_percent' in data:
+            reward.discount_percent = Decimal(str(data['discount_percent'])) if data['discount_percent'] else None
+        if 'discount_amount' in data:
+            reward.discount_amount = Decimal(str(data['discount_amount'])) if data['discount_amount'] else None
         if 'product_id' in data:
             reward.product_id = data['product_id']
-        if 'discount_code_prefix' in data:
-            reward.discount_code_prefix = data['discount_code_prefix']
-        if 'min_purchase_amount' in data:
-            reward.min_purchase_amount = Decimal(str(data['min_purchase_amount'])) if data['min_purchase_amount'] else None
-        if 'max_uses_per_member' in data:
-            reward.max_uses_per_member = data['max_uses_per_member']
-        if 'stock_quantity' in data:
-            reward.stock_quantity = data['stock_quantity']
-        if 'tier_ids' in data:
-            reward.tier_ids = data['tier_ids']
+        if 'max_redemptions_per_member' in data or 'max_uses_per_member' in data:
+            reward.max_redemptions_per_member = data.get('max_redemptions_per_member') or data.get('max_uses_per_member')
+        if 'available_quantity' in data or 'stock_quantity' in data:
+            reward.available_quantity = data.get('available_quantity') or data.get('stock_quantity')
+        if 'tier_restriction' in data or 'tier_ids' in data:
+            reward.tier_restriction = data.get('tier_restriction') or data.get('tier_ids')
         if 'is_active' in data:
             reward.is_active = data['is_active']
+        if 'is_featured' in data:
+            reward.is_featured = data['is_featured']
         if 'starts_at' in data:
             reward.starts_at = datetime.fromisoformat(data['starts_at'].replace('Z', '+00:00')) if data['starts_at'] else None
         if 'ends_at' in data:
             reward.ends_at = datetime.fromisoformat(data['ends_at'].replace('Z', '+00:00')) if data['ends_at'] else None
         if 'image_url' in data:
             reward.image_url = data['image_url']
+        if 'badge_text' in data:
+            reward.badge_text = data['badge_text']
+        if 'display_order' in data:
+            reward.display_order = data['display_order']
+        if 'category' in data:
+            reward.category = data['category']
+        if 'short_description' in data:
+            reward.short_description = data['short_description']
+        if 'terms' in data:
+            reward.terms = data['terms']
+        if 'voucher_valid_days' in data:
+            reward.voucher_valid_days = data['voucher_valid_days']
 
         reward.updated_at = datetime.utcnow()
         db.session.commit()
@@ -364,21 +388,21 @@ def get_available_rewards():
     # Filter by tier eligibility and check redemption limits
     available_rewards = []
     for reward in rewards:
-        # Check tier restriction
-        if reward.tier_ids and member.tier_id not in reward.tier_ids:
+        # Check tier restriction using applies_to_tier method
+        if member.tier and not reward.applies_to_tier(member.tier.name):
             continue
 
-        # Check stock
-        in_stock = reward.stock_quantity is None or reward.stock_quantity > 0
+        # Check stock (available_quantity is the correct field name)
+        in_stock = reward.available_quantity is None or (reward.available_quantity - (reward.redeemed_quantity or 0)) > 0
 
-        # Check member's usage limit
+        # Check member's usage limit (max_redemptions_per_member is the correct field name)
         uses_remaining = None
-        if reward.max_uses_per_member:
+        if reward.max_redemptions_per_member:
             member_redemptions = RewardRedemption.query.filter_by(
                 reward_id=reward.id,
                 member_id=member_id
             ).count()
-            uses_remaining = max(0, reward.max_uses_per_member - member_redemptions)
+            uses_remaining = max(0, reward.max_redemptions_per_member - member_redemptions)
 
         can_redeem = (
             int(balance) >= reward.points_cost and
@@ -456,21 +480,22 @@ def redeem_reward(reward_id):
     if reward.ends_at and reward.ends_at < now:
         return jsonify({'error': 'This reward has expired'}), 400
 
-    # Check tier restriction
-    if reward.tier_ids and member.tier_id not in reward.tier_ids:
+    # Check tier restriction using applies_to_tier method
+    if member.tier and not reward.applies_to_tier(member.tier.name):
         return jsonify({'error': 'This reward is not available for your membership tier'}), 403
 
-    # Check stock
-    if reward.stock_quantity is not None and reward.stock_quantity <= 0:
+    # Check stock (use available_quantity and remaining_quantity)
+    remaining = reward.remaining_quantity()
+    if remaining is not None and remaining <= 0:
         return jsonify({'error': 'This reward is out of stock'}), 400
 
-    # Check member's usage limit
-    if reward.max_uses_per_member:
+    # Check member's usage limit (max_redemptions_per_member is the correct field name)
+    if reward.max_redemptions_per_member:
         member_redemptions = RewardRedemption.query.filter_by(
             reward_id=reward_id,
             member_id=member_id
         ).count()
-        if member_redemptions >= reward.max_uses_per_member:
+        if member_redemptions >= reward.max_redemptions_per_member:
             return jsonify({'error': 'You have reached the maximum redemptions for this reward'}), 400
 
     # Check points balance
@@ -563,9 +588,8 @@ def redeem_reward(reward_id):
         )
         db.session.add(redemption)
 
-        # Update stock if applicable
-        if reward.stock_quantity is not None:
-            reward.stock_quantity -= 1
+        # Update redeemed quantity
+        reward.redeemed_quantity = (reward.redeemed_quantity or 0) + 1
 
         db.session.commit()
 
@@ -743,10 +767,10 @@ def cancel_redemption(redemption_id):
         redemption.cancelled_at = datetime.utcnow()
         redemption.cancelled_reason = reason
 
-        # Restore stock if applicable
+        # Restore redeemed quantity count
         reward = Reward.query.get(redemption.reward_id)
-        if reward and reward.stock_quantity is not None:
-            reward.stock_quantity += 1
+        if reward and reward.redeemed_quantity and reward.redeemed_quantity > 0:
+            reward.redeemed_quantity -= 1
 
         db.session.commit()
 

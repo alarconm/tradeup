@@ -247,8 +247,8 @@ class TestBulkTierAssignment:
         data = response.get_json()
         assert 'error' in data
 
-    def test_bulk_assign_requires_tier_id(self, client, sample_tenant):
-        """Test that bulk assignment requires tier_id."""
+    def test_bulk_assign_without_tier_id_removes_tiers(self, client, sample_tenant):
+        """Test that bulk assignment without tier_id removes tiers (tier removal mode)."""
         # The /api/tiers/* endpoints use X-Tenant-ID header
         headers = {
             'X-Tenant-ID': str(sample_tenant.id),
@@ -260,9 +260,12 @@ class TestBulkTierAssignment:
             data=json.dumps({'member_ids': [1, 2, 3]}),
             content_type='application/json'
         )
-        assert response.status_code == 400
+        # Now returns 200 (processes tier removal) instead of 400
+        # The endpoint handles null tier_id by removing tiers
+        assert response.status_code == 200
         data = response.get_json()
-        assert 'error' in data
+        # Response should contain success/failure counts
+        assert 'successful' in data or 'failed' in data
 
 
 class TestTierEligibility:

@@ -42,7 +42,7 @@ function useIsMobile(breakpoint: number = 768) {
 
   return isMobile;
 }
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface ReferralsProps {
@@ -105,9 +105,38 @@ async function fetchReferralConfig(shop: string | null): Promise<ReferralConfig>
   return response.json();
 }
 
+interface UpdateReferralConfigParams {
+  referrer_credit?: number;
+  referee_credit?: number;
+  grant_on_signup?: boolean;
+  require_first_purchase?: boolean;
+  max_referrals_per_month?: number;
+}
+
+async function updateReferralConfig(shop: string | null, data: UpdateReferralConfigParams): Promise<ReferralConfig> {
+  const response = await authFetch(`${getApiUrl()}/referrals/admin/config`, shop, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update referral config');
+  }
+  return response.json();
+}
+
 export function EmbeddedReferrals({ shop }: ReferralsProps) {
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Form state for config modal
+  const [formReferrerCredit, setFormReferrerCredit] = useState('10');
+  const [formRefereeCredit, setFormRefereeCredit] = useState('5');
+  const [formGrantOn, setFormGrantOn] = useState('signup');
+  const [formMaxReferrals, setFormMaxReferrals] = useState('50');
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['referral-stats', shop],
@@ -120,6 +149,39 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
     queryFn: () => fetchReferralConfig(shop),
     enabled: !!shop,
   });
+
+  // Update form state when config loads
+  useEffect(() => {
+    if (config?.config) {
+      setFormReferrerCredit(config.config.referrer_credit?.toString() || '10');
+      setFormRefereeCredit(config.config.referee_credit?.toString() || '5');
+      setFormGrantOn(config.config.grant_on_signup ? 'signup' : 'purchase');
+      setFormMaxReferrals(config.config.max_referrals_per_month?.toString() || '50');
+    }
+  }, [config]);
+
+  const updateConfigMutation = useMutation({
+    mutationFn: (data: UpdateReferralConfigParams) => updateReferralConfig(shop, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['referral-config', shop] });
+      setConfigModalOpen(false);
+      setSaveError(null);
+    },
+    onError: (error: Error) => {
+      setSaveError(error.message);
+    },
+  });
+
+  const handleSaveConfig = () => {
+    setSaveError(null);
+    updateConfigMutation.mutate({
+      referrer_credit: parseFloat(formReferrerCredit) || 0,
+      referee_credit: parseFloat(formRefereeCredit) || 0,
+      grant_on_signup: formGrantOn === 'signup',
+      require_first_purchase: formGrantOn === 'purchase',
+      max_referrals_per_month: parseInt(formMaxReferrals) || 50,
+    });
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -376,38 +438,54 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
       {/* Configuration Modal */}
       <Modal
         open={configModalOpen}
-        onClose={() => setConfigModalOpen(false)}
+        onClose={() => {
+          setConfigModalOpen(false);
+          setSaveError(null);
+        }}
         title="Configure Referral Rewards"
         primaryAction={{
           content: 'Save Changes',
-          onAction: () => setConfigModalOpen(false),
+          onAction: handleSaveConfig,
+          loading: updateConfigMutation.isPending,
         }}
         secondaryActions={[
-          { content: 'Cancel', onAction: () => setConfigModalOpen(false) },
+          {
+            content: 'Cancel',
+            onAction: () => {
+              setConfigModalOpen(false);
+              setSaveError(null);
+            },
+          },
         ]}
       >
         <Modal.Section>
           <BlockStack gap="400">
-            <Banner tone="info">
-              <p>Referral reward amounts are currently configured in the backend. Contact support to change these values.</p>
-            </Banner>
+            {saveError && (
+              <Banner tone="critical" onDismiss={() => setSaveError(null)}>
+                <p>{saveError}</p>
+              </Banner>
+            )}
             <TextField
               label="Referrer Reward"
               type="number"
               prefix="$"
-              value={config?.config.referrer_credit?.toString() || '10'}
+              value={formReferrerCredit}
+              onChange={setFormReferrerCredit}
               helpText="Credit given to the existing member who referred someone"
               autoComplete="off"
-              disabled
+              min={0}
+              max={1000}
             />
             <TextField
               label="New Member Reward"
               type="number"
               prefix="$"
-              value={config?.config.referee_credit?.toString() || '5'}
+              value={formRefereeCredit}
+              onChange={setFormRefereeCredit}
               helpText="Credit given to the new member who was referred"
               autoComplete="off"
-              disabled
+              min={0}
+              max={1000}
             />
             <Select
               label="Grant Rewards"
@@ -415,17 +493,19 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                 { label: 'On Signup', value: 'signup' },
                 { label: 'On First Purchase', value: 'purchase' },
               ]}
-              value={config?.config.grant_on_signup ? 'signup' : 'purchase'}
+              value={formGrantOn}
+              onChange={setFormGrantOn}
               helpText="When referral rewards are credited"
-              disabled
             />
             <TextField
               label="Monthly Limit per Member"
               type="number"
-              value={config?.config.max_referrals_per_month?.toString() || '50'}
+              value={formMaxReferrals}
+              onChange={setFormMaxReferrals}
               helpText="Maximum referrals a single member can make per month"
               autoComplete="off"
-              disabled
+              min={1}
+              max={1000}
             />
           </BlockStack>
         </Modal.Section>
