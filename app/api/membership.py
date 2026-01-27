@@ -13,6 +13,7 @@ from flask import Blueprint, request, jsonify, g
 from .auth import get_current_member
 from ..extensions import db
 from ..models import Member, MembershipTier, StoreCreditLedger
+from ..middleware.shopify_auth import require_shopify_auth
 from ..services.shopify_client import ShopifyClient
 from ..services.tier_service import TierService
 from ..services.store_credit_service import store_credit_service
@@ -493,6 +494,7 @@ def get_tier_history(member_id: int):
 # ==================== Store Credit Admin Endpoints ====================
 
 @membership_bp.route('/store-credit/add', methods=['POST'])
+@require_shopify_auth
 def add_store_credit():
     """
     Add one-off store credit to a member.
@@ -562,6 +564,7 @@ def add_store_credit():
 
 
 @membership_bp.route('/store-credit/deduct', methods=['POST'])
+@require_shopify_auth
 def deduct_store_credit():
     """
     Deduct store credit from a member.

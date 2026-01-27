@@ -483,9 +483,32 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
 
     This is a beautiful, responsive page that matches the store's theme.
     Uses Liquid-compatible styles and minimal dependencies.
+    Adapts terminology based on loyalty mode (store_credit vs points).
     """
     # Dollar sign for f-string formatting
     dollar = "$"
+
+    # Get loyalty settings to determine mode
+    loyalty_settings = {}
+    if tenant.settings and 'loyalty' in tenant.settings:
+        loyalty_settings = tenant.settings['loyalty']
+    loyalty_mode = loyalty_settings.get('mode', 'store_credit')
+    is_points_mode = loyalty_mode == 'points'
+
+    # Terminology based on mode
+    points_name = loyalty_settings.get('points_name', 'points') if is_points_mode else 'Store Credit'
+    points_symbol = loyalty_settings.get('points_currency_symbol', 'pts') if is_points_mode else '$'
+    points_to_credit = loyalty_settings.get('points_to_credit_value', 0.01) if is_points_mode else 1
+
+    # Format balance display based on mode
+    if is_points_mode:
+        balance_display = f'{points_balance:,}'
+        balance_label = f'{points_name.title()} Available'
+    else:
+        # Store credit mode - show as dollar amount
+        credit_value = points_balance * points_to_credit if points_to_credit else 0
+        balance_display = f'${credit_value:,.2f}'
+        balance_label = 'Store Credit Available'
 
     # Build member section
     member_section = ''
@@ -502,16 +525,17 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 </div>
             </div>
             <div class="tradeup-points-display">
-                <div class="tradeup-points-value">{points_balance:,}</div>
-                <div class="tradeup-points-label">Points Available</div>
+                <div class="tradeup-points-value">{balance_display}</div>
+                <div class="tradeup-points-label">{balance_label}</div>
             </div>
         </div>
         '''
     else:
-        member_section = '''
+        earn_text = 'Earn points on every purchase' if is_points_mode else 'Earn store credit on every purchase'
+        member_section = f'''
         <div class="tradeup-cta-card">
             <h3>Join Our Rewards Program</h3>
-            <p>Earn points on every purchase and unlock exclusive rewards!</p>
+            <p>{earn_text} and unlock exclusive rewards!</p>
             <a href="/account/login" class="tradeup-btn tradeup-btn-primary">Sign In to Get Started</a>
         </div>
         '''
@@ -531,6 +555,12 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         trade_bonus = getattr(tier, 'trade_in_bonus_pct', 0) or 0
         monthly_credit = getattr(tier, 'monthly_credit_amount', 0) or 0
 
+        # Mode-specific earning description
+        if is_points_mode:
+            earning_desc = f'<li><strong>{earning_mult}x</strong> {points_name} on purchases</li>'
+        else:
+            earning_desc = f'<li><strong>{cashback}%</strong> cashback on purchases</li>' if cashback else ''
+
         tiers_html += f'''
         <div class="tradeup-tier-card {current_class}">
             <div class="tradeup-tier-header">
@@ -538,8 +568,8 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 {f'<span class="tradeup-current-badge">Your Tier</span>' if current_class else ''}
             </div>
             <ul class="tradeup-tier-benefits">
-                <li><strong>{earning_mult}x</strong> points on purchases</li>
-                {f'<li><strong>{cashback}%</strong> cashback</li>' if cashback else ''}
+                {earning_desc}
+                {f'<li><strong>{cashback}%</strong> cashback</li>' if is_points_mode and cashback else ''}
                 {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
                 {f'<li><strong>{dollar}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
                 {benefits_html}
@@ -547,37 +577,38 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         </div>
         '''
 
-    # Build rewards section
+    # Build rewards section (only shown in points mode where customers redeem points)
     rewards_html = ''
-    for reward in rewards:
-        can_redeem = member and points_balance >= reward.points_cost
-        disabled_class = '' if can_redeem else 'tradeup-reward-disabled'
+    if is_points_mode:
+        for reward in rewards:
+            can_redeem = member and points_balance >= reward.points_cost
+            disabled_class = '' if can_redeem else 'tradeup-reward-disabled'
 
-        reward_value = ''
-        if reward.reward_type == 'discount':
-            if hasattr(reward, 'discount_percent') and reward.discount_percent:
-                reward_value = f'{reward.discount_percent}% off'
-            elif hasattr(reward, 'discount_amount') and reward.discount_amount:
-                reward_value = f'{dollar}{reward.discount_amount} off'
-        elif reward.reward_type == 'store_credit' and hasattr(reward, 'credit_value') and reward.credit_value:
-            reward_value = f'{dollar}{reward.credit_value} credit'
-        elif reward.reward_type == 'free_shipping':
-            reward_value = 'Free shipping'
+            reward_value = ''
+            if reward.reward_type == 'discount':
+                if hasattr(reward, 'discount_percent') and reward.discount_percent:
+                    reward_value = f'{reward.discount_percent}% off'
+                elif hasattr(reward, 'discount_amount') and reward.discount_amount:
+                    reward_value = f'{dollar}{reward.discount_amount} off'
+            elif reward.reward_type == 'store_credit' and hasattr(reward, 'credit_value') and reward.credit_value:
+                reward_value = f'{dollar}{reward.credit_value} credit'
+            elif reward.reward_type == 'free_shipping':
+                reward_value = 'Free shipping'
 
-        rewards_html += f'''
-        <div class="tradeup-reward-card {disabled_class}">
-            {f'<img src="{reward.image_url}" alt="{reward.name}" class="tradeup-reward-image" />' if reward.image_url else '<div class="tradeup-reward-placeholder"></div>'}
-            <div class="tradeup-reward-content">
-                <h4>{reward.name}</h4>
-                {f'<p class="tradeup-reward-value">{reward_value}</p>' if reward_value else ''}
-                <p class="tradeup-reward-description">{reward.description or ""}</p>
-                <div class="tradeup-reward-footer">
-                    <span class="tradeup-reward-points">{reward.points_cost:,} pts</span>
-                    {'<a href="/account" class="tradeup-btn tradeup-btn-small">Redeem</a>' if can_redeem else f'<span class="tradeup-points-needed">{max(0, reward.points_cost - points_balance):,} more pts needed</span>'}
+            rewards_html += f'''
+            <div class="tradeup-reward-card {disabled_class}">
+                {f'<img src="{reward.image_url}" alt="{reward.name}" class="tradeup-reward-image" />' if reward.image_url else '<div class="tradeup-reward-placeholder"></div>'}
+                <div class="tradeup-reward-content">
+                    <h4>{reward.name}</h4>
+                    {f'<p class="tradeup-reward-value">{reward_value}</p>' if reward_value else ''}
+                    <p class="tradeup-reward-description">{reward.description or ""}</p>
+                    <div class="tradeup-reward-footer">
+                        <span class="tradeup-reward-points">{reward.points_cost:,} {points_symbol}</span>
+                        {'<a href="/account" class="tradeup-btn tradeup-btn-small">Redeem</a>' if can_redeem else f'<span class="tradeup-points-needed">{max(0, reward.points_cost - points_balance):,} more {points_symbol} needed</span>'}
+                    </div>
                 </div>
             </div>
-        </div>
-        '''
+            '''
 
     # Build referral section
     referral_html = ''
@@ -617,14 +648,38 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         </section>
         '''
 
-    # Build rewards section
+    # Build rewards section (points mode) or how it works section (store credit mode)
     rewards_section_html = ''
-    if rewards_html:
+    if is_points_mode and rewards_html:
         rewards_section_html = f'''
         <section class="tradeup-section">
             <h2>Rewards Catalog</h2>
             <div class="tradeup-rewards-grid">
                 {rewards_html}
+            </div>
+        </section>
+        '''
+    elif not is_points_mode:
+        # Store credit mode - show "How It Works" section
+        rewards_section_html = '''
+        <section class="tradeup-section">
+            <h2>How Store Credit Works</h2>
+            <div class="tradeup-how-it-works">
+                <div class="tradeup-step">
+                    <div class="tradeup-step-number">1</div>
+                    <h4>Earn Credit</h4>
+                    <p>Earn cashback on purchases and bonus credit on trade-ins. Higher tiers earn more!</p>
+                </div>
+                <div class="tradeup-step">
+                    <div class="tradeup-step-number">2</div>
+                    <h4>Automatic Savings</h4>
+                    <p>Your store credit balance is automatically applied at checkout. No codes needed!</p>
+                </div>
+                <div class="tradeup-step">
+                    <div class="tradeup-step-number">3</div>
+                    <h4>Never Expires</h4>
+                    <p>Your store credit never expires. Use it whenever you&apos;re ready to shop.</p>
+                </div>
             </div>
         </section>
         '''
@@ -994,6 +1049,47 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
         .tradeup-points-needed {{
             font-size: 0.75rem;
             color: var(--tradeup-text-light);
+        }}
+
+        /* How It Works (Store Credit Mode) */
+        .tradeup-how-it-works {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 32px;
+            padding: 20px 0;
+        }}
+
+        .tradeup-step {{
+            text-align: center;
+            padding: 24px;
+        }}
+
+        .tradeup-step-number {{
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--tradeup-primary) 0%, var(--tradeup-primary-dark) 100%);
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }}
+
+        .tradeup-step h4 {{
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+            color: var(--tradeup-text);
+        }}
+
+        .tradeup-step p {{
+            font-size: 0.875rem;
+            color: var(--tradeup-text-light);
+            margin: 0;
+            line-height: 1.5;
         }}
 
         /* Referral */

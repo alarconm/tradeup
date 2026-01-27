@@ -144,6 +144,8 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
           <Route path="/theme-blocks" element={<EmbeddedThemeBlocks shop={shop} />} />
           <Route path="/pending-distributions" element={<EmbeddedPendingDistributions shop={shop} />} />
           <Route path="/review-dashboard" element={<EmbeddedReviewDashboard shop={shop} />} />
+          {/* Reports route - alias for analytics */}
+          <Route path="/reports" element={<EmbeddedAnalytics shop={shop} />} />
         </Routes>
       </Suspense>
 
